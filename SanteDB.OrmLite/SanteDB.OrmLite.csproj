@@ -30,13 +30,24 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+
+  <Choose>
+    <When Condition="$(SolutionName.Contains('-ext'))">
+      <ItemGroup>
+        <ProjectReference Include="..\..\santedb-model\SanteDB.Core.Model\SanteDB.Core.Model.csproj">
+          <Project>{F1A82A4F-4A57-47D7-AE76-444C8A4FF54A}</Project>
+          <Name>SanteDB.Core.Model</Name>
+        </ProjectReference>
+      </ItemGroup>
+    </When>
+    <Otherwise>
+      <ItemGroup>
+        <PackageReference Include="SanteDB.Core.Model" Version="1.1.0"/>
+      </ItemGroup>
+    </Otherwise>
+  </Choose>
   <ItemGroup>
-    <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.11.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="SanteDB.Core.Model, Version=1.1.0.23404, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\SanteDB.Core.Model.1.1.0\lib\portable45-net45+win8\SanteDB.Core.Model.dll</HintPath>
-    </Reference>
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.2"/>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
