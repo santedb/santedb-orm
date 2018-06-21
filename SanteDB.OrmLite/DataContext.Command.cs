@@ -848,6 +848,15 @@ namespace SanteDB.OrmLite
                         else
                             continue;
                     }
+                    else if (col.IsHashed && val != null)
+                        using (var sha = System.Security.Cryptography.SHA256.Create())
+                        {
+                            if (val is byte[])
+                                val = sha.ComputeHash(val as byte[]);
+                            else if (val is String)
+                                val = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(val.ToString()))).Replace("-","");
+                        }
+
                     columnNames.Append($"{col.Name}");
 
 
@@ -1072,6 +1081,15 @@ namespace SanteDB.OrmLite
                         itmValue.Equals(default(DateTimeOffset)) ||
                         itmValue.Equals(default(Decimal)))
                         itmValue = null;
+
+                    else if (itm.IsHashed && itmValue != null)
+                        using (var sha = System.Security.Cryptography.SHA256.Create())
+                        {
+                            if (itmValue is byte[])
+                                itmValue = sha.ComputeHash(itmValue as byte[]);
+                            else if (itmValue is String)
+                                itmValue = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(itmValue.ToString()))).Replace("-", "");
+                        }
 
                     query.Append($"{itm.Name} = ? ", itmValue);
                     query.Append(",");
