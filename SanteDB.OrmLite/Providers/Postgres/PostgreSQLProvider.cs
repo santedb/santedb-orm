@@ -33,7 +33,7 @@ using System.Text.RegularExpressions;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Warehouse;
 
-namespace SanteDB.OrmLite.Providers
+namespace SanteDB.OrmLite.Providers.Postgres
 {
     /// <summary>
     /// Represents a IDbProvider for PostgreSQL
@@ -52,6 +52,9 @@ namespace SanteDB.OrmLite.Providers
 
         // DB provider factory
         private DbProviderFactory m_provider = null;
+
+        // Filter functions
+        private static Dictionary<String, IDbFilterFunction> s_filterFunctions = new Dictionary<string, IDbFilterFunction>();
 
         /// <summary>
         /// Trace SQL commands
@@ -411,6 +414,24 @@ namespace SanteDB.OrmLite.Providers
                 default:
                     return null;
             }
+        }
+
+        /// <summary>
+        /// Gets the filter function
+        /// </summary>
+        public IDbFilterFunction GetFilterFunction(string name)
+        {
+            if(s_filterFunctions == null)
+            {
+                s_filterFunctions = AppDomain.CurrentDomain.GetAssemblies().SelectMany(a => a.ExportedTypes)
+                        .Where(t => typeof(IDbFilterFunction).IsAssignableFrom(t) && !t.IsAbstract)
+                        .Select(t => Activator.CreateInstance(t) as IDbFilterFunction)
+                        .Where(o=>o.Provider == "pgsql")
+                        .ToDictionary(o => o.Name, o => o);
+            }
+            IDbFilterFunction retVal = null;
+            s_filterFunctions.TryGetValue(name, out retVal);
+            return retVal;
         }
     }
 }

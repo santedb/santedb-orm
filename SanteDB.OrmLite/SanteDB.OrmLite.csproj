@@ -72,11 +72,13 @@
     <Compile Include="DataContext.Command.cs" />
     <Compile Include="DataContext.cs" />
     <Compile Include="IAdoLoadedData.cs" />
+    <Compile Include="Providers\IDbFilterFunction.cs" />
     <Compile Include="IQueryBuilderHack.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Providers\FirebirdSQLProvider.cs" />
+    <Compile Include="Providers\Firebird\FirebirdSQLProvider.cs" />
     <Compile Include="Providers\IDbProvider.cs" />
-    <Compile Include="Providers\PostgreSQLProvider.cs" />
+    <Compile Include="Providers\Postgres\StrMatchFunctions.cs" />
+    <Compile Include="Providers\Postgres\PostgreSQLProvider.cs" />
     <Compile Include="Providers\SqlEngineFeatures.cs" />
     <Compile Include="Providers\SqliteProvider.cs" />
     <Compile Include="Providers\SqlKeyword.cs" />

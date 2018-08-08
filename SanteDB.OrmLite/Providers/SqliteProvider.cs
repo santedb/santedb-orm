@@ -329,5 +329,13 @@ namespace SanteDB.OrmLite.Providers
                     return null;
             }
         }
+
+        /// <summary>
+        /// Gets the filter function
+        /// </summary>
+        public IDbFilterFunction GetFilterFunction(string name)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

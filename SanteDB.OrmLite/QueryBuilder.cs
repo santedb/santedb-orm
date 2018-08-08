@@ -162,6 +162,8 @@ namespace SanteDB.OrmLite
     /// </example>
     public class QueryBuilder
     {
+        // Filter function regex
+        public static readonly Regex DbFilterFunctionRegex = new Regex(@"^:\((\w*?)(\|(.*?)\)|\))(.*)");
 
         // Join cache
         private Dictionary<String, KeyValuePair<SqlStatement, List<TableMapping>>> s_joinCache = new Dictionary<String, KeyValuePair<SqlStatement, List<TableMapping>>>();
@@ -619,6 +621,29 @@ namespace SanteDB.OrmLite
                     var sValue = itm as String;
                     switch (sValue[0])
                     {
+                        case ':': // function
+                            var opMatch = DbFilterFunctionRegex.Match(sValue);
+                            if (opMatch.Success)
+                            {
+                                // Extract
+                                String fnName = opMatch.Groups[1].Value,
+                                    parms = opMatch.Groups[3].Value,
+                                    operand = opMatch.Groups[4].Value;
+
+                                // Now find the function
+                                var filterFn = this.m_provider.GetFilterFunction(fnName);
+                                if (filterFn == null)
+                                    retVal.Append($" = ? ", CreateParameterValue(sValue, modelProperty.PropertyType));
+                                else
+                                {
+                                    retVal.RemoveLast();
+                                    retVal.Append(filterFn.CreateSqlStatement(retVal, $"{tableAlias}.{columnName}", parms.Split(','), operand, modelProperty.PropertyType));
+                                }
+
+                            }
+                            else
+                                retVal.Append(" = ? ", CreateParameterValue(sValue, modelProperty.PropertyType));
+                            break;
                         case '<':
                             semantic = " AND ";
                             if (sValue[1] == '=')
@@ -672,7 +697,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Create a parameter value
         /// </summary>
-        private static object CreateParameterValue(object value, Type toType)
+        internal static object CreateParameterValue(object value, Type toType)
         {
             object retVal = null;
             if (value.GetType() == toType ||

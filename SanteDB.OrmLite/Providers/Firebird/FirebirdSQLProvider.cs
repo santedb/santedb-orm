@@ -35,7 +35,7 @@ using SanteDB.Core.Model;
 using System.Diagnostics;
 using SanteDB.Core.Model.Warehouse;
 
-namespace SanteDB.OrmLite.Providers
+namespace SanteDB.OrmLite.Providers.Firebird
 {
     /// <summary>
     /// Represents a FirebirdSQL provider
@@ -51,6 +51,9 @@ namespace SanteDB.OrmLite.Providers
 
         // Parameter regex
         private readonly Regex m_parmRegex = new Regex(@"\?");
+
+        // Filter functions
+        private static Dictionary<String, IDbFilterFunction> s_filterFunctions = new Dictionary<string, IDbFilterFunction>();
 
         /// <summary>
         /// Gets or sets the connection string for the provider
@@ -405,6 +408,24 @@ namespace SanteDB.OrmLite.Providers
                 return sqlStatement;
             return sqlStatement.Append($" RETURNING {String.Join(",", returnColumns.Select(o => o.Name))}");
 
+        }
+
+        /// <summary>
+        /// Gets the filter function
+        /// </summary>
+        public IDbFilterFunction GetFilterFunction(string name)
+        {
+            if (s_filterFunctions == null)
+            {
+                s_filterFunctions = AppDomain.CurrentDomain.GetAssemblies().SelectMany(a => a.ExportedTypes)
+                        .Where(t => typeof(IDbFilterFunction).IsAssignableFrom(t) && !t.IsAbstract)
+                        .Select(t => Activator.CreateInstance(t) as IDbFilterFunction)
+                        .Where(o => o.Provider == "pgsql")
+                        .ToDictionary(o => o.Name, o => o);
+            }
+            IDbFilterFunction retVal = null;
+            s_filterFunctions.TryGetValue(name, out retVal);
+            return retVal;
         }
     }
 }

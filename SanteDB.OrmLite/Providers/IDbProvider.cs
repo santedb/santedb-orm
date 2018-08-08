@@ -130,5 +130,12 @@ namespace SanteDB.OrmLite.Providers
         /// Map a type to parameter type
         /// </summary>
         DbType MapParameterType(Type type);
+
+        /// <summary>
+        /// Gets the specified filter function
+        /// </summary>
+        /// <param name="name">The name of the filter function to retrieve</param>
+        /// <returns>The retrieved filter function if it is provided by the provider</returns>
+        IDbFilterFunction GetFilterFunction(String name);
     }
 }
