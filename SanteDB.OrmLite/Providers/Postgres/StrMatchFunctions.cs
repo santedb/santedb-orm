@@ -11,13 +11,13 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// <summary>
     /// PostgreSQL LEFT() function
     /// </summary>
-    public class PostgresFirstFunction : IDbFilterFunction
+    public class PostgresSubstringFunction : IDbFilterFunction
     {
 
         /// <summary>
         /// Get the name for the function
         /// </summary>
-        public string Name => "first";
+        public string Name => "substr";
 
         /// <summary>
         /// Provider 
@@ -32,7 +32,15 @@ namespace SanteDB.OrmLite.Providers.Postgres
             var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
             if (String.IsNullOrEmpty(op)) op = "=";
-            return current.Append($"LEFT({filterColumn}, {parms[0]}) {op} LEFT(?, {parms[0]})", QueryBuilder.CreateParameterValue(value, type));
+
+            switch (parms.Length)
+            {
+                case 1:
+                    return current.Append($"SUBSTRING({filterColumn} FROM {parms[0]}) {op} SUBSTRING(? FROM {parms[0]})", QueryBuilder.CreateParameterValue(value, type));
+                case 2:
+                    return current.Append($"SUBSTRING({filterColumn} FROM {parms[0]} FOR {parms[1]}) {op} SUBSTRING(? FROM {parms[0]} FOR {parms[1]})", QueryBuilder.CreateParameterValue(value, type));
+            }
+            return current.Append($"SUBSTRING({filterColumn}, {parms[0]}) {op} LEFT(?, {parms[0]})", QueryBuilder.CreateParameterValue(value, type));
         }
     }
 
@@ -45,7 +53,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// Get the name for the function
         /// </summary>
         public string Name => "last";
-       
+
         /// <summary>
         /// Provider 
         /// </summary>
@@ -70,12 +78,12 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// <example>
     /// ?dateOfBirth=:(diff|2018-01-01)&lt;3w
     /// </example>
-    public class PostgreDiffFunction : IDbFilterFunction
+    public class PostgreDateDiffFunction : IDbFilterFunction
     {
         /// <summary>
         /// Get the name for the function
         /// </summary>
-        public string Name => "diff";
+        public string Name => "date_diff";
 
         /// <summary>
         /// Provider 
@@ -91,59 +99,79 @@ namespace SanteDB.OrmLite.Providers.Postgres
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
             if (String.IsNullOrEmpty(op)) op = "=";
 
-            if (operandType.StripNullable() == typeof(String)) // String difference
+            match = new Regex(@"^(\d*?)([yMdwhms])$").Match(value);
+            if (match.Success)
             {
-                switch (parms.Length)
-                {
-                    case 1:
-                        return current.Append($"levenshtein({filterColumn}, ?) {op} ?", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(value, typeof(Int32)));
-                    case 4: // with insert, delete and substitute costs
-                        return current.Append($"levenshtein({filterColumn}, ?, {String.Join(",", parms.Skip(1))}) {op} ?", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(value, typeof(Int32)));
-                    default:
-                        throw new ArgumentOutOfRangeException("Invalid number of parameters of string diff");
-                }
-            }
-            else // Date difference?
-            {
-                match = new Regex(@"^(\d*?)([yMdwhms])$").Match(value);
-                if (match.Success)
-                {
-                    String qty = match.Groups[1].Value,
-                        unit = match.Groups[2].Value;
+                String qty = match.Groups[1].Value,
+                    unit = match.Groups[2].Value;
 
-                    switch (unit)
-                    {
-                        case "y":
-                            unit = "year";
-                            break;
-                        case "M":
-                            unit = "mon";
-                            break;
-                        case "d":
-                            unit = "day";
-                            break;
-                        case "w":
-                            unit = "weeks";
-                            break;
-                        case "h":
-                            unit = "hours";
-                            break;
-                        case "m":
-                            unit = "mins";
-                            break;
-                        case "s":
-                            unit = "secs";
-                            break;
-                    }
-                    return current.Append($"{filterColumn}::TIMESTAMP - ?::TIMESTAMP {op} '{qty} {unit}'::INTERVAL", QueryBuilder.CreateParameterValue(parms[0], operandType));
+                switch (unit)
+                {
+                    case "y":
+                        unit = "year";
+                        break;
+                    case "M":
+                        unit = "mon";
+                        break;
+                    case "d":
+                        unit = "day";
+                        break;
+                    case "w":
+                        unit = "weeks";
+                        break;
+                    case "h":
+                        unit = "hours";
+                        break;
+                    case "m":
+                        unit = "mins";
+                        break;
+                    case "s":
+                        unit = "secs";
+                        break;
                 }
-                else
-                    throw new InvalidOperationException("Date difference needs to have whole number distance and single character unit");
+                return current.Append($"{filterColumn}::TIMESTAMP - ?::TIMESTAMP {op} '{qty} {unit}'::INTERVAL", QueryBuilder.CreateParameterValue(parms[0], operandType));
             }
+            else
+                throw new InvalidOperationException("Date difference needs to have whole number distance and single character unit");
         }
 
     }
 
+    /// <summary>
+    /// Postgrsql string difference function
+    /// </summary>
+    public class PostgresLEvenshteinFunction : IDbFilterFunction
+    {
+        /// <summary>
+        /// Gets thje provider name
+        /// </summary>
+        public string Provider => "pgsql";
+
+        /// <summary>
+        /// Gets the name of the filter
+        /// </summary>
+        public string Name => "levenshtein";
+
+        /// <summary>
+        /// Apply the filter
+        /// </summary>
+        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        {
+            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            String op = match.Groups[1].Value, value = match.Groups[2].Value;
+            if (String.IsNullOrEmpty(op)) op = "=";
+
+            switch (parms.Length)
+            {
+                case 1:
+                    return current.Append($"levenshtein({filterColumn}, ?) {op} ?", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(value, typeof(Int32)));
+                case 4: // with insert, delete and substitute costs
+                    return current.Append($"levenshtein({filterColumn}, ?, {String.Join(",", parms.Skip(1))}) {op} ?", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(value, typeof(Int32)));
+                default:
+                    throw new ArgumentOutOfRangeException("Invalid number of parameters of string diff");
+            }
+        }
+    }
     /// <summary>
     /// Represents the PostgreSQL soundex function
     /// </summary>
@@ -239,8 +267,50 @@ namespace SanteDB.OrmLite.Providers.Postgres
             var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
             if (String.IsNullOrEmpty(op)) op = "=";
-            return current.Append($"((dmetaphone({filterColumn}) = dmetaphone(?)) OR (dmetaphone_alt({filterColumn}) {op} dmetaphone_alt(?)))", QueryBuilder.CreateParameterValue(value, operandType));
+            return current.Append($"((dmetaphone({filterColumn}) {op} dmetaphone(?)) OR (dmetaphone_alt({filterColumn}) {op} dmetaphone_alt(?)))", QueryBuilder.CreateParameterValue(value, operandType));
         }
     }
 
+    /// <summary>
+    /// Represents the PostgreSQL soundex function
+    /// </summary>
+    /// <example>
+    /// ?name.component.value=:(soundslike|Betty)
+    /// ?name.component.value=:(soundslike|Betty,metaphone)
+    /// </example>
+    public class PostgresSoundslikeFunction : IDbFilterFunction
+    {
+        /// <summary>
+        /// Gets the name of the function
+        /// </summary>
+        public string Name => "soundslike";
+
+        /// <summary>
+        /// Provider 
+        /// </summary>
+        public string Provider => "pgsql";
+
+        /// <summary>
+        /// Creates the SQL statement
+        /// </summary>
+        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        {
+            if (parms.Length == 1)
+                return current.Append($"metaphone({filterColumn}, 4) = metaphone(?, 4)", QueryBuilder.CreateParameterValue(parms[0], operandType));
+            else
+            {
+                switch (parms[1])
+                {
+                    case "metaphone":
+                        return current.Append($"metaphone({filterColumn}, 4) = metaphone(?, 4)", QueryBuilder.CreateParameterValue(parms[0], operandType));
+                    case "dmetaphone":
+                        return current.Append($"((dmetaphone({filterColumn}) = dmetaphone(?)) OR (dmetaphone_alt({filterColumn}) = dmetaphone_alt(?)))", QueryBuilder.CreateParameterValue(parms[0], operandType));
+                    case "soundex":
+                        return current.Append($"soundex({filterColumn}) = soundex(?)", QueryBuilder.CreateParameterValue(parms[0], operandType));
+                    default:
+                        throw new NotSupportedException($"Sounds-like algorithm {parms[1]} is not supported");
+                }
+            }
+        }
+    }
 }
