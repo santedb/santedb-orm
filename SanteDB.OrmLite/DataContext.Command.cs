@@ -63,7 +63,7 @@ namespace SanteDB.OrmLite
                     object value = provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
                     itm.SourceProperty.SetValue(result, value);
                 }
-                catch (Exception e)
+                catch
                 {
                     throw new MissingFieldException(tableMapping.TableName, itm.Name);
                 }
