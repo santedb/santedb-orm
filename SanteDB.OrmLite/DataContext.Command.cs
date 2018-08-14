@@ -65,7 +65,7 @@ namespace SanteDB.OrmLite
                 }
                 catch
                 {
-                    throw new MissingFieldException(tableMapping.TableName, itm.Name);
+                   throw new MissingFieldException(tableMapping.TableName, itm.Name);
                 }
             }
             return result;
@@ -172,7 +172,7 @@ namespace SanteDB.OrmLite
                     }
                     catch (TimeoutException)
                     {
-                        dbc.Cancel();
+                        try { dbc.Cancel(); } catch { }
                         throw;
                     }
                     finally
@@ -316,9 +316,9 @@ namespace SanteDB.OrmLite
                             return this.ReaderToResult(returnType, rdr);
 
                     }
-                    catch (Exception)
+                    catch (TimeoutException)
                     {
-                        dbc.Cancel();
+                        try { dbc.Cancel(); } catch { }
                         throw;
                     }
                     finally
@@ -359,9 +359,9 @@ namespace SanteDB.OrmLite
                         using (var rdr = dbc.ExecuteReader())
                             return this.ReaderToResult<TModel>(rdr);
                     }
-                    catch (Exception)
+                    catch (TimeoutException)
                     {
-                        dbc.Cancel();
+                        try { dbc.Cancel(); } catch { }
                         throw;
                     }
                     finally
@@ -400,9 +400,9 @@ namespace SanteDB.OrmLite
                         using (var rdr = dbc.ExecuteReader())
                             return this.ReaderToResult<TModel>(rdr);
                     }
-                    catch (Exception)
+                    catch (TimeoutException)
                     {
-                        dbc.Cancel();
+                        try { dbc.Cancel(); } catch { }
                         throw;
                     }
                     finally
@@ -444,9 +444,9 @@ namespace SanteDB.OrmLite
                         using (var rdr = dbc.ExecuteReader())
                             return this.ReaderToResult<TModel>(rdr);
                     }
-                    catch (Exception)
+                    catch (TimeoutException)
                     {
-                        dbc.Cancel();
+                        try { dbc.Cancel(); } catch { }
                         throw;
                     }
                     finally
@@ -496,9 +496,9 @@ namespace SanteDB.OrmLite
                         }
 
                     }
-                    catch (Exception)
+                    catch (TimeoutException)
                     {
-                        dbc.Cancel();
+                        try { dbc.Cancel(); } catch { }
                         throw;
                     }
                     finally
@@ -542,9 +542,9 @@ namespace SanteDB.OrmLite
                     {
                         return (bool)dbc.ExecuteScalar();
                     }
-                    catch (Exception)
+                    catch (TimeoutException)
                     {
-                        dbc.Cancel();
+                        try { dbc.Cancel(); } catch { }
                         throw;
                     }
                     finally
@@ -583,9 +583,9 @@ namespace SanteDB.OrmLite
                     {
                         return (bool)dbc.ExecuteScalar();
                     }
-                    catch (Exception)
+                    catch (TimeoutException)
                     {
-                        dbc.Cancel();
+                        try { dbc.Cancel(); } catch { }
                         throw;
                     }
                     finally
@@ -625,9 +625,9 @@ namespace SanteDB.OrmLite
                     {
                         return (int)dbc.ExecuteScalar();
                     }
-                    catch (Exception)
+                    catch (TimeoutException)
                     {
-                        dbc.Cancel();
+                        try { dbc.Cancel(); } catch { }
                         throw;
                     }
                     finally
@@ -668,7 +668,7 @@ namespace SanteDB.OrmLite
                     }
                     catch (TimeoutException)
                     {
-                        dbc.Cancel();
+                        try { dbc.Cancel(); } catch { }
                         throw;
                     }
                     finally
@@ -726,9 +726,9 @@ namespace SanteDB.OrmLite
                         using (var rdr = dbc.ExecuteReader())
                             return this.ReaderToCollection<TModel>(rdr).ToList();
                     }
-                    catch (Exception)
+                    catch (TimeoutException)
                     {
-                        dbc.Cancel();
+                        try { dbc.Cancel(); } catch { }
                         throw;
                     }
                     finally
@@ -786,7 +786,7 @@ namespace SanteDB.OrmLite
                     }
                     catch (TimeoutException)
                     {
-                        dbc.Cancel();
+                        try { dbc.Cancel(); } catch { }
                         throw;
                     }
                     finally
