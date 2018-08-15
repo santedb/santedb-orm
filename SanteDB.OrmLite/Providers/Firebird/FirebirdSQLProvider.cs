@@ -52,6 +52,9 @@ namespace SanteDB.OrmLite.Providers.Firebird
         // Parameter regex
         private readonly Regex m_parmRegex = new Regex(@"\?");
 
+        // UUID regex
+        private readonly Regex m_uuidRegex = new Regex(@"\s(\'[A-Za-z0-9]{8}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{12}\')");
+
         // Filter functions
         private static Dictionary<String, IDbFilterFunction> s_filterFunctions = new Dictionary<string, IDbFilterFunction>();
 
@@ -160,7 +163,8 @@ namespace SanteDB.OrmLite.Providers.Firebird
             sql = this.m_parmRegex
                 .Replace(sql, o => $"@parm{pno++} ")
                 .Replace(" ILIKE ", " LIKE ");
-
+            sql = this.m_uuidRegex
+                .Replace(sql, o => $"char_to_uuid({o.Groups[1].Value})");
             if (pno != parms.Length && type == CommandType.Text)
                 throw new ArgumentOutOfRangeException(nameof(sql), $"Parameter mismatch query expected {pno} but {parms.Length} supplied");
 
