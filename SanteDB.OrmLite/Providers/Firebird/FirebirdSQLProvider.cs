@@ -281,11 +281,11 @@ namespace SanteDB.OrmLite.Providers.Firebird
             {
                 case SqlKeyword.ILike:
                 case SqlKeyword.Like:
-                    return "LIKE";
+                    return " LIKE ";
                 case SqlKeyword.Lower:
-                    return "LOWER";
+                    return " LOWER ";
                 case SqlKeyword.Upper:
-                    return "UPPER";
+                    return " UPPER ";
                 default:
                     throw new ArgumentOutOfRangeException(nameof(keywordType));
             }
