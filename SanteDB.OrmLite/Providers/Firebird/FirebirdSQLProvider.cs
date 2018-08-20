@@ -105,7 +105,9 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <returns>The cloned connection</returns>
         public DataContext CloneConnection(DataContext source)
         {
-            return source.IsReadonly ? this.GetReadonlyConnection() : this.GetWriteConnection();
+            var retVal = source.IsReadonly ? this.GetReadonlyConnection() : this.GetWriteConnection();
+            retVal.ContextId = source.ContextId;
+            return retVal;
         }
 
         /// <summary>

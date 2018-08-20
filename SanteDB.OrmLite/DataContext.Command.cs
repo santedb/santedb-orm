@@ -152,6 +152,11 @@ namespace SanteDB.OrmLite
         public bool IsReadonly { get; private set; }
 
         /// <summary>
+        /// Gets or sets the context id
+        /// </summary>
+        public Guid ContextId { get; set; }
+
+        /// <summary>
         /// Execute a stored procedure transposing the result set back to <typeparamref name="TModel"/>
         /// </summary>
         public IEnumerable<TModel> Query<TModel>(String spName, params object[] arguments)
@@ -1071,12 +1076,13 @@ namespace SanteDB.OrmLite
                 var tableMap = TableMapping.Get(typeof(TModel));
                 SqlStatement<TModel> query = this.CreateSqlStatement<TModel>().UpdateSet();
                 SqlStatement whereClause = this.CreateSqlStatement();
+                int nUpdatedColumns = 0;
                 foreach (var itm in tableMap.Columns)
                 {
                     var itmValue = itm.SourceProperty.GetValue(value);
 
                     if (itmValue == null ||
-                        itmValue.Equals(default(Guid)) ||
+                        itmValue.Equals(default(Guid)) && !tableMap.OrmType.IsConstructedGenericType ||
                         itmValue.Equals(default(DateTime)) ||
                         itmValue.Equals(default(DateTimeOffset)) ||
                         itmValue.Equals(default(Decimal)))
@@ -1091,11 +1097,23 @@ namespace SanteDB.OrmLite
                                 itmValue = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(itmValue.ToString()))).Replace("-", "");
                         }
 
+                    // Only update if specified
+                    if (itmValue == null)
+                        continue;
+                    nUpdatedColumns++;
                     query.Append($"{itm.Name} = ? ", itmValue);
                     query.Append(",");
                     if (itm.IsPrimaryKey)
                         whereClause.And($"{itm.Name} = ?", itmValue);
                 }
+
+                // Nothing being updated
+                if (nUpdatedColumns == 0)
+                {
+                    m_tracer.TraceInformation("Nothing to update, will skip");
+                    return value;
+                }
+
                 query.RemoveLast();
                 query.Where(whereClause);
 

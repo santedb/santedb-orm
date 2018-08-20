@@ -114,6 +114,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public DataContext(IDbProvider provider, IDbConnection connection)
         {
+            this.ContextId = Guid.NewGuid();
             this.m_provider = provider;
             this.m_connection = connection;
         }
@@ -123,6 +124,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public DataContext(IDbProvider provider, IDbConnection connection, bool isReadonly)
         {
+            this.ContextId = Guid.NewGuid();
             this.m_provider = provider;
             this.m_connection = connection;
             this.IsReadonly = isReadonly;
@@ -133,6 +135,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public DataContext(IDbProvider provider, IDbConnection connection, IDbTransaction tx) : this(provider, connection)
         {
+            this.ContextId = Guid.NewGuid();
             this.m_transaction = tx;
         }
 
@@ -167,6 +170,7 @@ namespace SanteDB.OrmLite
                 this.m_connection.Close();
                 this.m_connection.Open();
             }
+
         }
 
         /// <summary>

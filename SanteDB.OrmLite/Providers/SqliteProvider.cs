@@ -278,7 +278,7 @@ namespace SanteDB.OrmLite.Providers
                 this.m_provider = Activator.CreateInstance(Type.GetType("System.Data.SQLite.SQLiteProviderFactory, System.Data.SQLite, Culture=nuetral")) as DbProviderFactory;
             var conn = this.m_provider.CreateConnection();
             conn.ConnectionString = source.Connection.ConnectionString;
-            return new DataContext(this, conn);
+            return new DataContext(this, conn) { ContextId = source.ContextId };
         }
 
         /// <summary>
