@@ -155,7 +155,7 @@ namespace SanteDB.OrmLite
         /// Gets or sets the context id
         /// </summary>
         public Guid ContextId { get; set; }
-
+        
         /// <summary>
         /// Execute a stored procedure transposing the result set back to <typeparamref name="TModel"/>
         /// </summary>

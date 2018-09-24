@@ -222,9 +222,11 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 {
                     if (!cmd.Parameters.OfType<IDataParameter>().Any(o => o.DbType == DbType.Object) &&
                         context.Transaction == null)
+                    {
                         cmd.Prepare();
 
-                    context.AddPreparedCommand(cmd);
+                        context.AddPreparedCommand(cmd);
+                    }
                 }
             }
             else
