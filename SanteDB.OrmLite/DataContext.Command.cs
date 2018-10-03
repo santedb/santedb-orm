@@ -249,7 +249,13 @@ namespace SanteDB.OrmLite
                 return (TModel)retVal;
             }
             else if (BaseTypes.Contains(typeof(TModel)))
-                return (TModel)rdr[0];
+                try {
+                    return (TModel)rdr[0];
+                }
+                catch(InvalidCastException e)
+                {
+                    return (TModel)this.m_provider.ConvertValue(rdr[0], typeof(TModel));
+                }
             else if (typeof(ExpandoObject).IsAssignableFrom(typeof(TModel)))
                 return this.MapExpando<TModel>(rdr);
             else
