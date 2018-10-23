@@ -215,6 +215,7 @@ namespace SanteDB.OrmLite
 
             if (!skipRight)
                 this.Visit(node.Right);
+
             this.m_sqlStatement.Append(")");
             return node;
         }
