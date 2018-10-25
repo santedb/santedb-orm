@@ -290,7 +290,8 @@ namespace SanteDB.OrmLite
                 try
                 {
                     object value = this.m_provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
-                    itm.SourceProperty.SetValue(result, value);
+                    if(!itm.IsSecret)
+                        itm.SourceProperty.SetValue(result, value);
                 }
                 catch (Exception e)
                 {
@@ -1086,8 +1087,6 @@ namespace SanteDB.OrmLite
                         itmValue.Equals(default(DateTimeOffset)) ||
                         itmValue.Equals(default(Decimal)))
                         itmValue = null;
-
-                    
 
                     // Only update if specified
                     if (itmValue == null)
