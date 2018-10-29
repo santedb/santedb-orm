@@ -31,6 +31,9 @@ namespace SanteDB.OrmLite
     public class ColumnMapping
     {
 
+        // Specified property
+        private PropertyInfo m_specifiedProperty = null;
+
         // Column mapping
         private static Dictionary<PropertyInfo, ColumnMapping> s_columnCache = new Dictionary<PropertyInfo, ColumnMapping>();
 
@@ -116,6 +119,16 @@ namespace SanteDB.OrmLite
                         s_columnCache.Add(pi, retVal);
                 }
             return retVal;
+        }
+
+        /// <summary>
+        /// If the item has a Specified property then return its value
+        /// </summary>
+        public bool SourceSpecified(Object value)
+        {
+            if (m_specifiedProperty == null)
+                this.m_specifiedProperty = this.SourceProperty.DeclaringType.GetRuntimeProperty($"{this.SourceProperty.Name}Specified");
+            return (bool)(this.m_specifiedProperty?.GetValue(value) ?? false);
         }
     }
 }

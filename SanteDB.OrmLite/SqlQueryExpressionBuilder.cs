@@ -380,9 +380,33 @@ namespace SanteDB.OrmLite
                                 // Ok, this is a constant member access.. so ets get the value
                                 var cons = this.GetConstantValue(expr);
                                 if (node.Member is PropertyInfo)
-                                    this.m_sqlStatement.Append(" ? ", (node.Member as PropertyInfo).GetValue(cons));
+                                {
+                                    var value = (node.Member as PropertyInfo).GetValue(cons);
+                                    if (value == null)
+                                    {
+                                        var stmt = this.m_sqlStatement.RemoveLast().SQL.Trim();
+                                        if (stmt == "<>")
+                                            this.m_sqlStatement.Append(" IS NOT NULL ");
+                                        else
+                                            this.m_sqlStatement.Append(" IS NULL ");
+                                    }
+                                    else
+                                        this.m_sqlStatement.Append(" ? ", value);
+                                }
                                 else if (node.Member is FieldInfo)
-                                    this.m_sqlStatement.Append(" ? ", (node.Member as FieldInfo).GetValue(cons));
+                                {
+                                    var value = (node.Member as FieldInfo).GetValue(cons);
+                                    if (value == null)
+                                    {
+                                        var stmt = this.m_sqlStatement.RemoveLast().SQL.Trim();
+                                        if (stmt == "<>")
+                                            this.m_sqlStatement.Append(" IS NOT NULL ");
+                                        else
+                                            this.m_sqlStatement.Append(" IS NULL ");
+                                    }
+                                    else
+                                        this.m_sqlStatement.Append(" ? ", value);
+                                }
                                 else
                                     throw new NotSupportedException();
                                 break;

@@ -1089,7 +1089,8 @@ namespace SanteDB.OrmLite
                         itmValue = null;
 
                     // Only update if specified
-                    if (itmValue == null)
+                    if (itmValue == null &&
+                        !itm.SourceSpecified(value))
                         continue;
                     nUpdatedColumns++;
                     query.Append($"{itm.Name} = ? ", itmValue);
