@@ -59,6 +59,7 @@
   <ItemGroup>
     <Compile Include="Attributes\AssociativeTableAttribute.cs" />
     <Compile Include="Attributes\JoinFilterAttribute.cs" />
+    <Compile Include="Attributes\PublicKeyAttribute.cs" />
     <Compile Include="Attributes\SecretAttribute.cs" />
     <Compile Include="Attributes\NotNullAttribute.cs" />
     <Compile Include="Constants.cs" />
@@ -82,6 +83,7 @@
     <Compile Include="Providers\SqlEngineFeatures.cs" />
     <Compile Include="Providers\SqliteProvider.cs" />
     <Compile Include="Providers\SqlKeyword.cs" />
+    <Compile Include="PublicKeyMapping.cs" />
     <Compile Include="QueryBuilder.cs" />
     <Compile Include="SqlQueryExpressionBuilder.cs" />
     <Compile Include="SqlStatement.cs" />

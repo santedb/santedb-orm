@@ -51,6 +51,7 @@ namespace SanteDB.OrmLite
         private string m_tableAlias = null;
         private SqlStatement m_sqlStatement = null;
         private IDbProvider m_provider;
+        private List<PublicKeyMapping> m_joins = new List<PublicKeyMapping>();
 
         /// <summary>
         /// Gets the constructed SQL statement
@@ -58,11 +59,17 @@ namespace SanteDB.OrmLite
         public SqlStatement SqlStatement { get { return this.m_sqlStatement.Build(); } }
 
         /// <summary>
+        /// Gets the joins requested by this object
+        /// </summary>
+        public IEnumerable<PublicKeyMapping> Joins { get { return this.m_joins; } }
+
+        /// <summary>
         /// Creates a new postgresql query expression builder
         /// </summary>
         public SqlQueryExpressionBuilder(String alias, IDbProvider provider)
         {
             this.m_tableAlias = alias;
+            this.m_joins = new List<PublicKeyMapping>();
             this.m_sqlStatement = new SqlStatement(this.m_provider);
             this.m_provider = provider;
         }
@@ -370,9 +377,20 @@ namespace SanteDB.OrmLite
                                 // Translate
                                 var tableMap = TableMapping.Get(expr.Type);
                                 var columnMap = tableMap.GetColumn(node.Member);
-                                this.Visit(expr);
-                                // Now write out the expression
-                                this.m_sqlStatement.Append($".{columnMap.Name}");
+                                if (columnMap != null) // Not a column, is it a lookup?
+                                {
+                                    this.Visit(expr);
+                                    this.m_sqlStatement.Append($".{columnMap.Name}");
+                                }
+                                else { 
+                                    var publicKeyRef = tableMap.GetPublicKeyMap(node.Member);
+                                    if (publicKeyRef == null)
+                                        throw new InvalidOperationException($"{node} is invalid and has no database mapping");
+
+                                    this.m_joins.Add(publicKeyRef);
+                                    this.m_sqlStatement.Append($"pkeyr_{publicKeyRef.PrivateKey.Name}.{publicKeyRef.TargetTable.PublicKey.Name}");
+                                }
+
                                 break;
                             case ExpressionType.Constant:
                             case ExpressionType.TypeAs:

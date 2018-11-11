@@ -34,12 +34,16 @@ namespace SanteDB.OrmLite
     {
         // Hashmap
         private Dictionary<String, ColumnMapping> m_mappings = new Dictionary<string, ColumnMapping>();
+        private Dictionary<String, PublicKeyMapping> m_publicKeyMappings = new Dictionary<string, PublicKeyMapping>();
 
         // Tabl mappings 
         private static Dictionary<Type, TableMapping> m_tableMappings = new Dictionary<Type, TableMapping>();
 
         // Primary key cache
         private IEnumerable<ColumnMapping> m_primaryKey = null;
+
+        // Public key
+        private ColumnMapping m_publicKey = null;
 
         /// <summary>
         /// ORM type model
@@ -63,9 +67,27 @@ namespace SanteDB.OrmLite
         {
             get
             {
-                if(this.m_primaryKey == null)
+                if (this.m_primaryKey == null)
                     this.m_primaryKey = this.Columns.Where(o => o.IsPrimaryKey);
                 return this.m_primaryKey;
+            }
+        }
+
+        /// <summary>
+        /// Public key references
+        /// </summary>
+        public IEnumerable<PublicKeyMapping> PublicKeyRefs { get; private set; }
+
+        /// <summary>
+        /// Get the public key from this object if applicable
+        /// </summary>
+        public ColumnMapping PublicKey
+        {
+            get
+            {
+                if (this.m_publicKey == null)
+                    this.m_publicKey = this.Columns.FirstOrDefault(o => o.IsPublicKey);
+                return this.m_publicKey;
             }
         }
 
@@ -78,9 +100,11 @@ namespace SanteDB.OrmLite
             this.OrmType = t;
             this.TableName = t.GetCustomAttribute<TableAttribute>()?.Name ?? t.Name;
             this.Columns = t.GetProperties().Where(o => o.GetCustomAttribute<ColumnAttribute>() != null).Select(o => ColumnMapping.Get(o, this)).ToList();
+            this.PublicKeyRefs = t.GetProperties().Where(o => o.GetCustomAttribute<PublicKeyRefAttribute>() != null).Select(o => PublicKeyMapping.Get(o, this)).ToList();
             foreach (var itm in this.Columns)
                 this.m_mappings.Add(itm.SourceProperty.Name, itm);
-
+            foreach (var itm in this.PublicKeyRefs)
+                this.m_publicKeyMappings.Add(itm.SourceProperty.Name, itm);
         }
 
         /// <summary>
@@ -120,12 +144,22 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Get column mapping
+        /// </summary>
+        public PublicKeyMapping GetPublicKeyMap(MemberInfo mi)
+        {
+            PublicKeyMapping map = null;
+            this.m_publicKeyMappings.TryGetValue(mi.Name, out map);
+            return map;
+        }
+
+        /// <summary>
         /// Get the column mapping for the named property
         /// </summary>
         public ColumnMapping GetColumn(string propertyName, bool scanHeirarchy = false)
         {
             ColumnMapping map = null;
-            if(!this.m_mappings.TryGetValue(propertyName, out map) && scanHeirarchy &&
+            if (!this.m_mappings.TryGetValue(propertyName, out map) && scanHeirarchy &&
                 this.OrmType.BaseType != typeof(Object))
             {
                 var t = TableMapping.Get(this.OrmType.BaseType);

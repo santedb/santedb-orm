@@ -22,6 +22,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using SanteDB.Core.Model;
 
 namespace SanteDB.OrmLite
 {
@@ -33,6 +34,10 @@ namespace SanteDB.OrmLite
 
         // Specified property
         private PropertyInfo m_specifiedProperty = null;
+
+        // Private/public mappings
+        private PublicKeyMapping m_publicKeyMapping = null;
+        private bool m_publicKeyMappingScanned = false;
 
         // Column mapping
         private static Dictionary<PropertyInfo, ColumnMapping> s_columnCache = new Dictionary<PropertyInfo, ColumnMapping>();
@@ -87,6 +92,27 @@ namespace SanteDB.OrmLite
         public bool IsSecret { get; private set; }
 
         /// <summary>
+        /// True if the column is a public UUID
+        /// </summary>
+        public bool IsPublicKey { get; private set; }
+
+        /// <summary>
+        /// Gets the public key reference for this column if it is private key
+        /// </summary>
+        public PublicKeyMapping PublicKeyRef
+        {
+            get
+            {
+                if(!this.m_publicKeyMappingScanned)
+                {
+                    this.m_publicKeyMapping = this.Table.PublicKeyRefs.FirstOrDefault(o => o.PrivateKey.Name == this.Name);
+                    this.m_publicKeyMappingScanned = true;
+                }
+                return this.m_publicKeyMapping;
+            }
+        }
+
+        /// <summary>
         /// Create a column mapping
         /// </summary>
         private ColumnMapping(PropertyInfo pi, TableMapping table)
@@ -100,6 +126,10 @@ namespace SanteDB.OrmLite
             this.ForeignKey = pi.GetCustomAttribute<ForeignKeyAttribute>();
             this.IsNonNull = pi.GetCustomAttribute<NotNullAttribute>() != null;
             this.Table = table;
+            this.IsPublicKey = pi.GetCustomAttribute<PublicKeyAttribute>() != null;
+            if (this.IsPublicKey && pi.PropertyType.StripNullable() != typeof(Guid))
+                throw new InvalidOperationException("Only UUIDs can be public keys");
+
             this.IsAlwaysJoin = pi.GetCustomAttribute<AlwaysJoinAttribute>() != null;
             this.JoinFilters = pi.GetCustomAttributes<JoinFilterAttribute>().ToList();
         }
