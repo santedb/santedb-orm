@@ -227,8 +227,7 @@ namespace SanteDB.OrmLite
 
             // Is the query using any of the properties from this table?
             var useKeys = !skipJoins ||
-                typeof(IVersionedEntity).IsAssignableFrom(typeof(TModel)) && query.Any(o =>
-                {
+                typeof(IVersionedEntity).IsAssignableFrom(typeof(TModel)) && query.Any(o => {
                     var mPath = this.m_mapper.MapModelProperty(typeof(TModel), typeof(TModel).GetQueryProperty(QueryPredicate.Parse(o.Key).Path));
                     if (mPath == null || mPath.Name == "ObsoletionTime" && o.Value.Equals("null"))
                         return false;
@@ -246,6 +245,7 @@ namespace SanteDB.OrmLite
                     scopedTables = new List<TableMapping>() { tableMap };
                 }
                 selectStatement = new SqlStatement(this.m_provider, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
+
             }
             else
             {
@@ -297,15 +297,6 @@ namespace SanteDB.OrmLite
                     selectStatement = cacheHit.Key.Build();
                     scopedTables = cacheHit.Value;
                 }
-
-                // Add public key refs
-                foreach (var sct in scopedTables)
-                    foreach (var pubKey in sct.PublicKeyRefs)
-                    {
-                        var fkJoin = pubKey.PrivateKey.ForeignKey;
-                        selectStatement.Append($" LEFT JOIN {pubKey.TargetTable.TableName} AS pkeyr_{pubKey.PrivateKey.Name} ON (pkeyr_{pubKey.PrivateKey.Name}.{pubKey.TargetTable.GetColumn(fkJoin.Column).Name} = {sct.TableName}.{pubKey.PrivateKey.Name}) ");
-                    }
-
             }
 
             // Column definitions
@@ -327,19 +318,12 @@ namespace SanteDB.OrmLite
                             return true;
                         }
                         return false;
-                    }).Select(o => $"{tablePrefix}{o.Table.TableName}.{o.Name}")
-                    .Union(scopedTables.SelectMany(o => o.PublicKeyRefs).Where(o => o.TargetTable?.PublicKey != null).Select(o => $"pkeyr_{o.PrivateKey.Name}.{o.TargetTable.PublicKey.Name} as pubkey_{o.SourceProperty.Name}")));
-
+                    }).Select(o => $"{tablePrefix}{o.Table.TableName}.{o.Name}"));
                     selectStatement = new SqlStatement(this.m_provider, $"SELECT {columnList} ").Append(selectStatement);
 
                 }
                 else
-                {
-                    var publicKeyTables = String.Join(",", scopedTables.SelectMany(o => o.PublicKeyRefs).Where(o => o.TargetTable?.PublicKey != null).Select(o => $"pkeyr_{o.PrivateKey.Name}.{o.TargetTable.PublicKey.Name} as pubkey_{o.SourceProperty.Name}"));
-                    if (!String.IsNullOrEmpty(publicKeyTables))
-                        publicKeyTables = ", " + publicKeyTables;
-                    selectStatement = new SqlStatement(this.m_provider, $"SELECT * {publicKeyTables} ").Append(selectStatement);
-                }
+                    selectStatement = new SqlStatement(this.m_provider, $"SELECT * ").Append(selectStatement);
                 // columnSelector = scopedTables.SelectMany(o => o.Columns).ToArray();
             }
             else
@@ -610,15 +594,7 @@ namespace SanteDB.OrmLite
             if (lValue == null)
                 lValue = new List<Object>() { value };
 
-            // is the column data present?
-            if (columnData != null)
-                return CreateSqlPredicate(tableAlias, columnData.Name, propertyInfo, lValue);
-            else
-            {
-                var pubkey = tableMapping.GetPublicKeyMap(domainProperty);
-                return CreateSqlPredicate($"pkeyr_{pubkey.PrivateKey.Name}", pubkey.TargetTable.PublicKey.Name, propertyInfo, lValue);
-
-            }
+            return CreateSqlPredicate(tableAlias, columnData.Name, propertyInfo, lValue);
         }
 
         /// <summary>

@@ -65,7 +65,7 @@ namespace SanteDB.OrmLite
                 }
                 catch
                 {
-                    throw new MissingFieldException(tableMapping.TableName, itm.Name);
+                   throw new MissingFieldException(tableMapping.TableName, itm.Name);
                 }
             }
             return result;
@@ -146,10 +146,6 @@ namespace SanteDB.OrmLite
             typeof(byte[])
         };
 
-        // Dictionary of previous private key resolutions done
-        private Dictionary<Guid, Int32?> m_privateKeyCache = new Dictionary<Guid, int?>();
-        private Dictionary<Int32, Guid?> m_publicKeyCache = new Dictionary<int, Guid?>();
-
         /// <summary>
         /// True if the connection is readonly
         /// </summary>
@@ -159,7 +155,7 @@ namespace SanteDB.OrmLite
         /// Gets or sets the context id
         /// </summary>
         public Guid ContextId { get; set; }
-
+        
         /// <summary>
         /// Execute a stored procedure transposing the result set back to <typeparamref name="TModel"/>
         /// </summary>
@@ -253,11 +249,10 @@ namespace SanteDB.OrmLite
                 return (TModel)retVal;
             }
             else if (BaseTypes.Contains(typeof(TModel)))
-                try
-                {
+                try {
                     return (TModel)rdr[0];
                 }
-                catch (InvalidCastException e)
+                catch(InvalidCastException e)
                 {
                     return (TModel)this.m_provider.ConvertValue(rdr[0], typeof(TModel));
                 }
@@ -295,7 +290,7 @@ namespace SanteDB.OrmLite
                 try
                 {
                     object value = this.m_provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
-                    if (!itm.IsSecret)
+                    if(!itm.IsSecret)
                         itm.SourceProperty.SetValue(result, value);
                 }
                 catch (Exception e)
@@ -304,20 +299,6 @@ namespace SanteDB.OrmLite
                     throw new MissingFieldException(tableMapping.TableName, itm.Name);
                 }
             }
-
-            // Public Key Refs
-            foreach(var pkey in tableMapping.PublicKeyRefs)
-                try
-                {
-                    var privValue = this.m_provider.ConvertValue(rdr[$"pubkey_{pkey.SourceProperty.Name}"], pkey.SourceProperty.PropertyType);
-                    pkey.SourceProperty.SetValue(result, privValue);
-                }
-                catch(IndexOutOfRangeException) { }
-                catch(Exception e)
-                {
-                    this.m_tracer.TraceEvent(TraceEventType.Error, 0, "Error mapping: {0} : {1}", pkey.SourceProperty.Name, e.ToString());
-                    throw new MissingFieldException(tableMapping.TableName, pkey.SourceProperty.Name);
-                }
 
             if (result is IAdoLoadedData)
                 (result as IAdoLoadedData).Context = this;
@@ -648,7 +629,7 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.m_provider.Count(this.CreateSqlStatement<TModel>().SelectFromOnly().Where(querySpec));
+                var stmt = this.m_provider.Count(this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec));
                 lock (this.m_lockObject)
                 {
                     var dbc = this.m_provider.CreateCommand(this, stmt);
@@ -854,39 +835,18 @@ namespace SanteDB.OrmLite
                 // First we want to map object to columns
                 var tableMap = TableMapping.Get(typeof(TModel));
 
-                // Process the column public keys to internal private keys
-                foreach (var pubKey in tableMap.PublicKeyRefs)
-                {
-                    var val = this.ProcessValue(pubKey.SourceProperty.GetValue(value), pubKey.PrivateKey);
-                    // public key has a value, let's xref it to the public
-                    Int32? privateKey = (Int32?)pubKey.PrivateKey.SourceProperty.GetValue(value);
-
-                    if(privateKey.GetValueOrDefault() == default(Int32) &&
-                        val != null &&
-                        !this.m_privateKeyCache.TryGetValue((Guid)val, out privateKey))
-                    {
-                        // Lookup private key by public key 
-                        var privKeySel = this.CreateSqlStatement().SelectFrom(pubKey.TargetTable.OrmType, pubKey.TargetColumn.Name)
-                            .Where($"{pubKey.TargetTable.PublicKey.Name} = ?", val)
-                            .Offset(0)
-                            .Limit(1);
-
-                        lock (this.m_lockObject)
-                        {
-                            privateKey = (Int32)this.m_provider.CreateCommand(this, privKeySel).ExecuteScalar();
-                            this.m_privateKeyCache.Add((Guid)val, privateKey);
-                        }
-                    }
-                    
-                    // Set the private key
-                    pubKey.PrivateKey.SourceProperty.SetValue(value, privateKey);
-                }
-
                 SqlStatement columnNames = this.CreateSqlStatement(),
                     values = this.CreateSqlStatement();
                 foreach (var col in tableMap.Columns)
                 {
-                    var val = this.ProcessValue(col.SourceProperty.GetValue(value), col);
+                    var val = col.SourceProperty.GetValue(value);
+                    if (val == null ||
+                        !col.IsNonNull && (
+                        val.Equals(default(Guid)) ||
+                        val.Equals(default(DateTime)) ||
+                        val.Equals(default(DateTimeOffset)) ||
+                        val.Equals(default(Decimal))))
+                        val = null;
 
                     if (col.IsAutoGenerated && val == null)
                     {
@@ -900,8 +860,10 @@ namespace SanteDB.OrmLite
                         else
                             continue;
                     }
+                    
 
                     columnNames.Append($"{col.Name}");
+
 
                     // Append value
                     values.Append("?", val);
@@ -979,7 +941,7 @@ namespace SanteDB.OrmLite
                                 var where = new SqlStatement<TModel>(this.m_provider);
                                 foreach (var pk in pkcols)
                                     where.And($"{pk.Name} = ?", pk.SourceProperty.GetValue(value));
-                                stmt = new SqlStatement<TModel>(this.m_provider).SelectFromOnly().Where(where);
+                                stmt = new SqlStatement<TModel>(this.m_provider).SelectFrom().Where(where);
 
                                 // Create command and exec
                                 dbc = this.m_provider.CreateCommand(this, stmt);
@@ -1015,22 +977,6 @@ namespace SanteDB.OrmLite
             }
 #endif
 
-        }
-
-        /// <summary>
-        /// Correct default values to null
-        /// </summary>
-        private object ProcessValue(object val, ColumnMapping col = null)
-        {
-            if (val == null ||
-                col?.IsNonNull == false && (
-                val.Equals(default(Guid)) ||
-                val.Equals(default(DateTime)) ||
-                val.Equals(default(DateTimeOffset)) ||
-                val.Equals(default(Decimal)) ||
-                val.Equals(default(Int32))))
-                return null;
-            return val;
         }
 
         /// <summary>
@@ -1130,35 +1076,6 @@ namespace SanteDB.OrmLite
                 var tableMap = TableMapping.Get(typeof(TModel));
                 SqlStatement<TModel> query = this.CreateSqlStatement<TModel>().UpdateSet();
                 SqlStatement whereClause = this.CreateSqlStatement();
-
-                // Process the column public keys to internal private keys
-                foreach (var pubKey in tableMap.PublicKeyRefs)
-                {
-                    var val = this.ProcessValue(pubKey.SourceProperty.GetValue(value), pubKey.PrivateKey);
-                    // public key has a value, let's xref it to the public
-                    Int32? privateKey = (Int32?)pubKey.PrivateKey.SourceProperty.GetValue(value);
-
-                    if (privateKey.GetValueOrDefault() == default(Int32) &&
-                        val != null &&
-                        !this.m_privateKeyCache.TryGetValue((Guid)val, out privateKey))
-                    {
-                        // Lookup private key by public key 
-                        var privKeySel = this.CreateSqlStatement().SelectFrom(pubKey.TargetTable.OrmType, pubKey.TargetColumn.Name)
-                            .Where($"{pubKey.TargetTable.PublicKey.Name} = ?", val)
-                            .Offset(0)
-                            .Limit(1);
-
-                        lock (this.m_lockObject)
-                        {
-                            privateKey = (Int32)this.m_provider.CreateCommand(this, privKeySel).ExecuteScalar();
-                            this.m_privateKeyCache.Add((Guid)val, privateKey);
-                        }
-                    }
-
-                    // Set the private key
-                    pubKey.PrivateKey.SourceProperty.SetValue(value, privateKey);
-                }
-
                 int nUpdatedColumns = 0;
                 foreach (var itm in tableMap.Columns)
                 {

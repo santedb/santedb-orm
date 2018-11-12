@@ -58,26 +58,6 @@ namespace SanteDB.OrmLite
         public bool IsFinalized { get; private set; }
 
         /// <summary>
-        /// Returns TRUE if the specified table is joine
-        /// </summary>
-        protected bool IsJoined(TableMapping targetTable)
-        {
-            var scn = this;
-            while (scn != null)
-            {
-                if (!String.IsNullOrEmpty(scn.SQL))
-                {
-                    if ((scn.SQL.Trim().StartsWith("INNER JOIN") ||
-                        scn.SQL.Trim().StartsWith("LEFT JOIN")) && scn.SQL.Contains(targetTable.TableName))
-                        return true;
-                }
-                scn = scn.m_rhs;
-            }
-            return false;
-
-        }
-
-        /// <summary>
         /// Arguments for the SQL Statement
         /// </summary>
         public IEnumerable<Object> Arguments
@@ -148,7 +128,7 @@ namespace SanteDB.OrmLite
             {
                 sb.Append(focus.m_sql);
                 // Add parms
-                if (focus.Arguments != null)
+                if(focus.Arguments != null)
                     parameters.AddRange(focus.Arguments);
                 focus = focus.m_rhs;
             } while (focus != null);
@@ -256,9 +236,9 @@ namespace SanteDB.OrmLite
 
             if (lhsPk == null || rhsPk == null) // Try a natural join
             {
-                rhsPk = tableMap.Columns.SingleOrDefault(o => TableMapping.Get(tLeft).Columns.Any(l => o.Name == l.Name));
+                rhsPk = tableMap.Columns.SingleOrDefault(o => TableMapping.Get(tLeft).Columns.Any(l=>o.Name == l.Name));
                 lhsPk = TableMapping.Get(tLeft).Columns.SingleOrDefault(o => o.Name == rhsPk?.Name);
-                if (rhsPk == null || lhsPk == null)
+                if(rhsPk == null || lhsPk == null)
                     throw new InvalidOperationException("Unambiguous linked keys not found");
             }
             joinStatement.Append($"({lhsPk.Table.TableName}.{lhsPk.Name} = {rhsPk.Table.TableName}.{rhsPk.Name}) ");
@@ -280,16 +260,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement SelectFrom(Type dataType)
         {
-            return this.SelectFrom(dataType, "*");
-        }
-
-        /// <summary>
-        /// Return a select from
-        /// </summary>
-        public SqlStatement SelectFrom(Type dataType, params String[] columnNames)
-        {
             var tableMap = TableMapping.Get(dataType);
-            return this.Append(new SqlStatement(this.m_provider, $"SELECT {String.Join(",", columnNames)} FROM {tableMap.TableName} AS {tableMap.TableName} "));
+            return this.Append(new SqlStatement(this.m_provider, $"SELECT * FROM {tableMap.TableName} AS {tableMap.TableName} "));
         }
 
         /// <summary>
@@ -300,17 +272,6 @@ namespace SanteDB.OrmLite
             var tableMap = TableMapping.Get(typeof(TExpression));
             var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
             queryBuilder.Visit(expression.Body);
-
-            // On demand joins
-            foreach (var pubKey in queryBuilder.Joins)
-            {
-                if (!this.IsJoined(pubKey.TargetTable))
-                {
-                    var fkJoin = pubKey.PrivateKey.ForeignKey;
-                    this.Append($" INNER JOIN {pubKey.TargetTable.TableName} AS pkeyr_{pubKey.PrivateKey.Name} ON (pkeyr_{pubKey.PrivateKey.Name}.{pubKey.TargetTable.GetColumn(fkJoin.Column).Name} = {tableMap.TableName}.{pubKey.PrivateKey.Name}) ");
-                }
-            }
-
             return this.Append(new SqlStatement(this.m_provider, "WHERE ").Append(queryBuilder.SqlStatement));
         }
 
@@ -468,20 +429,8 @@ namespace SanteDB.OrmLite
             var tableMap = TableMapping.Get(typeof(T));
             var queryBuilder = new SqlQueryExpressionBuilder(this.m_alias ?? tableMap.TableName, this.m_provider);
             queryBuilder.Visit(expression.Body);
-
-            // On demand joins
-            foreach (var pubKey in queryBuilder.Joins)
-            {
-                if (!this.IsJoined(pubKey.TargetTable))
-                {
-                    var fkJoin = pubKey.PrivateKey.ForeignKey;
-                    this.Append($" INNER JOIN {pubKey.TargetTable.TableName} AS pkeyr_{pubKey.PrivateKey.Name} ON (pkeyr_{pubKey.PrivateKey.Name}.{pubKey.TargetTable.GetColumn(fkJoin.Column).Name} = {tableMap.TableName}.{pubKey.PrivateKey.Name}) ");
-                }
-            }
-
             return this.Append(new SqlStatement(this.m_provider, "WHERE ").Append(queryBuilder.SqlStatement));
         }
-
 
         /// <summary>
         /// Appends an inner join
@@ -503,55 +452,21 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Construct a SELECT FROM statement with not pub key joins
-        /// </summary>
-        public SqlStatement<T> SelectFromOnly()
-        {
-            var tableMap = TableMapping.Get(typeof(T));
-            if (this.m_provider.Features.HasFlag(SqlEngineFeatures.StrictSubQueryColumnNames))
-                this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {String.Join(",", tableMap.Columns.Select(c => $"{tableMap.TableName}.{c.Name}").ToArray())} ")
-                {
-                    m_alias = tableMap.TableName
-                });
-            else
-                this.Append(new SqlStatement<T>(this.m_provider, $"SELECT * ")
-                {
-                    m_alias = tableMap.TableName
-                });
-
-            return this.Append($" FROM {tableMap.TableName} AS {tableMap.TableName} ") as SqlStatement<T>;
-        }
-
-        /// <summary>
         /// Construct a SELECT FROM statement
         /// </summary>
         public SqlStatement<T> SelectFrom()
         {
             var tableMap = TableMapping.Get(typeof(T));
-            if (this.m_provider.Features.HasFlag(SqlEngineFeatures.StrictSubQueryColumnNames))
-                this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {String.Join(",", tableMap.Columns.Select(c => $"{tableMap.TableName}.{c.Name}").ToArray())} ")
+            if(this.m_provider.Features.HasFlag(SqlEngineFeatures.StrictSubQueryColumnNames))
+                return this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {String.Join(",", tableMap.Columns.Select(c=> $"{tableMap.TableName}.{c.Name}").ToArray())} FROM {tableMap.TableName} AS {tableMap.TableName} ")
                 {
                     m_alias = tableMap.TableName
                 });
             else
-                this.Append(new SqlStatement<T>(this.m_provider, $"SELECT * ")
+                return this.Append(new SqlStatement<T>(this.m_provider, $"SELECT * FROM {tableMap.TableName} AS {tableMap.TableName} ")
                 {
                     m_alias = tableMap.TableName
                 });
-
-            // Are there any joins to pubkeys we can suck out of the database while we're here?
-            var pubKeyCols = String.Join(",", tableMap.PublicKeyRefs.Where(o => o.TargetTable?.PublicKey != null).Select(o => $"pkeyr_{o.PrivateKey.Name}.{o.TargetTable.PublicKey.Name} as pubkey_{o.SourceProperty.Name}"));
-            if (!String.IsNullOrEmpty(pubKeyCols))
-                this.Append(" , " + pubKeyCols);
-
-            this.Append($" FROM {tableMap.TableName} AS {tableMap.TableName} ");
-
-            foreach (var pubKey in tableMap.PublicKeyRefs)
-            {
-                var fkJoin = pubKey.PrivateKey.ForeignKey;
-                this.Append($" LEFT JOIN {pubKey.TargetTable.TableName} AS pkeyr_{pubKey.PrivateKey.Name} ON (pkeyr_{pubKey.PrivateKey.Name}.{pubKey.TargetTable.GetColumn(fkJoin.Column).Name} = {tableMap.TableName}.{pubKey.PrivateKey.Name}) ");
-            }
-            return this;
         }
 
         /// <summary>
@@ -561,39 +476,26 @@ namespace SanteDB.OrmLite
         /// <returns>The constructed sql statement</returns>
         public SqlStatement<T> SelectFrom(params Type[] scopedTables)
         {
-
             var existingCols = new List<String>();
             var tableMap = TableMapping.Get(typeof(T));
             // Column list of distinct columns
-            var columnList = String.Join(",", scopedTables.Select(o => TableMapping.Get(o)).SelectMany(o => o.Columns).Where(o =>
-              {
-                  if (!existingCols.Contains(o.Name))
-                  {
-                      existingCols.Add(o.Name);
-                      return true;
-                  }
-                  return false;
-              }).Select(o => $"{o.Table.TableName}.{o.Name}"));
+            var columnList = String.Join(",", scopedTables.Select(o=>TableMapping.Get(o)).SelectMany(o => o.Columns).Where(o =>
+            {
+                if (!existingCols.Contains(o.Name))
+                {
+                    existingCols.Add(o.Name);
+                    return true;
+                }
+                return false;
+            }).Select(o => $"{o.Table.TableName}.{o.Name}"));
 
             // Append the result to query
-            this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {columnList} ")
+            return this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {columnList} FROM {tableMap.TableName} AS {tableMap.TableName} ")
             {
                 m_alias = tableMap.TableName
             });
 
-            // Are there any joins to pubkeys we can suck out of the database while we're here?
-            var pubKeyCols = String.Join(",", tableMap.PublicKeyRefs.Where(o => o.TargetTable?.PublicKey != null).Select(o => $"pkeyr_{o.PrivateKey.Name}.{o.TargetTable.PublicKey.Name} as pubkey_{o.SourceProperty.Name}"));
-            if (!String.IsNullOrEmpty(pubKeyCols))
-                this.Append(" , " + pubKeyCols);
 
-            this.Append($" FROM {tableMap.TableName} AS {tableMap.TableName} ");
-
-            foreach (var pubKey in tableMap.PublicKeyRefs)
-            {
-                var fkJoin = pubKey.PrivateKey.ForeignKey;
-                this.Append($" LEFT JOIN {pubKey.TargetTable.TableName} AS pkeyr_{pubKey.PrivateKey.Name} ON (pkeyr_{pubKey.PrivateKey.Name}.{pubKey.TargetTable.GetColumn(fkJoin.Column).Name} = {tableMap.TableName}.{pubKey.PrivateKey.Name}) ");
-            }
-            return this;
         }
 
         /// <summary>
