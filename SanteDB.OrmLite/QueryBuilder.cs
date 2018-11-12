@@ -471,16 +471,16 @@ namespace SanteDB.OrmLite
 
                                 // Sub path is specified
                                 if (String.IsNullOrEmpty(propertyPredicate.SubPath) && "null".Equals(parm.Value))
-                                    subQueryStatement.And($" NOT EXISTS (");
+                                    subQueryStatement.And($"{existsClause} NOT IN (");
                                 else
-                                    subQueryStatement.And($" EXISTS (");
+                                    subQueryStatement.And($"{existsClause} IN (");
 
                                 if (subQuery.Count(p => !p.Key.Contains(".")) == 0)
                                     subQueryStatement.Append(genMethod.Invoke(this, new Object[] { subQuery, prefix, true, new ColumnMapping[] { subTableColumn } }) as SqlStatement);
                                 else
                                     subQueryStatement.Append(genMethod.Invoke(this, new Object[] { subQuery, prefix, false, new ColumnMapping[] { subTableColumn } }) as SqlStatement);
 
-                                subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{subTableColumn.Name}");
+                                //subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{subTableColumn.Name}");
                                 //existsClause = $"{prefix}{subTableColumn.Table.TableName}.{subTableColumn.Name}";
                                 subQueryStatement.Append(")");
                             }
