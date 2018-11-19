@@ -257,6 +257,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             else if (type.StripNullable() == typeof(float) || type.StripNullable() == typeof(double)) return System.Data.DbType.Double;
             else if (type.StripNullable() == typeof(Decimal)) return System.Data.DbType.Decimal;
             else if (type.StripNullable() == typeof(Guid)) return DbType.String;
+            else if (type.IsEnum) return DbType.Int32;
             else
                 throw new ArgumentOutOfRangeException(nameof(type), "Can't map parameter type");
         }
