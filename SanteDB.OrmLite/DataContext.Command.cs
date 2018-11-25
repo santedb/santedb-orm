@@ -621,7 +621,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Returns only if only one result is available
         /// </summary>
-        public int Count<TModel>(Expression<Func<TModel, bool>> querySpec)
+        public long Count<TModel>(Expression<Func<TModel, bool>> querySpec)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -635,7 +635,7 @@ namespace SanteDB.OrmLite
                     var dbc = this.m_provider.CreateCommand(this, stmt);
                     try
                     {
-                        return (int)dbc.ExecuteScalar();
+                        return (long)dbc.ExecuteScalar();
                     }
                     catch (TimeoutException)
                     {
