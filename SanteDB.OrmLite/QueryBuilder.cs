@@ -17,24 +17,22 @@
  * User: justin
  * Date: 2018-6-21
  */
+using SanteDB.Core.Model;
+using SanteDB.Core.Model.Attributes;
+using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Query;
 using SanteDB.OrmLite.Attributes;
+using SanteDB.OrmLite.Providers;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
-using SanteDB.Core.Model;
-using System.Collections;
 using System.Text.RegularExpressions;
-using SanteDB.Core.Model.Attributes;
 using System.Xml.Serialization;
-using SanteDB.OrmLite.Providers;
-using SanteDB.Core.Model.Interfaces;
-using SanteDB.Core.Model.DataTypes;
 
 namespace SanteDB.OrmLite
 {

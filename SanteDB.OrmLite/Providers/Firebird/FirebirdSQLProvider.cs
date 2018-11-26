@@ -21,19 +21,18 @@
 /*
  * This product includes software developed by Borland Software Corp.
  */
+using SanteDB.Core.Model;
+using SanteDB.Core.Model.Map;
+using SanteDB.Core.Model.Warehouse;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using SanteDB.Core.Model.Map;
-using System.Data.Common;
 using System.Text.RegularExpressions;
-using System.IO;
-using SanteDB.Core.Model;
-using System.Diagnostics;
-using SanteDB.Core.Model.Warehouse;
 
 namespace SanteDB.OrmLite.Providers.Firebird
 {

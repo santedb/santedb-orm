@@ -17,21 +17,17 @@
  * User: justin
  * Date: 2018-8-8
  */
+using SanteDB.Core.Model;
+using SanteDB.Core.Model.Map;
+using SanteDB.Core.Model.Warehouse;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Configuration;
 using System.Data.Common;
-using System.Linq.Expressions;
 using System.Diagnostics;
-using SanteDB.Core.Model.Map;
+using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
-using SanteDB.Core.Model;
-using SanteDB.Core.Model.Warehouse;
 
 namespace SanteDB.OrmLite.Providers.Postgres
 {

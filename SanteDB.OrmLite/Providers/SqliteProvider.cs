@@ -17,19 +17,15 @@
  * User: justin
  * Date: 2018-6-21
  */
+using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
+using SanteDB.Core.Model.Warehouse;
 using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using SanteDB.Core.Model.Serialization;
-using SanteDB.Core.Model;
 using System.Data.Common;
 using System.Diagnostics;
-using SanteDB.Core.Model.Warehouse;
+using System.Linq;
 
 namespace SanteDB.OrmLite.Providers
 {

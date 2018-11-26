@@ -18,17 +18,13 @@
  * Date: 2018-6-21
  */
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SanteDB.OrmLite.Attributes
 {
-	/// <summary>
-	/// Represents an attribute for marking columns as not null.
-	/// </summary>
-	[AttributeUsage(AttributeTargets.Property, Inherited = true)]
+    /// <summary>
+    /// Represents an attribute for marking columns as not null.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Property, Inherited = true)]
 	public class NotNullAttribute : Attribute
 	{
 		/// <summary>
