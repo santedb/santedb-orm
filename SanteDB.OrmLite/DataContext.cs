@@ -161,6 +161,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Open()
         {
+
             if (this.m_connection.State == ConnectionState.Closed)
                 this.m_connection.Open();
             else if (this.m_connection.State == ConnectionState.Broken)
