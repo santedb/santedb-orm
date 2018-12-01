@@ -41,7 +41,7 @@
     </When>
     <Otherwise>
       <ItemGroup>
-        <PackageReference Include="SanteDB.Core.Model" Version="1.9.13" />
+        <PackageReference Include="SanteDB.Core.Model" Version="1.9.14" />
       </ItemGroup>
     </Otherwise>
   </Choose>
