@@ -435,7 +435,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Appends an inner join
         /// </summary>
-        public SqlStatement<TReturn> InnerJoin<TJoinTable, TReturn>()
+        public SqlStatement<TReturn> AutoJoin<TJoinTable, TReturn>()
         {
             var retVal = new SqlStatement<TReturn>(this.m_provider);
             retVal.Append(this).InnerJoin(typeof(T), typeof(TJoinTable));
