@@ -52,7 +52,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         private readonly Regex m_parmRegex = new Regex(@"\?");
 
         // UUID regex
-        private readonly Regex m_uuidRegex = new Regex(@"\s(\'[A-Za-z0-9]{8}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{12}\')");
+        private readonly Regex m_uuidRegex = new Regex(@"(\'[A-Za-z0-9]{8}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{12}\')");
 
         // Filter functions
         private static Dictionary<String, IDbFilterFunction> s_filterFunctions = new Dictionary<string, IDbFilterFunction>();
