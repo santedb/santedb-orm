@@ -324,7 +324,18 @@ namespace SanteDB.OrmLite
         {
             var orderMap = TableMapping.Get(typeof(TExpression));
             var orderCol = orderMap.GetColumn(this.GetMember(orderField.Body));
-            return this.Append($"ORDER BY {orderMap.TableName}.{orderCol.Name} ").Append(sortOperation == SortOrderType.OrderBy ? " ASC " : " DESC ");
+
+            // Is there already an orderby in the previous statement?
+            bool hasOrder = false;
+            var t = this;
+            do
+            {
+                hasOrder |= t.SQL?.Contains("ORDER BY") == true;
+                t = t.m_rhs;
+            } while (t != null);
+
+            // Append order by?
+            return this.Append($"{(!hasOrder ? " ORDER BY " : ",")} {orderMap.TableName}.{orderCol.Name} {(sortOperation == SortOrderType.OrderBy ? " ASC " : " DESC ")}");
         }
 
         /// <summary>
@@ -337,13 +348,22 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Removes the last statement from the list
+        /// Get the last statement
         /// </summary>
-        public SqlStatement RemoveLast()
+        public SqlStatement GetLast()
         {
             var t = this;
             while (t.m_rhs?.m_rhs != null)
                 t = t.m_rhs;
+            return t;
+        }
+
+        /// <summary>
+        /// Removes the last statement from the list
+        /// </summary>
+        public SqlStatement RemoveLast()
+        {
+            var t = this.GetLast();
             if (t != null)
             {
                 var m = t.m_rhs;

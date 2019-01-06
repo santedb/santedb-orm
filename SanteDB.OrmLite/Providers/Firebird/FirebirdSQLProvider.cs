@@ -165,7 +165,9 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 .Replace(sql, o => $"@parm{pno++} ")
                 .Replace(" ILIKE ", " LIKE ");
             sql = this.m_uuidRegex
-                .Replace(sql, o => $"char_to_uuid({o.Groups[1].Value})");
+                .Replace(sql, o => $"char_to_uuid({o.Groups[1].Value})")
+                .Replace("char_to_uuid(char_to_uuid(","(char_to_uuid("); //HACK:
+
             if (pno != parms.Length && type == CommandType.Text)
                 throw new ArgumentOutOfRangeException(nameof(sql), $"Parameter mismatch query expected {pno} but {parms.Length} supplied");
 
