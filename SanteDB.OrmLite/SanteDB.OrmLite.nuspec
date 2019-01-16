@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>$id$</id>
-    <version>1.13.0.0</version>
+    <version>1.14.0.0</version>
     <title>$title$</title>
     <authors>Mohawk College of Applied Arts and Technology</authors>
     <owners>Mohawk College of Applied Arts and Technology</owners>
@@ -15,7 +15,7 @@
     <copyright>Copyright 2015-2018, Mohawk College of Applied Arts and Technology</copyright>
     <tags>CDR SanteDB</tags>
     <dependencies>
-      <dependency id="SanteDB.Core.Model" version="1.13.0.0"/>
+      <dependency id="SanteDB.Core.Model" version="1.14.0.0"/>
       <dependency id="Newtonsoft.Json" version="11.0.2.0"/>
     </dependencies>
   </metadata>
