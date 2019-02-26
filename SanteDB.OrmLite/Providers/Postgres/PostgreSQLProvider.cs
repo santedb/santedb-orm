@@ -85,13 +85,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Get name of provider
         /// </summary>
-        public string Name
-        {
-            get
-            {
-                return "npgsql";
-            }
-        }
+        public string Invariant => "npgsql";
 
         /// <summary>
         /// Get provider factory
@@ -116,9 +110,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
             var conn = this.GetProviderFactory().CreateConnection();
 
             DbConnectionStringBuilder dbst = new DbConnectionStringBuilder();
-            dbst.ConnectionString = this.ReadonlyConnectionString;
+            dbst.ConnectionString = this.ReadonlyConnectionString ?? this.ConnectionString;
 
-            if (this.ReadonlyConnectionString != this.ConnectionString)
+            if (dbst.ConnectionString != this.ConnectionString)
             {
                 Object host = String.Empty;
                 if (this.m_readonlyIpAddresses == null && dbst.TryGetValue("host", out host) || dbst.TryGetValue("server", out host))
@@ -128,14 +122,14 @@ namespace SanteDB.OrmLite.Providers.Postgres
                         this.m_readonlyIpAddresses = new IPAddress[] { ip };
                     else if (host.ToString() == "localhost")
                     {
-                        conn.ConnectionString = this.ReadonlyConnectionString;
+                        conn.ConnectionString = dbst.ConnectionString;
                         return new DataContext(this, conn, true);
                     }
                     else
                         this.m_readonlyIpAddresses = Dns.GetHostAddresses(host.ToString());
                     dbst.Remove("host");
                     dbst.Remove("server");
-                    this.ReadonlyConnectionString = dbst.ConnectionString;
+                    conn.ConnectionString = dbst.ConnectionString;
                 }
 
                 // Readonly IP address
@@ -146,10 +140,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     conn.ConnectionString = dbst.ConnectionString;
                 }
                 else
-                    conn.ConnectionString = this.ReadonlyConnectionString;
+                    conn.ConnectionString = dbst.ConnectionString;
             }
             else
-                conn.ConnectionString = this.ReadonlyConnectionString;
+                conn.ConnectionString = dbst.ConnectionString;
 
             return new DataContext(this, conn, true);
         }

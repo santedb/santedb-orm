@@ -72,10 +72,12 @@
     <Compile Include="ColumnMapping.cs" />
     <Compile Include="DataContext.Command.cs" />
     <Compile Include="DataContext.cs" />
+    <Compile Include="Providers\AdoNetConfigurationProvider.cs" />
+    <Compile Include="Providers\Firebird\FirebirdSQLConfigurationProvider.cs" />
+    <Compile Include="Providers\Postgres\PostgreSQLConfigurationProvider.cs" />
     <Compile Include="IAdoLoadedData.cs" />
-    <Compile Include="Migration\IDataFeature.cs" />
-    <Compile Include="Migration\IDataUpdate.cs" />
-    <Compile Include="Migration\SqlSourceUpdate.cs" />
+    <Compile Include="Migration\SqlFeature.cs" />
+    <Compile Include="Migration\SqlFeatureUtil.cs" />
     <Compile Include="Providers\IDbFilterFunction.cs" />
     <Compile Include="IQueryBuilderHack.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -97,6 +99,15 @@
     </None>
     <None Include="app.config" />
     <None Include="SanteDB.OrmLite.nuspec" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\santedb-api\SanteDB.Core.Api\SanteDB.Core.Api.csproj">
+      <Project>{3a45f695-47a2-464c-ace6-bdabbfa39fbc}</Project>
+      <Name>SanteDB.Core.Api</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="DataProviders\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

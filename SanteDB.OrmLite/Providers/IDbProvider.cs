@@ -52,7 +52,7 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Get name of the provider
         /// </summary>
-        string Name { get; }
+        string Invariant { get; }
 
         /// <summary>
         /// Create SQL keyword

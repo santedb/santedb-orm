@@ -16,6 +16,7 @@
     <tags>CDR SanteDB</tags>
     <dependencies>
       <dependency id="SanteDB.Core.Model" version="1.19.0.0"/>
+      <dependency id="SanteDB.Core.Api" version="1.19.0.0"/>
       <dependency id="Newtonsoft.Json" version="11.0.2.0"/>
     </dependencies>
   </metadata>

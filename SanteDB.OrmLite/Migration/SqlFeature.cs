@@ -1,22 +1,4 @@
-﻿/*
- * Copyright 2015-2018 Mohawk College of Applied Arts and Technology
- *
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
- * the License.
- * 
- * User: justin
- * Date: 2018-11-26
- */
+﻿using SanteDB.Core.Configuration.Data;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -31,7 +13,7 @@ namespace SanteDB.OrmLite.Migration
     /// <summary>
     /// Represents an IDataUpdate drawn from a SQL file
     /// </summary>
-    public class SqlSourceUpdate : IDataUpdate
+    public class SqlFeature : IDataFeature
     {
 
         // Metadata regex
@@ -44,7 +26,7 @@ namespace SanteDB.OrmLite.Migration
         private string m_checkRange;
 
         // Check SQL 
-        private string m_checkSql; 
+        private string m_checkSql;
 
         // Invariant name
         private string m_invariant;
@@ -52,27 +34,26 @@ namespace SanteDB.OrmLite.Migration
         /// <summary>
         /// Load the specified stream
         /// </summary>
-        public static SqlSourceUpdate Load(Stream source)
+        public static SqlFeature Load(Stream source)
         {
 
-            var retVal = new SqlSourceUpdate();
+            var retVal = new SqlFeature();
 
             // Get deployment sql
-            using(var sr = new StreamReader(source))
+            using (var sr = new StreamReader(source))
                 retVal.m_deploySql = sr.ReadToEnd();
 
-            var xmlSql = m_metaRegx.Match(retVal.m_deploySql.Replace("\r\n",""));
+            var xmlSql = m_metaRegx.Match(retVal.m_deploySql.Replace("\r\n", ""));
             if (xmlSql.Success)
             {
                 var xmlText = xmlSql.Groups[1].Value.Replace("*", "");
                 XmlDocument xd = new XmlDocument();
                 xd.LoadXml(xmlText);
-                retVal.Name = xd.SelectSingleNode("/update/@id")?.Value ?? "other update";
-                retVal.Description = xd.SelectSingleNode("/update/summary/text()")?.Value ?? "other update";
-
-                retVal.m_checkRange = xd.SelectSingleNode("/update/@applyRange")?.Value;
-                retVal.m_checkSql = xd.SelectSingleNode("/update/guard/text()")?.Value;
-                retVal.m_invariant = xd.SelectSingleNode("/update/@invariantName")?.Value;
+                retVal.Name = xd.SelectSingleNode("/feature/@id")?.Value ?? "other update";
+                retVal.Description = xd.SelectSingleNode("/feature/summary/text()")?.Value ?? "other update";
+                retVal.m_checkRange = xd.SelectSingleNode("/feature/@applyRange")?.Value;
+                retVal.m_checkSql = xd.SelectSingleNode("/feature/isInstalled/text()")?.Value;
+                retVal.m_invariant = xd.SelectSingleNode("/feature/@invariantName")?.Value;
 
             }
             else
@@ -104,14 +85,24 @@ namespace SanteDB.OrmLite.Migration
         public string GetCheckSql(string invariantName)
         {
             if (String.IsNullOrEmpty(this.m_checkSql))
+            {
+                var updateRange = this.m_checkRange.Split('-');
                 switch (invariantName.ToLower())
                 {
                     case "npgsql":
-                        var updateRange = this.m_checkRange.Split('-');
-                        return $"select not(string_to_array(get_sch_vrsn(), '.')::int[] between string_to_array('{updateRange[0]}','.')::int[] and string_to_array('{updateRange[1]}', '.')::int[])";
+                        if (String.IsNullOrEmpty(this.m_checkRange))
+                            return "SELECT TRUE";
+                        else
+                            return $"select not(string_to_array(get_sch_vrsn(), '.')::int[] between string_to_array('{updateRange[0]}','.')::int[] and string_to_array('{updateRange[1]}', '.')::int[])";
+                    case "fbsql":
+                        if (String.IsNullOrEmpty(this.m_checkRange))
+                            return "SELECT true FROM rdb$database";
+                        else
+                            throw new NotSupportedException($"This update provider does not support {invariantName}");
                     default:
                         throw new InvalidOperationException($"This update provider does not support {invariantName}");
                 }
+            }
             else
                 return this.m_checkSql;
         }

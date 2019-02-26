@@ -73,7 +73,7 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Get the name of the provider
         /// </summary>
-        public string Name
+        public string Invariant
         {
             get
             {

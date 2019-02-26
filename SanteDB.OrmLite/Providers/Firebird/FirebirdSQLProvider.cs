@@ -79,7 +79,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Gets the name of the provider
         /// </summary>
-        public string Name
+        public string Invariant
         {
             get
             {
