@@ -58,6 +58,11 @@ namespace SanteDB.OrmLite.Providers
         }
 
         /// <summary>
+        /// Get the provider type
+        /// </summary>
+        public abstract Type DbProviderType { get; }
+
+        /// <summary>
         /// Fired when progress is being made
         /// </summary>
         public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
@@ -96,7 +101,7 @@ namespace SanteDB.OrmLite.Providers
                 {
                     try
                     {
-                        var checkSql = f.GetCheckSql(this.Invariant);
+                        var checkSql = f.GetCheckSql();
                         if (!String.IsNullOrEmpty(checkSql)) 
                             using (var cmd = conn.Connection.CreateCommand())
                             {
@@ -131,6 +136,30 @@ namespace SanteDB.OrmLite.Providers
             foreach (var itm in retVal)
                 retVal[itm.Key] = connectionString.GetComponent(itm.Key);
             return retVal;
+        }
+
+        /// <summary>
+        /// Create the specified database
+        /// </summary>
+        public abstract ConnectionString CreateDatabase(ConnectionString connectionString, string databaseName, string databaseOwner);
+
+        /// <summary>
+        /// Test the connection string
+        /// </summary>
+        public virtual bool TestConnectionString(ConnectionString connectionString)
+        {
+            var pvdr = this.GetProvider(connectionString);
+            using (var conn = pvdr.GetReadonlyConnection())
+                try
+                {
+                    conn.Open();
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+
         }
     }
 }

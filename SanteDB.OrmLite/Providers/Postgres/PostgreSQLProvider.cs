@@ -425,5 +425,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
             s_filterFunctions.TryGetValue(name, out retVal);
             return retVal;
         }
+
     }
 }

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using SanteDB.Core;
@@ -8,7 +10,7 @@ using SanteDB.Core.Configuration;
 using SanteDB.Core.Configuration.Data;
 using SanteDB.OrmLite.Providers;
 
-namespace SanteDB.Configurator.DataProviders
+namespace SanteDB.OrmLite.Providers.Firebird
 {
     /// <summary>
     /// Represents a FirebirdSQLDataProvider
@@ -29,6 +31,11 @@ namespace SanteDB.Configurator.DataProviders
         /// Get the available platforms
         /// </summary>
         public override OperatingSystemID Platform => OperatingSystemID.Win32;
+        
+        /// <summary>
+        /// Get the database provider
+        /// </summary>
+        public override Type DbProviderType => typeof(FirebirdSQLProvider);
 
         /// <summary>
         /// Get the options
@@ -37,7 +44,7 @@ namespace SanteDB.Configurator.DataProviders
         {
             { "user id", ConfigurationOptionType.String },
             { "password", ConfigurationOptionType.Password },
-            { "initial catalog", ConfigurationOptionType.FileName }
+            { "initial catalog", ConfigurationOptionType.DatabaseName }
         };
 
         /// <summary>
@@ -45,7 +52,55 @@ namespace SanteDB.Configurator.DataProviders
         /// </summary>
         public override ConnectionString CreateConnectionString(Dictionary<string, object> options)
         {
-            return new ConnectionString(this.Invariant, options);
+            return this.CorrectConnectionString(new ConnectionString(this.Invariant, options));
+        }
+
+        /// <summary>
+        /// Test the connection string
+        /// </summary>
+        public override bool TestConnectionString(ConnectionString connectionString)
+        {
+            if(!String.IsNullOrEmpty(connectionString.GetComponent("initial catalog")) &&
+                !String.IsNullOrEmpty(connectionString.GetComponent("user id")))
+                return base.TestConnectionString(connectionString);
+            return false;
+        }
+
+        /// <summary>
+        /// Correct the specified connection string
+        /// </summary>
+        /// <param name="connectionString"></param>
+        /// <returns></returns>
+        private ConnectionString CorrectConnectionString(ConnectionString connectionString)
+        {
+            if (String.IsNullOrEmpty(connectionString.GetComponent("server type")))
+                connectionString.SetComponent("server type", "Embedded");
+            if (!String.IsNullOrEmpty(connectionString.GetComponent("initial catalog"))
+                && !connectionString.GetComponent("initial catalog").StartsWith("|DataDirectory|")
+                && !Path.IsPathRooted(connectionString.GetComponent("initial catalog")))
+                connectionString.SetComponent("initial catalog", $"|DataDirectory|\\{connectionString.GetComponent("initial catalog")}");
+            return connectionString;
+        }
+        /// <summary>
+        /// Create the specified database
+        /// </summary>
+        public override ConnectionString CreateDatabase(ConnectionString connectionString, string databaseName, string databaseOwner)
+        {
+            // This is a little tricky as we have to get the FireBird ADO and call the function through reflection since ORM doesn't have it
+            connectionString = connectionString.Clone();
+            connectionString.SetComponent("server type", "Embedded");
+            var fbConnectionType = Type.GetType("FirebirdSql.Data.FirebirdClient.FbConnection, FirebirdSql.Data.FirebirdClient");
+            if (fbConnectionType == null)
+                throw new InvalidOperationException("Cannot find FirebirdSQL provider");
+            var createDbMethod = fbConnectionType.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).SingleOrDefault(o=>o.Name == "CreateDatabase" && o.GetParameters().Length == 2);
+            if (createDbMethod == null)
+                throw new InvalidOperationException("Cannot find FirebirdSQL CreateDatabase method. Perhaps this is an invalid version of ADO.NET provider");
+            var dbPath = Path.ChangeExtension(Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), databaseName), "fdb");
+            connectionString.SetComponent("initial catalog", dbPath);
+            createDbMethod.Invoke(null, new object[] { connectionString.ToString(), false });
+            connectionString.SetComponent("initial catalog", Path.GetFileName(dbPath));
+
+            return connectionString;
         }
 
         /// <summary>
@@ -53,7 +108,7 @@ namespace SanteDB.Configurator.DataProviders
         /// </summary>
         public override IEnumerable<string> GetDatabases(ConnectionString connectionString)
         {
-            return new String[] { "RDB$DATABASE" };
+            return Directory.GetFiles(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "*.fdb").Select(o => Path.GetFileName(o));
         }
 
         /// <summary>
@@ -65,7 +120,8 @@ namespace SanteDB.Configurator.DataProviders
             {
                 { "user id", connectionString.GetComponent("user id") },
                 { "password", connectionString.GetComponent("password") },
-                { "initial catalog", connectionString.GetComponent("initial catalog") }
+                { "initial catalog", connectionString.GetComponent("initial catalog") },
+                { "database", "RDB$DATABASE" }
             };
         }
 
@@ -74,7 +130,7 @@ namespace SanteDB.Configurator.DataProviders
         /// </summary>
         protected override IDbProvider GetProvider(ConnectionString connectionString) => new SanteDB.OrmLite.Providers.Firebird.FirebirdSQLProvider()
         {
-            ConnectionString = connectionString.Value
+            ConnectionString = this.CorrectConnectionString(connectionString).Value
         };
     }
 }

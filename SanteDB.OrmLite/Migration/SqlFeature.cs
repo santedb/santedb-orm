@@ -28,8 +28,16 @@ namespace SanteDB.OrmLite.Migration
         // Check SQL 
         private string m_checkSql;
 
-        // Invariant name
-        private string m_invariant;
+        // Remarks
+        internal string Remarks { get; private set; }
+
+        // Identifier
+        public string Id { get; private set; }
+
+        /// <summary>
+        /// Gets or sets the url
+        /// </summary>
+        internal Uri Url { get; private set; }
 
         /// <summary>
         /// Load the specified stream
@@ -49,11 +57,15 @@ namespace SanteDB.OrmLite.Migration
                 var xmlText = xmlSql.Groups[1].Value.Replace("*", "");
                 XmlDocument xd = new XmlDocument();
                 xd.LoadXml(xmlText);
-                retVal.Name = xd.SelectSingleNode("/feature/@id")?.Value ?? "other update";
+                retVal.Id = xd.SelectSingleNode("/feature/@id")?.Value ?? "0-0";
+                retVal.Name = xd.SelectSingleNode("/feature/@name")?.Value ?? "Other";
                 retVal.Description = xd.SelectSingleNode("/feature/summary/text()")?.Value ?? "other update";
+                retVal.Remarks = xd.SelectSingleNode("/feature/remarks/text()")?.Value ?? "other update";
+                retVal.Url = new Uri(xd.SelectSingleNode("/feature/url/text()")?.Value ?? $"http://help.santesuite.org/ops/santedb/fixpatch/{retVal.Id}");
                 retVal.m_checkRange = xd.SelectSingleNode("/feature/@applyRange")?.Value;
+                retVal.Scope = xd.SelectSingleNode("/feature/@scope")?.Value;
                 retVal.m_checkSql = xd.SelectSingleNode("/feature/isInstalled/text()")?.Value;
-                retVal.m_invariant = xd.SelectSingleNode("/feature/@invariantName")?.Value;
+                retVal.InvariantName = xd.SelectSingleNode("/feature/@invariantName")?.Value;
 
             }
             else
@@ -72,6 +84,11 @@ namespace SanteDB.OrmLite.Migration
         }
 
         /// <summary>
+        /// Gets or sets the invariant
+        /// </summary>
+        public string InvariantName { get; set; }
+
+        /// <summary>
         /// Gets the name of the update
         /// </summary>
         public string Name
@@ -80,14 +97,19 @@ namespace SanteDB.OrmLite.Migration
         }
 
         /// <summary>
+        /// Gets the scope of the object
+        /// </summary>
+        public String Scope { get; internal set; }
+
+        /// <summary>
         /// Gets the check sql
         /// </summary>
-        public string GetCheckSql(string invariantName)
+        public string GetCheckSql()
         {
             if (String.IsNullOrEmpty(this.m_checkSql))
             {
                 var updateRange = this.m_checkRange.Split('-');
-                switch (invariantName.ToLower())
+                switch (this.InvariantName.ToLower())
                 {
                     case "npgsql":
                         if (String.IsNullOrEmpty(this.m_checkRange))
@@ -98,9 +120,9 @@ namespace SanteDB.OrmLite.Migration
                         if (String.IsNullOrEmpty(this.m_checkRange))
                             return "SELECT true FROM rdb$database";
                         else
-                            throw new NotSupportedException($"This update provider does not support {invariantName}");
+                            throw new NotSupportedException($"This update provider does not support {this.InvariantName}");
                     default:
-                        throw new InvalidOperationException($"This update provider does not support {invariantName}");
+                        throw new InvalidOperationException($"This update provider does not support {this.InvariantName}");
                 }
             }
             else
@@ -110,12 +132,9 @@ namespace SanteDB.OrmLite.Migration
         /// <summary>
         /// Get the deployment sql
         /// </summary>
-        public string GetDeploySql(string invariantName)
+        public string GetDeploySql()
         {
-            if (this.m_invariant.ToLower() == invariantName.ToLower())
-                return this.m_deploySql;
-            else
-                return null;
+            return this.m_deploySql;
         }
     }
 }

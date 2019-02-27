@@ -51,9 +51,27 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public override Dictionary<String, String[]> OptionGroups => new Dictionary<string, string[]>()
         {
-            { "Connection", new string[]{ "server","port","user id","password","database"} },
+            { "Connection", new string[]{ "host","port","user id","password","database"} },
             { "Pooling", new string[] { "pooling", "minpoolsize", "maxpoolsize" } }
         };
+
+        /// <summary>
+        /// Get the database provider
+        /// </summary>
+        public override Type DbProviderType => typeof(PostgreSQLProvider);
+
+        /// <summary>
+        /// Test the connection string
+        /// </summary>
+        public override bool TestConnectionString(ConnectionString connectionString)
+        {
+            if (!String.IsNullOrEmpty(connectionString.GetComponent("host")) &&
+                !String.IsNullOrEmpty(connectionString.GetComponent("password")) &&
+                !String.IsNullOrEmpty(connectionString.GetComponent("database")) &&
+                !String.IsNullOrEmpty(connectionString.GetComponent("user id")))
+                return base.TestConnectionString(connectionString);
+            return false;
+        }
 
         /// <summary>
         /// Create connection string
@@ -103,5 +121,49 @@ namespace SanteDB.OrmLite.Providers.Postgres
             ConnectionString = connectionString.Value
         };
 
+        /// <summary>
+        /// Create the specified database
+        /// </summary>
+        public override ConnectionString CreateDatabase(ConnectionString connectionString, string databaseName, string databaseOwner)
+        {
+            connectionString = connectionString.Clone();
+            connectionString.SetComponent("database", "postgres");
+            var provider = this.GetProvider(connectionString);
+            using(var conn = provider.GetWriteConnection())
+            {
+                try
+                {
+                    // Create the database
+                    conn.Open();
+
+                    String[] cmds =
+                    {
+                        $"CREATE DATABASE {databaseName} WITH OWNER {databaseOwner};",
+                        $"REVOKE ALL ON DATABASE {databaseName} FROM public;",
+                        $"GRANT ALL ON DATABASE {databaseName} TO {databaseOwner};",
+                        $"CREATE OR REPLACE LANGUAGE plpgsql;"
+                    };
+
+                    foreach (var cmd in cmds) {
+                        using (var c = conn.Connection.CreateCommand())
+                        {
+                            c.CommandText = cmd;
+                            c.CommandType = System.Data.CommandType.Text;
+                            c.ExecuteNonQuery();
+                        }
+                    }
+
+                    connectionString.SetComponent("database", databaseName);
+                }
+                catch(Exception e)
+                {
+                    throw new InvalidOperationException($"Could not create database: {e.Message}", e);
+                }
+            }
+
+            return connectionString;
+
+
+        }
     }
 }

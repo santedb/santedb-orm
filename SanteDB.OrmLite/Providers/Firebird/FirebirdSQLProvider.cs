@@ -356,6 +356,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
             return new DataContext(this, conn, true);
         }
 
+        /// <summary>
+        /// Get a write connection
+        /// </summary>
+        /// <returns></returns>
         public DataContext GetWriteConnection()
         {
             var conn = this.GetProviderFactory().CreateConnection();
@@ -437,5 +441,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
             s_filterFunctions.TryGetValue(name, out retVal);
             return retVal;
         }
+
     }
 }

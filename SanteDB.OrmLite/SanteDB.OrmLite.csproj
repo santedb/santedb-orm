@@ -72,6 +72,7 @@
     <Compile Include="ColumnMapping.cs" />
     <Compile Include="DataContext.Command.cs" />
     <Compile Include="DataContext.cs" />
+    <Compile Include="Migration\SqlMigrationTask.cs" />
     <Compile Include="Providers\AdoNetConfigurationProvider.cs" />
     <Compile Include="Providers\Firebird\FirebirdSQLConfigurationProvider.cs" />
     <Compile Include="Providers\Postgres\PostgreSQLConfigurationProvider.cs" />
