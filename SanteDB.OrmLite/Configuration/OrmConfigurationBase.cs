@@ -20,6 +20,7 @@
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -39,30 +40,42 @@ namespace SanteDB.OrmLite.Configuration
         /// Read/write connection string
         /// </summary>
         [XmlAttribute("readWriteConnectionString")]
+        [Category("Connection")]
+        [Description("The primary connection to use for connecting to the SanteDB persistence layer")]
+        [Editor("SanteDB.Configuration.Editors.ConnectionStringEditor, SanteDB.Configuration, Version=1.10.0.0", "System.Drawing.Design.UITypeEditor, System.Drawing, Version=4.0.0.0")]
         public String ReadWriteConnectionString { get; set; }
 
         /// <summary>
         /// Readonly connection string
         /// </summary>
         [XmlAttribute("readOnlyConnectionString")]
+        [Category("Connection")]
+        [Description("The connection to use for readonly access (queries). This is used when you have a read replica (example: Streaming Replication on PostgreSQL) and want queries to be directed to the read replica")]
+        [Editor("SanteDB.Configuration.Editors.ConnectionStringEditor, SanteDB.Configuration, Version=1.10.0.0", "System.Drawing.Design.UITypeEditor, System.Drawing, Version=4.0.0.0")]
         public String ReadonlyConnectionString { get; set; }
 
         /// <summary>
         /// Trace SQL enabled
         /// </summary>
         [XmlAttribute("traceSql")]
+        [Category("Diagnostics")]
+        [Description("When true, logs all generated SQL to the log file")]
         public bool TraceSql { get; set; }
 
         /// <summary>
         /// Provider type
         /// </summary>
         [XmlAttribute("providerType")]
+        [Category("Connection")]
+        [Description("The ORM provider to use for this connection")]
+        [TypeConverter("SanteDB.Configuration.Converters.DataProviderConverter, SanteDB.Configuration, Version=1.10.0.0")]
+        [Editor("SanteDB.Configuration.Editors.DataProviderEditor, SanteDB.Configuration, Version=1.10.0.0", "System.Drawing.Design.UITypeEditor, System.Drawing, Version=4.0.0.0")]
         public String ProviderType { get; set; }
 
         /// <summary>
         /// Get the provider
         /// </summary>
-        [XmlIgnore]
+        [XmlIgnore, Browsable(false)]
         public IDbProvider Provider
         {
             get
