@@ -114,27 +114,34 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
             if (dbst.ConnectionString != this.ConnectionString)
             {
+                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "Will rewrite readonly connection string from {0}", dbst.ConnectionString);
                 Object host = String.Empty;
-                if (this.m_readonlyIpAddresses == null && dbst.TryGetValue("host", out host) || dbst.TryGetValue("server", out host))
+                if (this.m_readonlyIpAddresses == null && (dbst.TryGetValue("host", out host) || dbst.TryGetValue("server", out host)))
                 {
                     IPAddress ip = null;
+                    this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "Will attempt to resolve '{0}' to readonly pool", host);
+
                     if (IPAddress.TryParse(host.ToString(), out ip)) // server is an IP, no need to dns
                         this.m_readonlyIpAddresses = new IPAddress[] { ip };
-                    else if (host.ToString() == "localhost")
+                    else if (host.ToString() == "localhost" ||
+                        host.ToString() == "127.0.0.1")
                     {
                         conn.ConnectionString = dbst.ConnectionString;
                         return new DataContext(this, conn, true);
                     }
                     else
                         this.m_readonlyIpAddresses = Dns.GetHostAddresses(host.ToString());
+
                     dbst.Remove("host");
                     dbst.Remove("server");
                     conn.ConnectionString = dbst.ConnectionString;
+                    this.m_tracer.TraceInformation("Readonly host {0} resolves to pool of IP addresses [{1}]", host, String.Join(",", this.m_readonlyIpAddresses.Select(o => o.ToString())));
                 }
 
                 // Readonly IP address
-                if (this.m_readonlyIpAddresses?.Length > 1)
+                if (this.m_readonlyIpAddresses?.Length > 0)
                 {
+                    this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "Assign readonly IP address from resolved pool to {0}", dbst.ConnectionString);
                     dbst["server"] = this.m_readonlyIpAddresses[this.m_lastRrHost++ % this.m_readonlyIpAddresses.Length].ToString();
                     if (this.m_lastRrHost > this.m_readonlyIpAddresses.Length) this.m_lastRrHost = 0;
                     conn.ConnectionString = dbst.ConnectionString;
@@ -145,6 +152,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
             else
                 conn.ConnectionString = dbst.ConnectionString;
 
+
+            this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "Created readonly connection: {0}", conn.ConnectionString);
             return new DataContext(this, conn, true);
         }
 

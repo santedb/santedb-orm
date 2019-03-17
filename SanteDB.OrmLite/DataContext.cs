@@ -161,7 +161,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Open()
         {
-
+            this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "Connecting to {0}...", this.m_connection.ConnectionString);
             if (this.m_connection.State == ConnectionState.Closed)
                 this.m_connection.Open();
             else if (this.m_connection.State == ConnectionState.Broken)
