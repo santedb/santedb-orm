@@ -347,7 +347,7 @@ namespace SanteDB.OrmLite
                     this.m_sqlStatement.Append(" CURRENT_TIMESTAMP ");
                     break;
                 case "NewGuid":
-                    this.m_sqlStatement.Append(" uuid_generate_v4() ");
+                    this.m_sqlStatement.Append(" ? ", Guid.NewGuid());
                     break;
                 case "HasValue":
                     this.Visit(node.Expression);
@@ -367,7 +367,6 @@ namespace SanteDB.OrmLite
                                 var tableMap = TableMapping.Get(expr.Type);
                                 var columnMap = tableMap.GetColumn(node.Member);
                                 this.Visit(expr);
-                                // Now write out the expression
                                 this.m_sqlStatement.Append($".{columnMap.Name}");
                                 break;
                             case ExpressionType.Constant:
