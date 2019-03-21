@@ -23,6 +23,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
+using System.Diagnostics.Tracing;
 using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -186,7 +187,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "QUERY {0} executed in {1} ms", spName, sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "QUERY {0} executed in {1} ms", spName, sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -290,7 +291,7 @@ namespace SanteDB.OrmLite
                 }
                 catch (Exception e)
                 {
-                    this.m_tracer.TraceEvent(TraceEventType.Error, 0, "Error mapping: {0} : {1}", itm.Name, e.ToString());
+                    this.m_tracer.TraceEvent(EventLevel.Error,  "Error mapping: {0} : {1}", itm.Name, e.ToString());
                     throw new MissingFieldException(tableMapping.TableName, itm.Name);
                 }
             }
@@ -298,7 +299,7 @@ namespace SanteDB.OrmLite
             if (result is IAdoLoadedData)
                 (result as IAdoLoadedData).Context = this;
             else
-                this.m_tracer.TraceEvent(TraceEventType.Information, 0, "Type {0} does not implement IAdoLoadedData", tModel);
+                this.m_tracer.TraceEvent(EventLevel.Informational,  "Type {0} does not implement IAdoLoadedData", tModel);
             return result;
 
         }
@@ -342,7 +343,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "QUERY {0} executed in {1} ms", this.GetQueryLiteral(stmt), sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "QUERY {0} executed in {1} ms", this.GetQueryLiteral(stmt), sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -382,7 +383,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "FIRST {0} executed in {1} ms", spName, sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "FIRST {0} executed in {1} ms", spName, sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -427,7 +428,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "FIRST {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "FIRST {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -471,7 +472,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "FIRST {0} executed in {1} ms", this.GetQueryLiteral(stmt), sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "FIRST {0} executed in {1} ms", this.GetQueryLiteral(stmt), sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -523,7 +524,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "SINGLE {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "SINGLE {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -566,7 +567,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "ANY {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "ANY {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -608,7 +609,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "ANY {0} executed in {1} ms", this.GetQueryLiteral(querySpec), sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "ANY {0} executed in {1} ms", this.GetQueryLiteral(querySpec), sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -649,7 +650,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "COUNT {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "COUNT {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -690,7 +691,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "COUNT {0} executed in {1} ms", this.GetQueryLiteral(querySpec), sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "COUNT {0} executed in {1} ms", this.GetQueryLiteral(querySpec), sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -753,7 +754,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "QUERY {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "QUERY {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -811,7 +812,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "QUERY {0} executed in {1} ms", this.GetQueryLiteral(query), sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "QUERY {0} executed in {1} ms", this.GetQueryLiteral(query), sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -968,7 +969,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "INSERT executed in {0} ms", sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "INSERT executed in {0} ms", sw.ElapsedMilliseconds);
             }
 #endif
 
@@ -1005,7 +1006,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "DELETE executed in {0} ms", sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "DELETE executed in {0} ms", sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -1050,7 +1051,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "DELETE executed in {0} ms", sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "DELETE executed in {0} ms", sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -1097,7 +1098,7 @@ namespace SanteDB.OrmLite
                 // Nothing being updated
                 if (nUpdatedColumns == 0)
                 {
-                    m_tracer.TraceInformation("Nothing to update, will skip");
+                    m_tracer.TraceInfo("Nothing to update, will skip");
                     return value;
                 }
 
@@ -1128,7 +1129,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "UPDATE executed in {0} ms", sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "UPDATE executed in {0} ms", sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -1163,7 +1164,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "EXECUTE NON QUERY executed in {0} ms", sw.ElapsedMilliseconds);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "EXECUTE NON QUERY executed in {0} ms", sw.ElapsedMilliseconds);
             }
 #endif
         }

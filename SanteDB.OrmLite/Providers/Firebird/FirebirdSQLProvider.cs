@@ -21,6 +21,7 @@
 /*
  * This product includes software developed by Borland Software Corp.
  */
+using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Warehouse;
@@ -29,6 +30,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
+using System.Diagnostics.Tracing;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -43,7 +45,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
     {
 
         // Trace source
-        private TraceSource m_tracer = new TraceSource(Constants.TracerName + ".FirebirdSQL");
+        private Tracer m_tracer = new Tracer(Constants.TracerName + ".FirebirdSQL");
 
         // DB provider factory
         private DbProviderFactory m_provider = null;
@@ -180,7 +182,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 cmd.CommandType = type;
 
                 if (this.TraceSql)
-                    this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "[{0}] {1}", type, sql);
+                    this.m_tracer.TraceEvent(EventLevel.Verbose, "[{0}] {1}", type, sql);
 
                 pno = 0;
                 foreach (var itm in parms)
@@ -210,7 +212,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     parm.Direction = ParameterDirection.Input;
 
                     if (this.TraceSql)
-                        this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
+                        this.m_tracer.TraceEvent(EventLevel.Verbose, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
 
 
                     cmd.Parameters.Add(parm);

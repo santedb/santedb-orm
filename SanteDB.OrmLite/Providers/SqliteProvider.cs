@@ -17,6 +17,7 @@
  * User: justi
  * Date: 2019-1-12
  */
+using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Warehouse;
@@ -25,6 +26,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
+using System.Diagnostics.Tracing;
 using System.Linq;
 
 namespace SanteDB.OrmLite.Providers
@@ -42,7 +44,7 @@ namespace SanteDB.OrmLite.Providers
         private Dictionary<String, Object> m_locks = new Dictionary<string, object>();
 
         // Tracer for the objects
-        private TraceSource m_tracer = new TraceSource(Constants.TracerName + ".Sqlite");
+        private Tracer m_tracer = new Tracer(Constants.TracerName + ".Sqlite");
 
         /// <summary>
         /// Gets or sets the connection string for this provier
@@ -134,7 +136,7 @@ namespace SanteDB.OrmLite.Providers
             cmd.Transaction = context.Transaction;
 
             if (this.TraceSql)
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "[{0}] {1}", type, sql);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "[{0}] {1}", type, sql);
 
             foreach (var itm in parms)
             {
@@ -160,7 +162,7 @@ namespace SanteDB.OrmLite.Providers
                 parm.Direction = ParameterDirection.Input;
 
                 if (this.TraceSql)
-                    this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
+                    this.m_tracer.TraceEvent(EventLevel.Verbose, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
 
 
                 cmd.Parameters.Add(parm);

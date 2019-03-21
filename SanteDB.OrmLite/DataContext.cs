@@ -17,6 +17,7 @@
  * User: justi
  * Date: 2019-1-12
  */
+using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Warehouse;
@@ -25,6 +26,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
+using System.Diagnostics.Tracing;
 using System.Linq;
 using System.Text;
 
@@ -57,7 +59,7 @@ namespace SanteDB.OrmLite
         private Dictionary<String, IEnumerable<Object>> m_cachedQuery = new Dictionary<string, IEnumerable<object>>();
 
         // Trace source
-        private TraceSource m_tracer = new TraceSource("SanteDB.OrmLite");
+        private Tracer m_tracer = new Tracer("SanteDB.OrmLite");
 
         // Commands prepared on this connection
         private Dictionary<String, IDbCommand> m_preparedCommands = new Dictionary<string, IDbCommand>();
@@ -161,7 +163,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Open()
         {
-            this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "Connecting to {0}...", this.m_connection.ConnectionString);
+            this.m_tracer.TraceEvent(EventLevel.Verbose, "Connecting to {0}...", this.m_connection.ConnectionString);
             if (this.m_connection.State == ConnectionState.Closed)
                 this.m_connection.Open();
             else if (this.m_connection.State == ConnectionState.Broken)
@@ -264,7 +266,7 @@ namespace SanteDB.OrmLite
             }
             catch(Exception e)
             {
-                this.m_tracer.TraceEvent(TraceEventType.Warning, 0, "Object {0} won't be added to cache: {1}", data, e);
+                this.m_tracer.TraceEvent(EventLevel.Warning, "Object {0} won't be added to cache: {1}", data, e);
             }
         }
 

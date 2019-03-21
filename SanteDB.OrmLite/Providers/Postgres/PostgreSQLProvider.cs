@@ -17,6 +17,7 @@
  * User: justi
  * Date: 2019-1-12
  */
+using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Warehouse;
@@ -25,6 +26,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
+using System.Diagnostics.Tracing;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -44,7 +46,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         private IPAddress[] m_readonlyIpAddresses;
 
         // Trace source
-        private TraceSource m_tracer = new TraceSource(Constants.TracerName + ".PostgreSQL");
+        private Tracer m_tracer = new Tracer(Constants.TracerName + ".PostgreSQL");
 
         // DB provider factory
         private DbProviderFactory m_provider = null;
@@ -114,12 +116,12 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
             if (dbst.ConnectionString != this.ConnectionString)
             {
-                this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "Will rewrite readonly connection string from {0}", dbst.ConnectionString);
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "Will rewrite readonly connection string from {0}", dbst.ConnectionString);
                 Object host = String.Empty;
                 if (this.m_readonlyIpAddresses == null && (dbst.TryGetValue("host", out host) || dbst.TryGetValue("server", out host)))
                 {
                     IPAddress ip = null;
-                    this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "Will attempt to resolve '{0}' to readonly pool", host);
+                    this.m_tracer.TraceEvent(EventLevel.Verbose, "Will attempt to resolve '{0}' to readonly pool", host);
 
                     if (IPAddress.TryParse(host.ToString(), out ip)) // server is an IP, no need to dns
                         this.m_readonlyIpAddresses = new IPAddress[] { ip };
@@ -135,13 +137,13 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     dbst.Remove("host");
                     dbst.Remove("server");
                     conn.ConnectionString = dbst.ConnectionString;
-                    this.m_tracer.TraceInformation("Readonly host {0} resolves to pool of IP addresses [{1}]", host, String.Join(",", this.m_readonlyIpAddresses.Select(o => o.ToString())));
+                    this.m_tracer.TraceInfo("Readonly host {0} resolves to pool of IP addresses [{1}]", host, String.Join(",", this.m_readonlyIpAddresses.Select(o => o.ToString())));
                 }
 
                 // Readonly IP address
                 if (this.m_readonlyIpAddresses?.Length > 0)
                 {
-                    this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "Assign readonly IP address from resolved pool to {0}", dbst.ConnectionString);
+                    this.m_tracer.TraceEvent(EventLevel.Verbose, "Assign readonly IP address from resolved pool to {0}", dbst.ConnectionString);
                     dbst["server"] = this.m_readonlyIpAddresses[this.m_lastRrHost++ % this.m_readonlyIpAddresses.Length].ToString();
                     if (this.m_lastRrHost > this.m_readonlyIpAddresses.Length) this.m_lastRrHost = 0;
                     conn.ConnectionString = dbst.ConnectionString;
@@ -153,7 +155,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 conn.ConnectionString = dbst.ConnectionString;
 
 
-            this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "Created readonly connection: {0}", conn.ConnectionString);
+            this.m_tracer.TraceEvent(EventLevel.Verbose, "Created readonly connection: {0}", conn.ConnectionString);
             return new DataContext(this, conn, true);
         }
 
@@ -224,7 +226,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 cmd.CommandText = sql;
 
                 if (this.TraceSql)
-                    this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "[{0}] {1}", type, sql);
+                    this.m_tracer.TraceEvent(EventLevel.Verbose, "[{0}] {1}", type, sql);
 
                 pno = 0;
                 foreach (var itm in parms)
@@ -246,7 +248,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     parm.Direction = ParameterDirection.Input;
 
                     if (this.TraceSql)
-                        this.m_tracer.TraceEvent(TraceEventType.Verbose, 0, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
+                        this.m_tracer.TraceEvent(EventLevel.Verbose, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
 
 
                     cmd.Parameters.Add(parm);
