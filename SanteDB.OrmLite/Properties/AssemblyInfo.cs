@@ -17,6 +17,8 @@
  * User: justi
  * Date: 2019-1-12
  */
+using SanteDB.Core.Attributes;
+using SanteDB.OrmLite;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -50,6 +52,11 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.30.0*")]
-[assembly: AssemblyVersion("1.30.0.*")]
-[assembly: AssemblyFileVersion("1.30.0.0")]
+[assembly: AssemblyVersion("1.31.0.*")]
+[assembly: AssemblyFileVersion("1.31.0.0")]
 [assembly: AssemblyInformationalVersion("Halifax")]
+
+[assembly: PluginTraceSource(Constants.TracerName + ".PostgreSQL")]
+[assembly: PluginTraceSource(Constants.TracerName + ".Sqlite")]
+[assembly: PluginTraceSource(Constants.TracerName + ".FirebirdSQL")]
+[assembly: PluginTraceSource(Constants.TracerName)]

@@ -59,7 +59,7 @@ namespace SanteDB.OrmLite
         private Dictionary<String, IEnumerable<Object>> m_cachedQuery = new Dictionary<string, IEnumerable<object>>();
 
         // Trace source
-        private Tracer m_tracer = new Tracer("SanteDB.OrmLite");
+        private Tracer m_tracer = new Tracer(Constants.TracerName);
 
         // Commands prepared on this connection
         private Dictionary<String, IDbCommand> m_preparedCommands = new Dictionary<string, IDbCommand>();

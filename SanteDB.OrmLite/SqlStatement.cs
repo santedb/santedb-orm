@@ -128,7 +128,7 @@ namespace SanteDB.OrmLite
             {
                 sb.Append(focus.m_sql);
                 // Add parms
-                if(focus.Arguments != null)
+                if (focus.Arguments != null)
                     parameters.AddRange(focus.Arguments);
                 focus = focus.m_rhs;
             } while (focus != null);
@@ -236,9 +236,9 @@ namespace SanteDB.OrmLite
 
             if (lhsPk == null || rhsPk == null) // Try a natural join
             {
-                rhsPk = tableMap.Columns.SingleOrDefault(o => TableMapping.Get(tLeft).Columns.Any(l=>o.Name == l.Name));
+                rhsPk = tableMap.Columns.SingleOrDefault(o => TableMapping.Get(tLeft).Columns.Any(l => o.Name == l.Name));
                 lhsPk = TableMapping.Get(tLeft).Columns.SingleOrDefault(o => o.Name == rhsPk?.Name);
-                if(rhsPk == null || lhsPk == null)
+                if (rhsPk == null || lhsPk == null)
                     throw new InvalidOperationException("Unambiguous linked keys not found");
             }
             joinStatement.Append($"({lhsPk.Table.TableName}.{lhsPk.Name} = {rhsPk.Table.TableName}.{rhsPk.Name}) ");
@@ -474,48 +474,68 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Construct a SELECT FROM statement
         /// </summary>
-        public SqlStatement<T> SelectFrom()
+        public SqlStatement<T> SelectFrom(bool includeCount = false)
         {
             var tableMap = TableMapping.Get(typeof(T));
-            if(this.m_provider.Features.HasFlag(SqlEngineFeatures.StrictSubQueryColumnNames))
-                return this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {String.Join(",", tableMap.Columns.Select(c=> $"{tableMap.TableName}.{c.Name}").ToArray())} FROM {tableMap.TableName} AS {tableMap.TableName} ")
+            SqlStatement<T> retVal = new SqlStatement<T>(this.m_provider, "SELECT ");
+            if (this.m_provider.Features.HasFlag(SqlEngineFeatures.StrictSubQueryColumnNames))
+                retVal.Append(new SqlStatement<T>(this.m_provider, $"{String.Join(",", tableMap.Columns.Select(c => $"{tableMap.TableName}.{c.Name}").ToArray())}")
                 {
                     m_alias = tableMap.TableName
                 });
             else
-                return this.Append(new SqlStatement<T>(this.m_provider, $"SELECT * FROM {tableMap.TableName} AS {tableMap.TableName} ")
+                retVal.Append(new SqlStatement<T>(this.m_provider, $"*")
                 {
                     m_alias = tableMap.TableName
                 });
+
+            if (includeCount) // TODO : Add check
+                retVal.Append(", COUNT(*) OVER () SYSCOUNT ");
+            retVal.Append(new SqlStatement<T>(this.m_provider, $" FROM {tableMap.TableName} AS {tableMap.TableName} "));
+            return retVal;
         }
+
+        /// <summary>
+        /// Select from specified tables
+        /// </summary>
+        public SqlStatement<T> SelectFrom(params Type[] scopedTables)
+        {
+            return this.SelectFrom(false, scopedTables);
+        } 
 
         /// <summary>
         /// Construct a SELECT FROM statement with the specified selectors
         /// </summary>
         /// <param name="selector">The types from which to select columns</param>
         /// <returns>The constructed sql statement</returns>
-        public SqlStatement<T> SelectFrom(params Type[] scopedTables)
+        public SqlStatement<T> SelectFrom(bool includeCount, params Type[] scopedTables)
         {
             var existingCols = new List<String>();
             var tableMap = TableMapping.Get(typeof(T));
             // Column list of distinct columns
-            var columnList = String.Join(",", scopedTables.Select(o=>TableMapping.Get(o)).SelectMany(o => o.Columns).Where(o =>
-            {
-                if (!existingCols.Contains(o.Name))
-                {
-                    existingCols.Add(o.Name);
-                    return true;
-                }
-                return false;
-            }).Select(o => $"{o.Table.TableName}.{o.Name}"));
+            var columnList = String.Join(",", scopedTables.Select(o => TableMapping.Get(o)).SelectMany(o => o.Columns).Where(o =>
+              {
+                  if (!existingCols.Contains(o.Name))
+                  {
+                      existingCols.Add(o.Name);
+                      return true;
+                  }
+                  return false;
+              }).Select(o => $"{o.Table.TableName}.{o.Name}"));
 
             // Append the result to query
-            return this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {columnList} FROM {tableMap.TableName} AS {tableMap.TableName} ")
+            var retVal = this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {columnList} ")
             {
                 m_alias = tableMap.TableName
             });
 
+            // Include count
+            if (includeCount)
+                retVal.Append(", COUNT(*) OVER () SYSCOUNT ");
 
+            retVal.Append($" FROM {tableMap.TableName} AS {tableMap.TableName} ");
+
+            return retVal;
         }
 
         /// <summary>

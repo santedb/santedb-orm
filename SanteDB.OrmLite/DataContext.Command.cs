@@ -158,6 +158,7 @@ namespace SanteDB.OrmLite
         public IEnumerable<TModel> Query<TModel>(String spName, params object[] arguments)
         {
 #if DEBUG 
+            int tr = 0;
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -169,7 +170,7 @@ namespace SanteDB.OrmLite
                     try
                     {
                         using (var rdr = dbc.ExecuteReader())
-                            return this.ReaderToCollection<TModel>(rdr).ToList();
+                            return this.ReaderToCollection<TModel>(rdr, out tr).ToList();
                     }
                     catch (TimeoutException)
                     {
@@ -225,10 +226,23 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Reader to collection of objects
         /// </summary>
-        private IEnumerable<TModel> ReaderToCollection<TModel>(IDataReader rdr)
+        private IEnumerable<TModel> ReaderToCollection<TModel>(IDataReader rdr, out int totalResults)
         {
+            // Total return value
+            List<TModel> retVal = new List<TModel>();
+
+            totalResults = 0;
+            if (rdr.Read()) // First tuple, grab partition function
+            {
+                for (var i = 0; i < rdr.FieldCount; i++)
+                    if (rdr.GetName(i) == "SYSCOUNT")
+                        totalResults = rdr.GetInt32(i);
+                retVal.Add(this.MapObject<TModel>(rdr));
+            }
+
             while (rdr.Read())
-                yield return this.MapObject<TModel>(rdr);
+                retVal.Add(this.MapObject<TModel>(rdr));
+            return retVal;
         }
 
         /// <summary>
@@ -715,9 +729,18 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Execute the specified query
+        /// Query with total results
         /// </summary>
         public IEnumerable<TModel> Query<TModel>(Expression<Func<TModel, bool>> querySpec)
+        {
+            int tr = 0;
+            return this.QueryCount(querySpec, out tr);
+        }
+
+        /// <summary>
+        /// Execute the specified query
+        /// </summary>
+        public IEnumerable<TModel> QueryCount<TModel>(Expression<Func<TModel, bool>> querySpec, out int count)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -725,14 +748,14 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var query = this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec);
+                var query = this.CreateSqlStatement<TModel>().SelectFrom(true).Where(querySpec);
                 lock (this.m_lockObject)
                 {
                     var dbc = this.m_provider.CreateCommand(this, query);
                     try
                     {
-                        using (var rdr = dbc.ExecuteReader())
-                            return this.ReaderToCollection<TModel>(rdr).ToList();
+                        using (var rdr = dbc.ExecuteReader()) 
+                            return this.ReaderToCollection<TModel>(rdr, out count).ToList();
                     }
                     catch (TimeoutException)
                     {
@@ -769,13 +792,23 @@ namespace SanteDB.OrmLite
                     this.m_dataDictionary.Add(key, value);
         }
 
+
+        /// <summary>
+        /// Query using specified statement
+        /// </summary>
+        public IEnumerable<TModel> Query<TModel>(SqlStatement query)
+        {
+            int tr = 0;
+            return this.QueryCount<TModel>(query, out tr);
+        }
+
         /// <summary>
         /// Query using the specified statement
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="query"></param>
         /// <returns></returns>
-        public IEnumerable<TModel> Query<TModel>(SqlStatement query)
+        public IEnumerable<TModel> QueryCount<TModel>(SqlStatement query, out int count)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -789,7 +822,7 @@ namespace SanteDB.OrmLite
                     try
                     {
                         using (var rdr = dbc.ExecuteReader())
-                            return this.ReaderToCollection<TModel>(rdr).ToList();
+                            return this.ReaderToCollection<TModel>(rdr, out count).ToList();
 
                     }
                     catch (TimeoutException)
