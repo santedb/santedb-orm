@@ -344,7 +344,7 @@ namespace SanteDB.OrmLite
                     else
                         return $"{tablePrefix}{o.Table.TableName}.{o.Name}";
                 }));
-                selectStatement = new SqlStatement(this.m_provider, $"SELECT {columnList}, COUNT(*) OVER () AS SYSCOUNT ").Append(selectStatement);
+                selectStatement = new SqlStatement(this.m_provider, $"SELECT {columnList} ").Append(selectStatement);
             }
 
             // We want to process each query and build WHERE clauses - these where clauses are based off of the JSON / XML names
