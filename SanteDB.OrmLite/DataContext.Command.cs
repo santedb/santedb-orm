@@ -158,7 +158,6 @@ namespace SanteDB.OrmLite
         public IEnumerable<TModel> Query<TModel>(String spName, params object[] arguments)
         {
 #if DEBUG 
-            int tr = 0;
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -169,6 +168,7 @@ namespace SanteDB.OrmLite
                     var dbc = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments);
                     try
                     {
+                        int tr = 0;
                         using (var rdr = dbc.ExecuteReader())
                             return this.ReaderToCollection<TModel>(rdr, out tr).ToList();
                     }
