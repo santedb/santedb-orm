@@ -352,8 +352,13 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public object ConvertValue(object value, Type toType)
         {
             object retVal = null;
-            if(value != DBNull.Value)
-                MapUtil.TryConvert(value, toType, out retVal);
+            if (value != DBNull.Value)
+            {
+                if (toType.IsAssignableFrom(value.GetType()))
+                    return value;
+                else
+                    MapUtil.TryConvert(value, toType, out retVal);
+            }
             return retVal;
         }
 

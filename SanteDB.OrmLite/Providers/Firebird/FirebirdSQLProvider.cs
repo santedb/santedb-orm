@@ -124,6 +124,8 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 // Hack: Firebird handles UUIDs as a char array of 16 rather than a byte array
                 if (toType.StripNullable() == typeof(Guid))
                     retVal = Guid.Parse(String.Join("", Encoding.Default.GetBytes(value.ToString()).Select(o => (o).ToString("x2")).ToArray()));
+                else if (toType.IsAssignableFrom(value.GetType()))
+                    return value;
                 else if (!MapUtil.TryConvert(value, toType, out retVal))
                     throw new ArgumentOutOfRangeException(nameof(value), $"Cannot convert {value?.GetType().Name} to {toType.Name}");
             }

@@ -170,7 +170,7 @@ namespace SanteDB.OrmLite
                     {
                         int tr = 0;
                         using (var rdr = dbc.ExecuteReader())
-                            return this.ReaderToCollection<TModel>(rdr, out tr).ToList();
+                            return this.ReaderToCollection<TModel>(rdr).ToList();
                     }
                     catch (TimeoutException)
                     {
@@ -226,23 +226,22 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Reader to collection of objects
         /// </summary>
-        private IEnumerable<TModel> ReaderToCollection<TModel>(IDataReader rdr, out int totalResults)
+        private IEnumerable<TModel> ReaderToCollection<TModel>(IDataReader rdr)
         {
-            // Total return value
-            List<TModel> retVal = new List<TModel>();
+            //// Total return value
+            //List<TModel> retVal = new List<TModel>();
 
-            totalResults = 0;
-            if (rdr.Read()) // First tuple, grab partition function
-            {
-                for (var i = 0; i < rdr.FieldCount; i++)
-                    if (rdr.GetName(i) == "SYSCOUNT")
-                        totalResults = rdr.GetInt32(i);
-                retVal.Add(this.MapObject<TModel>(rdr));
-            }
+            //totalResults = 0;
+            //if (rdr.Read()) // First tuple, grab partition function
+            //{
+            //    for (var i = 0; i < rdr.FieldCount; i++)
+            //        if (rdr.GetName(i).Equals("SYSCOUNT", StringComparison.InvariantCultureIgnoreCase))
+            //            totalResults = rdr.GetInt32(i);
+            //    retVal.Add(this.MapObject<TModel>(rdr));
+            //}
 
             while (rdr.Read())
-                retVal.Add(this.MapObject<TModel>(rdr));
-            return retVal;
+                yield return this.MapObject<TModel>(rdr);
         }
 
         /// <summary>
@@ -313,7 +312,7 @@ namespace SanteDB.OrmLite
             if (result is IAdoLoadedData)
                 (result as IAdoLoadedData).Context = this;
             else
-                this.m_tracer.TraceEvent(EventLevel.Informational,  "Type {0} does not implement IAdoLoadedData", tModel);
+                this.m_tracer.TraceEvent(EventLevel.Verbose,  "Type {0} does not implement IAdoLoadedData", tModel);
             return result;
 
         }
@@ -729,18 +728,9 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Query with total results
-        /// </summary>
-        public IEnumerable<TModel> Query<TModel>(Expression<Func<TModel, bool>> querySpec)
-        {
-            int tr = 0;
-            return this.QueryCount(querySpec, out tr);
-        }
-
-        /// <summary>
         /// Execute the specified query
         /// </summary>
-        public IEnumerable<TModel> QueryCount<TModel>(Expression<Func<TModel, bool>> querySpec, out int count)
+        public IEnumerable<TModel> Query<TModel>(Expression<Func<TModel, bool>> querySpec)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -748,14 +738,14 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var query = this.CreateSqlStatement<TModel>().SelectFrom(true).Where(querySpec);
+                var query = this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec);
                 lock (this.m_lockObject)
                 {
                     var dbc = this.m_provider.CreateCommand(this, query);
                     try
                     {
                         using (var rdr = dbc.ExecuteReader()) 
-                            return this.ReaderToCollection<TModel>(rdr, out count).ToList();
+                            return this.ReaderToCollection<TModel>(rdr).ToList();
                     }
                     catch (TimeoutException)
                     {
@@ -792,23 +782,10 @@ namespace SanteDB.OrmLite
                     this.m_dataDictionary.Add(key, value);
         }
 
-
-        /// <summary>
-        /// Query using specified statement
-        /// </summary>
-        public IEnumerable<TModel> Query<TModel>(SqlStatement query)
-        {
-            int tr = 0;
-            return this.QueryCount<TModel>(query, out tr);
-        }
-
         /// <summary>
         /// Query using the specified statement
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="query"></param>
-        /// <returns></returns>
-        public IEnumerable<TModel> QueryCount<TModel>(SqlStatement query, out int count)
+        public IEnumerable<TModel> Query<TModel>(SqlStatement query)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -822,7 +799,7 @@ namespace SanteDB.OrmLite
                     try
                     {
                         using (var rdr = dbc.ExecuteReader())
-                            return this.ReaderToCollection<TModel>(rdr, out count).ToList();
+                            return this.ReaderToCollection<TModel>(rdr).ToList();
 
                     }
                     catch (TimeoutException)

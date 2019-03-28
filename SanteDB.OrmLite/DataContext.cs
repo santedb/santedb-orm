@@ -329,27 +329,5 @@ namespace SanteDB.OrmLite
             return retVal.ToString();
         }
 
-        /// <summary>
-        /// Add a cached set of query results
-        /// </summary>
-        public void AddQuery(SqlStatement domainQuery, IEnumerable<object> results)
-        {
-            var key = this.GetQueryLiteral(domainQuery);
-            lock (this.m_cachedQuery)
-                if (!this.m_cachedQuery.ContainsKey(key))
-                    this.m_cachedQuery.Add(key, results);
-        }
-
-        /// <summary>
-        /// Cache a query 
-        /// </summary>
-        public IEnumerable<Object> CacheQuery(SqlStatement domainQuery)
-        {
-            var key = this.GetQueryLiteral(domainQuery);
-            IEnumerable<Object> retVal = null;
-            this.m_cachedQuery.TryGetValue(key, out retVal);
-            return retVal;
-        }
-
     }
 }

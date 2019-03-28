@@ -326,11 +326,11 @@ namespace SanteDB.OrmLite
                         }
                         return false;
                     }).Select(o => $"{tablePrefix}{o.Table.TableName}.{o.Name}"));
-                    selectStatement = new SqlStatement(this.m_provider, $"SELECT {columnList}, COUNT(*) OVER () AS SYSCOUNT ").Append(selectStatement);
+                    selectStatement = new SqlStatement(this.m_provider, $"SELECT {columnList} ").Append(selectStatement);
 
                 }
                 else
-                    selectStatement = new SqlStatement(this.m_provider, $"SELECT *, COUNT(*) OVER () AS SYSCOUNT ").Append(selectStatement);
+                    selectStatement = new SqlStatement(this.m_provider, $"SELECT *").Append(selectStatement);
                 // columnSelector = scopedTables.SelectMany(o => o.Columns).ToArray();
             }
             else

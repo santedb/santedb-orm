@@ -474,7 +474,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Construct a SELECT FROM statement
         /// </summary>
-        public SqlStatement<T> SelectFrom(bool includeCount = false)
+        public SqlStatement<T> SelectFrom()
         {
             var tableMap = TableMapping.Get(typeof(T));
             SqlStatement<T> retVal = new SqlStatement<T>(this.m_provider, "SELECT ");
@@ -489,26 +489,18 @@ namespace SanteDB.OrmLite
                     m_alias = tableMap.TableName
                 });
 
-            if (includeCount) // TODO : Add check
-                retVal.Append(", COUNT(*) OVER () SYSCOUNT ");
+            
             retVal.Append(new SqlStatement<T>(this.m_provider, $" FROM {tableMap.TableName} AS {tableMap.TableName} "));
             return retVal;
         }
 
-        /// <summary>
-        /// Select from specified tables
-        /// </summary>
-        public SqlStatement<T> SelectFrom(params Type[] scopedTables)
-        {
-            return this.SelectFrom(false, scopedTables);
-        } 
 
         /// <summary>
         /// Construct a SELECT FROM statement with the specified selectors
         /// </summary>
         /// <param name="selector">The types from which to select columns</param>
         /// <returns>The constructed sql statement</returns>
-        public SqlStatement<T> SelectFrom(bool includeCount, params Type[] scopedTables)
+        public SqlStatement<T> SelectFrom(params Type[] scopedTables)
         {
             var existingCols = new List<String>();
             var tableMap = TableMapping.Get(typeof(T));
@@ -528,11 +520,7 @@ namespace SanteDB.OrmLite
             {
                 m_alias = tableMap.TableName
             });
-
-            // Include count
-            if (includeCount)
-                retVal.Append(", COUNT(*) OVER () SYSCOUNT ");
-
+            
             retVal.Append($" FROM {tableMap.TableName} AS {tableMap.TableName} ");
 
             return retVal;
