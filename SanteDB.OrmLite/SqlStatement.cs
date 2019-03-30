@@ -323,7 +323,20 @@ namespace SanteDB.OrmLite
         public SqlStatement OrderBy<TExpression>(Expression<Func<TExpression, dynamic>> orderField, SortOrderType sortOperation = SortOrderType.OrderBy)
         {
             var orderMap = TableMapping.Get(typeof(TExpression));
-            var orderCol = orderMap.GetColumn(this.GetMember(orderField.Body));
+            var fldRef = orderField.Body;
+            while(fldRef.NodeType != ExpressionType.MemberAccess)
+            {
+                switch(fldRef.NodeType)
+                {
+                    case ExpressionType.Convert:
+                        fldRef = (fldRef as UnaryExpression).Operand;
+                        break;
+                    case ExpressionType.Call:
+                        fldRef = (fldRef as MethodCallExpression).Object;
+                        break;
+                }
+            }
+            var orderCol = orderMap.GetColumn(this.GetMember(fldRef));
 
             // Is there already an orderby in the previous statement?
             bool hasOrder = false;
