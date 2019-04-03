@@ -463,6 +463,25 @@ namespace SanteDB.OrmLite
                                 // Sub path is specified
                                 if (String.IsNullOrEmpty(propertyPredicate.SubPath) && "null".Equals(parm.Value))
                                     subQueryStatement.And($"{existsClause} NOT IN (");
+                                // Query Optimization - Sub-Path is specfified and the only object is a NOT value (other than classifier)
+                                else if(!String.IsNullOrEmpty(propertyPredicate.SubPath) &&
+                                    subQuery.Count <= 2 &&
+                                    subQuery.Count(p=>
+                                        !p.Key.Contains(".") && (
+                                        (p.Value as String)?.StartsWith("!") == true ||
+                                        (p.Value as List<String>)?.All(v=>v.StartsWith("!")) == true)) == 1)
+                                {
+                                    subQueryStatement.And($"{existsClause} NOT IN (");
+                                    subQuery = subQuery.Select(a => 
+                                    {
+                                        if ((a.Value as String)?.StartsWith("!") == true)
+                                            return new KeyValuePair<String, Object>(a.Key, (a.Value as String)?.Substring(1));
+                                        else if ((a.Value as List<String>)?.All(v => v.StartsWith("!")) == true)
+                                            return new KeyValuePair<string, object>(a.Key, (a.Value as List<String>)?.Select(o => o.Substring(1)).ToList());
+                                        else
+                                            return a;
+                                    }).ToList();
+                                }
                                 else
                                     subQueryStatement.And($"{existsClause} IN (");
 
