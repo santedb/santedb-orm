@@ -41,6 +41,7 @@ namespace SanteDB.OrmLite.Configuration
         /// </summary>
         [XmlAttribute("readWriteConnectionString")]
         [Category("Connection")]
+        [DisplayName("Read/Write Connection String")]
         [Description("The primary connection to use for connecting to the SanteDB persistence layer")]
         [Editor("SanteDB.Configuration.Editors.ConnectionStringEditor, SanteDB.Configuration, Version=1.10.0.0", "System.Drawing.Design.UITypeEditor, System.Drawing, Version=4.0.0.0")]
         public String ReadWriteConnectionString { get; set; }
@@ -50,6 +51,7 @@ namespace SanteDB.OrmLite.Configuration
         /// </summary>
         [XmlAttribute("readOnlyConnectionString")]
         [Category("Connection")]
+        [DisplayName("Read-Only Connection String")]
         [Description("The connection to use for readonly access (queries). This is used when you have a read replica (example: Streaming Replication on PostgreSQL) and want queries to be directed to the read replica")]
         [Editor("SanteDB.Configuration.Editors.ConnectionStringEditor, SanteDB.Configuration, Version=1.10.0.0", "System.Drawing.Design.UITypeEditor, System.Drawing, Version=4.0.0.0")]
         public String ReadonlyConnectionString { get; set; }
@@ -59,6 +61,7 @@ namespace SanteDB.OrmLite.Configuration
         /// </summary>
         [XmlAttribute("traceSql")]
         [Category("Diagnostics")]
+        [DisplayName("Trace SQL")]
         [Description("When true, logs all generated SQL to the log file")]
         public bool TraceSql { get; set; }
 
@@ -67,6 +70,7 @@ namespace SanteDB.OrmLite.Configuration
         /// </summary>
         [XmlAttribute("providerType")]
         [Category("Connection")]
+        [DisplayName("Data Provider")]
         [Description("The ORM provider to use for this connection")]
         [TypeConverter("SanteDB.Configuration.Converters.DataProviderConverter, SanteDB.Configuration, Version=1.10.0.0")]
         [Editor("SanteDB.Configuration.Editors.DataProviderEditor, SanteDB.Configuration, Version=1.10.0.0", "System.Drawing.Design.UITypeEditor, System.Drawing, Version=4.0.0.0")]
