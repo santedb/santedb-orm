@@ -7,8 +7,8 @@
     <authors>Mohawk College of Applied Arts and Technology</authors>
     <owners>Mohawk College of Applied Arts and Technology</owners>
     <licenseUrl>https://www.apache.org/licenses/LICENSE-2.0</licenseUrl>
-    <projectUrl>http://santedb.org</projectUrl>
-    <iconUrl>http://santedb.org/img/logo.png</iconUrl>
+    <projectUrl>http://santesuite.org</projectUrl>
+    <iconUrl>http://santesuite.org/assets/img/logo.png</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>The SanteDB Object-Relational Mapper (ORM) module is used by SanteDB to map its model classes to data layer classes in FirebirdSQL, PostgreSQL, or SQLite</description>
     <releaseNotes>Initial Version</releaseNotes>
