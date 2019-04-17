@@ -17,6 +17,8 @@
  * User: justi
  * Date: 2019-1-12
  */
+using SanteDB.Core;
+using SanteDB.Core.Services;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
@@ -86,9 +88,7 @@ namespace SanteDB.OrmLite.Configuration
             {
                 if (this.m_dbProvider == null)
                 {
-                    var dbt = Type.GetType(this.ProviderType);
-                    if (dbt == null) throw new InvalidOperationException($"Type {this.ProviderType} could not be found");
-                    this.m_dbProvider = Activator.CreateInstance(dbt) as IDbProvider;
+                    this.m_dbProvider = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().GetProvider(this.ProviderType);
                     if (this.m_dbProvider == null) throw new InvalidOperationException($"Type {this.ProviderType} does not implement IDbProvider");
                     this.m_dbProvider.ReadonlyConnectionString = this.ResolveConnectionString(this.ReadonlyConnectionString);
                     this.m_dbProvider.ConnectionString = this.ResolveConnectionString(this.ReadWriteConnectionString);
