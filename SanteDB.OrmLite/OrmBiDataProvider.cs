@@ -50,7 +50,7 @@ namespace SanteDB.OrmLite
 
             // Ensure we have sufficient priviledge
             var pdpService = ApplicationServiceContext.Current.GetService<IPolicyDecisionService>();
-            foreach (var pol in queryDefinition.DataSources.SelectMany(o => o.Demands).Union(queryDefinition.Demands))
+            foreach (var pol in queryDefinition.DataSources.SelectMany(o => o?.MetaData.Demands).Union(queryDefinition.MetaData?.Demands))
             {
                 var outcome = pdpService.GetPolicyOutcome(AuthenticationContext.Current.Principal, pol);
                 if (outcome != Core.Model.Security.PolicyGrantType.Grant)
