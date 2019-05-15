@@ -34,12 +34,10 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Executes the query
         /// </summary>
-        public BisResultContext ExecuteQuery(BiQueryDefinition queryDefinition, Dictionary<string, object> parameters)
+        public BisResultContext ExecuteQuery(BiQueryDefinition queryDefinition, Dictionary<string, object> parameters, BiAggregationDefinition[] aggregation)
         {
             if (queryDefinition == null)
                 throw new ArgumentNullException(nameof(queryDefinition));
-
-            // Add core context parameters if not already added
 
             // First we want to grab the connection strings used by this object
             var filledQuery = BiUtils.ResolveRefs(queryDefinition);
@@ -115,6 +113,48 @@ namespace SanteDB.OrmLite
                 return "?";
             });
 
+            // Aggregation definitions
+            if (aggregation?.Length > 0)
+            {
+                var agg = aggregation.FirstOrDefault(o => o.Invariants.Contains(provider.Invariant)) ??
+                    aggregation.FirstOrDefault(o => o.Invariants.Count == 0);
+
+                // Aggregation found
+                if (agg == null)
+                    throw new InvalidOperationException($"No provided aggregation can be found for {provider.Invariant}");
+
+                var selector = agg.Columns?.Select(c => {
+                    switch (c.Aggregation) 
+                    {
+                        case BiAggregateFunction.Average:
+                            return $"AVG({c.ColumnSelector}) AS {c.Name}";
+                        case BiAggregateFunction.Count:
+                            return $"COUNT({c.ColumnSelector}) AS {c.Name}";
+                        case BiAggregateFunction.CountDistinct:
+                            return $"COUNT(DISTINCT {c.ColumnSelector}) AS {c.Name}";
+                        case BiAggregateFunction.First:
+                            return $"FIRST({c.ColumnSelector}) AS {c.Name}";
+                        case BiAggregateFunction.Last:
+                            return $"LAST({c.ColumnSelector}) AS {c.Name}";
+                        case BiAggregateFunction.Max :
+                            return $"MAX({c.ColumnSelector}) AS {c.Name}";
+                        case BiAggregateFunction.Min:
+                            return $"MIN({c.ColumnSelector}) AS {c.Name}";
+                        case BiAggregateFunction.Sum:
+                            return $"SUM({c.ColumnSelector}) AS {c.Name}";
+                        case BiAggregateFunction.Value:
+                            return $"{c.ColumnSelector} AS {c.Name}";
+                        default:
+                            throw new InvalidOperationException("Cannot apply aggregation function");
+                    }
+                }).ToArray() ?? new string[] { "*" };
+                var groupings = agg.Groupings.Select(g =>g.ColumnSelector).ToArray();
+                // Aggregate
+                stmt = $"SELECT {String.Join(",", selector)} " +
+                    $"FROM ({stmt}) AS _inner " +
+                    $"GROUP BY {groupings}";
+            }
+
             // Get a readonly context
             using (var context = provider.GetReadonlyConnection())
             {
@@ -141,14 +181,25 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Execute the specified query
         /// </summary>
-        public BisResultContext ExecuteQuery(string queryId, Dictionary<string, object> parameters)
+        public BisResultContext ExecuteQuery(string queryId, Dictionary<string, object> parameters, BiAggregationDefinition[] aggregation)
         {
             var query = ApplicationServiceContext.Current.GetService<IBiMetadataRepository>()?.Get<BiQueryDefinition>(queryId);
             if (query == null)
                 throw new KeyNotFoundException(queryId);
             else
-                return this.ExecuteQuery(query, parameters);
+                return this.ExecuteQuery(query, parameters, aggregation);
         }
-    
+
+        /// <summary>
+        /// Executes the specified view
+        /// </summary>
+        public BisResultContext ExecuteView(BiViewDefinition viewDef, Dictionary<string, object> parameters)
+        {
+            viewDef = BiUtils.ResolveRefs(viewDef) as BiViewDefinition;
+            var retVal = this.ExecuteQuery(viewDef.Query, parameters, viewDef.AggregationDefinitions.ToArray());
+            if(viewDef.Pivot != null)
+                retVal = ApplicationServiceContext.Current.GetService<IBiPivotProvider>().Pivot(retVal, viewDef.Pivot);
+            return retVal;
+        }
     }
 }
