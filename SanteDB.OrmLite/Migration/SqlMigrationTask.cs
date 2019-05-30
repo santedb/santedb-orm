@@ -147,9 +147,9 @@ namespace SanteDB.OrmLite.Migration
                     return true;
                 }
             }
-            catch (System.Data.Common.DbException) // CHECK FAILED = INSTALL
+            catch (System.Data.Common.DbException) // CHECK FAILED & MUST SUCCEED IS FALSE = INSTALL
             {
-                return true;
+                return !this.m_feature.MustSucceed;
             }
             catch (Exception e)
             {

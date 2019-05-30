@@ -59,6 +59,11 @@ namespace SanteDB.OrmLite.Migration
         internal Uri Url { get; private set; }
 
         /// <summary>
+        /// Indicates whether the pre-check must succeed
+        /// </summary>
+        public bool MustSucceed { get; private set; }
+
+        /// <summary>
         /// Load the specified stream
         /// </summary>
         public static SqlFeature Load(Stream source)
@@ -84,6 +89,7 @@ namespace SanteDB.OrmLite.Migration
                 retVal.m_checkRange = xd.SelectSingleNode("/feature/@applyRange")?.Value;
                 retVal.Scope = xd.SelectSingleNode("/feature/@scope")?.Value;
                 retVal.m_checkSql = xd.SelectSingleNode("/feature/isInstalled/text()")?.Value;
+                retVal.MustSucceed = Boolean.Parse(xd.SelectSingleNode("/feature/isInstalled/@mustSucceed")?.Value ?? "false");
                 retVal.InvariantName = xd.SelectSingleNode("/feature/@invariantName")?.Value;
 
             }
