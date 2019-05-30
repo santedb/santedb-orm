@@ -75,14 +75,15 @@ namespace SanteDB.OrmLite.Migration
             using (var sr = new StreamReader(source))
                 retVal.m_deploySql = sr.ReadToEnd();
 
-            var xmlSql = m_metaRegx.Match(retVal.m_deploySql.Replace("\r\n", "").Replace("\n",""));
+            var xmlSql = m_metaRegx.Match(retVal.m_deploySql.Replace("\r\n", ""));
             if (xmlSql.Success)
             {
                 var xmlText = xmlSql.Groups[1].Value.Replace("*", "");
                 XmlDocument xd = new XmlDocument();
                 xd.LoadXml(xmlText);
                 retVal.Id = xd.SelectSingleNode("/feature/@id")?.Value ?? "0-0";
-                retVal.Name = xd.SelectSingleNode("/feature/@name")?.Value ?? "Other";
+                retVal.Name = xd.SelectSingleNode("/feature/@name")?.Value ?? "Other"cmd
+                    ;
                 retVal.Description = xd.SelectSingleNode("/feature/summary/text()")?.Value ?? "other update";
                 retVal.Remarks = xd.SelectSingleNode("/feature/remarks/text()")?.Value ?? "other update";
                 retVal.Url = new Uri(xd.SelectSingleNode("/feature/url/text()")?.Value ?? $"http://help.santesuite.org/ops/santedb/fixpatch/{retVal.Id}");
