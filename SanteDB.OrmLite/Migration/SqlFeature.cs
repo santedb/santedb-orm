@@ -70,7 +70,7 @@ namespace SanteDB.OrmLite.Migration
             using (var sr = new StreamReader(source))
                 retVal.m_deploySql = sr.ReadToEnd();
 
-            var xmlSql = m_metaRegx.Match(retVal.m_deploySql.Replace("\r\n", ""));
+            var xmlSql = m_metaRegx.Match(retVal.m_deploySql.Replace("\r\n", "").Replace("\n",""));
             if (xmlSql.Success)
             {
                 var xmlText = xmlSql.Groups[1].Value.Replace("*", "");
