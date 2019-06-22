@@ -280,7 +280,7 @@ namespace SanteDB.OrmLite
             for (int i = 0; i < rdr.FieldCount; i++)
             {
                 var value = rdr[i];
-                var name = rdr.GetName(i);
+                var name = rdr.GetName(i).ToLowerInvariant();
                 retVal.Add(name, value);
             }
             return (TModel)retVal;

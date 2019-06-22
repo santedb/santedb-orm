@@ -151,8 +151,8 @@ namespace SanteDB.OrmLite
                 var groupings = agg.Groupings.Select(g =>g.ColumnSelector).ToArray();
                 // Aggregate
                 stmt = $"SELECT {String.Join(",", selector)} " +
-                    $"FROM ({stmt}) AS _inner " +
-                    $"GROUP BY {groupings}";
+                    $"FROM ({stmt}) {(provider.Features.HasFlag(SqlEngineFeatures.MustNameSubQuery) ? " AS _inner" : "")} " +
+                    $"GROUP BY {String.Join(",", groupings)}";
             }
 
             // Get a readonly context
@@ -196,7 +196,7 @@ namespace SanteDB.OrmLite
         public BisResultContext ExecuteView(BiViewDefinition viewDef, Dictionary<string, object> parameters)
         {
             viewDef = BiUtils.ResolveRefs(viewDef) as BiViewDefinition;
-            var retVal = this.ExecuteQuery(viewDef.Query, parameters, viewDef.AggregationDefinitions.ToArray());
+            var retVal = this.ExecuteQuery(viewDef.Query, parameters, viewDef.AggregationDefinitions?.ToArray());
             if(viewDef.Pivot != null)
                 retVal = ApplicationServiceContext.Current.GetService<IBiPivotProvider>().Pivot(retVal, viewDef.Pivot);
             return retVal;

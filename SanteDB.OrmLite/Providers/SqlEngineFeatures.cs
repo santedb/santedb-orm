@@ -34,6 +34,7 @@ namespace SanteDB.OrmLite.Providers
         LimitOffset = 0x8,
         FetchOffset = 0x10,
         ReturnedInsertsAsParms = 0x20,
-        StrictSubQueryColumnNames = 0x40
+        StrictSubQueryColumnNames = 0x40,
+        MustNameSubQuery = 0x80
     }
 }

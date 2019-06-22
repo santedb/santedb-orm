@@ -55,9 +55,6 @@ namespace SanteDB.OrmLite
         // Items to be added to cache after an action
         private Dictionary<Guid, IdentifiedData> m_cacheCommit = new Dictionary<Guid, IdentifiedData>();
 
-        // Cached query
-        private Dictionary<String, IEnumerable<Object>> m_cachedQuery = new Dictionary<string, IEnumerable<object>>();
-
         // Trace source
         private Tracer m_tracer = new Tracer(Constants.TracerName);
 
@@ -196,7 +193,6 @@ namespace SanteDB.OrmLite
             var retVal = this.m_provider.CloneConnection(this);
             retVal.Open();
             retVal.m_dataDictionary = this.m_dataDictionary; // share data
-            retVal.m_cachedQuery = this.m_cachedQuery;
             retVal.LoadState = this.LoadState;
             //retVal.PrepareStatements = this.PrepareStatements;
             return retVal;
@@ -240,8 +236,6 @@ namespace SanteDB.OrmLite
                 }
             this.m_cacheCommit?.Clear();
             this.m_cacheCommit = null;
-            this.m_cachedQuery?.Clear();
-            this.m_cachedQuery = null;
             this.m_transaction?.Dispose();
             this.m_connection?.Dispose();
         }

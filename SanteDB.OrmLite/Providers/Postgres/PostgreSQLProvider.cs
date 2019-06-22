@@ -80,7 +80,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     SqlEngineFeatures.AutoGenerateTimestamps | 
                     SqlEngineFeatures.ReturnedInsertsAsReader | 
                     SqlEngineFeatures.LimitOffset | 
-                    SqlEngineFeatures.FetchOffset ;
+                    SqlEngineFeatures.FetchOffset |
+                    SqlEngineFeatures.MustNameSubQuery;
             }
         }
 
