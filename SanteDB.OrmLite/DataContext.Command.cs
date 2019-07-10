@@ -170,12 +170,8 @@ namespace SanteDB.OrmLite
                     {
                         int tr = 0;
                         using (var rdr = dbc.ExecuteReader())
-                            return this.ReaderToCollection<TModel>(rdr).ToList();
-                    }
-                    catch (TimeoutException)
-                    {
-                        try { dbc.Cancel(); } catch { }
-                        throw;
+                            while (rdr.Read())
+                                yield return this.MapObject<TModel>(rdr);
                     }
                     finally
                     {
@@ -221,28 +217,6 @@ namespace SanteDB.OrmLite
             sw.Start();
         }
 #endif
-
-
-        /// <summary>
-        /// Reader to collection of objects
-        /// </summary>
-        private IEnumerable<TModel> ReaderToCollection<TModel>(IDataReader rdr)
-        {
-            //// Total return value
-            //List<TModel> retVal = new List<TModel>();
-
-            //totalResults = 0;
-            //if (rdr.Read()) // First tuple, grab partition function
-            //{
-            //    for (var i = 0; i < rdr.FieldCount; i++)
-            //        if (rdr.GetName(i).Equals("SYSCOUNT", StringComparison.InvariantCultureIgnoreCase))
-            //            totalResults = rdr.GetInt32(i);
-            //    retVal.Add(this.MapObject<TModel>(rdr));
-            //}
-
-            while (rdr.Read())
-                yield return this.MapObject<TModel>(rdr);
-        }
 
         /// <summary>
         /// Map an object 
@@ -459,7 +433,7 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, stmt.Limit(1));
+                    var dbc = this.m_provider.CreateCommand(this, stmt.Build().Limit(1));
                     try
                     {
                         using (var rdr = dbc.ExecuteReader())
@@ -730,46 +704,9 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Execute the specified query
         /// </summary>
-        public IEnumerable<TModel> Query<TModel>(Expression<Func<TModel, bool>> querySpec)
+        public OrmResultSet<TModel> Query<TModel>(Expression<Func<TModel, bool>> querySpec)
         {
-#if DEBUG
-            var sw = new Stopwatch();
-            sw.Start();
-            try
-            {
-#endif
-                var query = this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec);
-                lock (this.m_lockObject)
-                {
-                    var dbc = this.m_provider.CreateCommand(this, query);
-                    try
-                    {
-                        using (var rdr = dbc.ExecuteReader()) 
-                            return this.ReaderToCollection<TModel>(rdr).ToList();
-                    }
-                    catch (TimeoutException)
-                    {
-                        try { dbc.Cancel(); } catch { }
-                        throw;
-                    }
-                    finally
-                    {
-#if DBPERF
-                        this.PerformanceMonitor(query, sw);
-#endif
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
-                    }
-                }
-
-#if DEBUG
-            }
-            finally
-            {
-                sw.Stop();
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "QUERY {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
-            }
-#endif
+            return new OrmResultSet<TModel>(this, this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec));
         }
 
         /// <summary>
@@ -785,7 +722,15 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Query using the specified statement
         /// </summary>
-        public IEnumerable<TModel> Query<TModel>(SqlStatement query)
+        public OrmResultSet<TModel> Query<TModel>(SqlStatement query)
+        {
+            return new OrmResultSet<TModel>(this, query);
+        }
+
+        /// <summary>
+        /// Executes the query against the database
+        /// </summary>
+        internal IEnumerable<TModel> ExecQuery<TModel>(SqlStatement query)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -799,13 +744,8 @@ namespace SanteDB.OrmLite
                     try
                     {
                         using (var rdr = dbc.ExecuteReader())
-                            return this.ReaderToCollection<TModel>(rdr).ToList();
-
-                    }
-                    catch (TimeoutException)
-                    {
-                        try { dbc.Cancel(); } catch { }
-                        throw;
+                            while (rdr.Read())
+                                yield return this.MapObject<TModel>(rdr);
                     }
                     finally
                     {
