@@ -12,7 +12,7 @@ namespace SanteDB.OrmLite
     /// Represents a result set from enumerable data
     /// </summary>
     /// <typeparam name="TData">The type of record this result set holds</typeparam>
-    public class OrmResultSet<TData> : IEnumerable<TData>
+    public class OrmResultSet<TData> : IEnumerable<TData> , IOrmResultSet
     {
 
         /// <summary>
@@ -112,6 +112,77 @@ namespace SanteDB.OrmLite
         IEnumerator IEnumerable.GetEnumerator()
         {
             return this.Context.ExecQuery<TData>(this.Statement).GetEnumerator();
+        }
+
+        /// <summary>
+        /// Gets the specified keys from the object
+        /// </summary>
+        public OrmResultSet<T> Keys<T>(bool qualifyKeyTableName = true)
+        {
+
+            var innerQuery = this.Statement.Build();
+            var tm = TableMapping.Get(typeof(TData));
+            if (tm.TableName.StartsWith("CompositeResult"))
+            {
+                tm = TableMapping.Get(typeof(TData).GetGenericArguments().Last());
+            }
+            if (tm.PrimaryKey.Count() != 1)
+                throw new InvalidOperationException("Cannot execute KEY query on object with no keys");
+
+            // HACK: Swap out SELECT * if query starts with it
+            if (innerQuery.SQL.StartsWith("SELECT * "))
+            {
+                if (qualifyKeyTableName)
+                    innerQuery = this.Context.CreateSqlStatement($"SELECT {tm.TableName}.{tm.PrimaryKey.First().Name} {innerQuery.SQL.Substring(9)}", innerQuery.Arguments.ToArray());
+                else
+                    innerQuery = this.Context.CreateSqlStatement($"SELECT {tm.PrimaryKey.First().Name} {innerQuery.SQL.Substring(9)}", innerQuery.Arguments.ToArray());
+            }
+
+            return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (").Append(innerQuery).Append(") AS I"));
+
+        }
+
+        /// <summary>
+        /// Gets the specified keys from the specified object type
+        /// </summary>
+        public IEnumerable<T> Keys<TKeyTable, T>()
+        {
+            var innerQuery = this.Statement.Build();
+            var tm = TableMapping.Get(typeof(TKeyTable));
+
+            if (tm.PrimaryKey.Count() != 1)
+                throw new InvalidOperationException("Cannot execute KEY query on object with no keys");
+
+            // HACK: Swap out SELECT * if query starts with it
+            if (innerQuery.SQL.StartsWith("SELECT * "))
+                innerQuery = this.Context.CreateSqlStatement($"SELECT {tm.TableName}.{tm.PrimaryKey.First().Name} {innerQuery.SQL.Substring(9)}", innerQuery.Arguments.ToArray());
+
+
+            return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (").Append(innerQuery).Append(") AS I"));
+        }
+
+        /// <summary>
+        /// Gets the keys
+        /// </summary>
+        IOrmResultSet IOrmResultSet.Keys<TKey>()
+        {
+            return this.Keys<TKey>(false);
+        }
+
+        /// <summary>
+        /// Gets the keys
+        /// </summary>
+        IOrmResultSet IOrmResultSet.Skip(int n)
+        {
+            return this.Skip(n);
+        }
+
+        /// <summary>
+        /// Gets the keys
+        /// </summary>
+        IOrmResultSet IOrmResultSet.Take(int n)
+        {
+            return this.Take(n);
         }
     }
 }
