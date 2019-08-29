@@ -47,6 +47,9 @@ namespace SanteDB.OrmLite.Migration
         // Check SQL 
         private string m_checkSql;
 
+        // SQL to determine if the engine can install
+        private string m_canInstallSql;
+
         // Remarks
         internal string Remarks { get; private set; }
 
@@ -89,6 +92,7 @@ namespace SanteDB.OrmLite.Migration
                 retVal.m_checkRange = xd.SelectSingleNode("/feature/@applyRange")?.Value;
                 retVal.Scope = xd.SelectSingleNode("/feature/@scope")?.Value;
                 retVal.m_checkSql = xd.SelectSingleNode("/feature/isInstalled/text()")?.Value;
+                retVal.m_canInstallSql = xd.SelectSingleNode("/feature/canInstall/text()")?.Value;
                 retVal.MustSucceed = Boolean.Parse(xd.SelectSingleNode("/feature/isInstalled/@mustSucceed")?.Value ?? "false");
                 retVal.InvariantName = xd.SelectSingleNode("/feature/@invariantName")?.Value;
 
@@ -152,6 +156,15 @@ namespace SanteDB.OrmLite.Migration
             }
             else
                 return this.m_checkSql;
+        }
+
+
+        /// <summary>
+        /// Gets the check sql
+        /// </summary>
+        public string GetPreCheckSql()
+        {
+                return this.m_canInstallSql;
         }
 
         /// <summary>
