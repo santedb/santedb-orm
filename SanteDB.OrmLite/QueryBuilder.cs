@@ -656,7 +656,14 @@ namespace SanteDB.OrmLite
 
             // Now map the property path
             var tableAlias = $"{tablePrefix}{tableMapping.TableName}";
-            if (domainProperty == null)
+            Guid pkey = Guid.Empty;
+            if (domainProperty == null && Guid.TryParse(value.ToString(), out pkey))
+            {
+                domainProperty = tableMapping.PrimaryKey.First().SourceProperty;
+                // Link property to the key 
+                propertyInfo = tmodel.GetProperty(propertyInfo.Name + "Key");
+            }
+            else if (domainProperty == null)
                 throw new ArgumentException($"Can't find SQL based property for {propertyPath} on {tableMapping.TableName}");
             var columnData = tableMapping.GetColumn(domainProperty);
 

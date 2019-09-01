@@ -23,6 +23,7 @@ using SanteDB.OrmLite.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Data;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -134,8 +135,19 @@ namespace SanteDB.OrmLite.Migration
                 {
                     conn.Open();
 
-                    string checkSql = this.m_feature.GetCheckSql();
+                    string checkSql = this.m_feature.GetCheckSql(),
+                        preConditionSql = this.m_feature.GetPreCheckSql();
 
+
+                    if(!String.IsNullOrEmpty(preConditionSql))
+                        using (var cmd = conn.Connection.CreateCommand())
+                        {
+                            cmd.CommandText = preConditionSql;
+                            cmd.CommandType = System.Data.CommandType.Text;
+                            if (!(bool)cmd.ExecuteScalar()) // can't install
+                                throw new ConstraintException($"Pre-check for {this.Name} failed");
+                            
+                        }
                     if (!String.IsNullOrEmpty(checkSql))
                         using (var cmd = conn.Connection.CreateCommand())
                         {
