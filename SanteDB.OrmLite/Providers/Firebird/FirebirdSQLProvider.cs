@@ -41,7 +41,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
     /// <summary>
     /// Represents a FirebirdSQL provider
     /// </summary>
-    public class FirebirdSQLProvider : IDbProvider
+    public class FirebirdSQLProvider : IDbMonitorProvider
     {
 
         // Trace source
@@ -446,5 +446,30 @@ namespace SanteDB.OrmLite.Providers.Firebird
             return retVal;
         }
 
+        /// <summary>
+        /// Stat the activity
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerable<DbStatementReport> StatActivity()
+        {
+            using (var conn = this.GetReadonlyConnection())
+            {
+                conn.Open();
+                using (var cmd = conn.Connection.CreateCommand())
+                {
+                    cmd.CommandType = CommandType.Text;
+                    cmd.CommandText = "select mon$statement_id as pid, mon$state as state, mon$timestamp as query_start, cast(left(mon$sql_text, 128) as varchar(128)) as query from mon$statements;";
+                    using (var rdr = cmd.ExecuteReader())
+                        while (rdr.Read())
+                            yield return new DbStatementReport()
+                            {
+                                StatementId = rdr["pid"].ToString(),
+                                Start = DateTime.Parse(rdr["query_start"].ToString()),
+                                Status = rdr["state"].ToString() == "1" ? DbStatementStatus.Active : DbStatementStatus.Idle,
+                                Query = rdr["query"].ToString()
+                            };
+                }
+            }
+        }
     }
 }

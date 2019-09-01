@@ -36,7 +36,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// <summary>
     /// Represents a IDbProvider for PostgreSQL
     /// </summary>
-    public class PostgreSQLProvider : IDbProvider
+    public class PostgreSQLProvider : IDbMonitorProvider
     {
 
         // Last rr host used
@@ -58,7 +58,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// Trace SQL commands
         /// </summary>
         public bool TraceSql { get; set; }
-        
+
         /// <summary>
         /// Gets or sets the connection string
         /// </summary>
@@ -76,10 +76,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             get
             {
-                return SqlEngineFeatures.AutoGenerateGuids | 
-                    SqlEngineFeatures.AutoGenerateTimestamps | 
-                    SqlEngineFeatures.ReturnedInsertsAsReader | 
-                    SqlEngineFeatures.LimitOffset | 
+                return SqlEngineFeatures.AutoGenerateGuids |
+                    SqlEngineFeatures.AutoGenerateTimestamps |
+                    SqlEngineFeatures.ReturnedInsertsAsReader |
+                    SqlEngineFeatures.LimitOffset |
                     SqlEngineFeatures.FetchOffset |
                     SqlEngineFeatures.MustNameSubQuery;
             }
@@ -211,10 +211,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
 
             var pno = 0;
-            
+
             sql = this.m_parmRegex.Replace(sql, o => $"@parm{pno++}");
 
-            if (pno !=  parms.Length && type == CommandType.Text)
+            if (pno != parms.Length && type == CommandType.Text)
                 throw new ArgumentOutOfRangeException(nameof(sql), $"Parameter mismatch query expected {pno} but {parms.Length} supplied");
 
 
@@ -270,8 +270,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 if (cmd.Parameters.Count != parms.Length)
                     throw new ArgumentOutOfRangeException(nameof(parms), "Argument count mis-match");
 
-                for(int i = 0; i < parms.Length; i++)
-                    (cmd.Parameters[i] as IDataParameter).Value = parms[i] ?? DBNull.Value; 
+                for (int i = 0; i < parms.Length; i++)
+                    (cmd.Parameters[i] as IDataParameter).Value = parms[i] ?? DBNull.Value;
             }
 
             return cmd;
@@ -378,7 +378,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public string CreateSqlKeyword(SqlKeyword keywordType)
         {
-            switch(keywordType)
+            switch (keywordType)
             {
                 case SqlKeyword.ILike:
                     return " ILIKE ";
@@ -430,12 +430,12 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public IDbFilterFunction GetFilterFunction(string name)
         {
-            if(s_filterFunctions == null)
+            if (s_filterFunctions == null)
             {
                 s_filterFunctions = AppDomain.CurrentDomain.GetAssemblies().SelectMany(a => a.ExportedTypes)
                         .Where(t => typeof(IDbFilterFunction).IsAssignableFrom(t) && !t.IsAbstract)
                         .Select(t => Activator.CreateInstance(t) as IDbFilterFunction)
-                        .Where(o=>o.Provider == "pgsql")
+                        .Where(o => o.Provider == "pgsql")
                         .ToDictionary(o => o.Name, o => o);
             }
             IDbFilterFunction retVal = null;
@@ -443,5 +443,29 @@ namespace SanteDB.OrmLite.Providers.Postgres
             return retVal;
         }
 
+        /// <summary>
+        /// Get status of server connection
+        /// </summary>
+        public IEnumerable<DbStatementReport> StatActivity()
+        {
+            using (var conn = this.GetReadonlyConnection())
+            {
+                conn.Open();
+                using (var cmd = conn.Connection.CreateCommand())
+                {
+                    cmd.CommandType = CommandType.Text;
+                    cmd.CommandText = "SELECT * FROM pg_stat_activity;";
+                    using (var rdr = cmd.ExecuteReader())
+                        while (rdr.Read())
+                            yield return new DbStatementReport()
+                            {
+                                StatementId = rdr["pid"].ToString(),
+                                Start = DateTime.Parse(rdr["query_start"].ToString()),
+                                Status = rdr["state"].ToString() == "active" ? DbStatementStatus.Active : DbStatementStatus.Idle,
+                                Query = rdr["query"].ToString()
+                            };
+                    }
+            }
+        }
     }
 }

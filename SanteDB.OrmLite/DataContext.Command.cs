@@ -151,7 +151,10 @@ namespace SanteDB.OrmLite
         /// Gets or sets the context id
         /// </summary>
         public Guid ContextId { get; set; }
-        
+
+        // Last command
+        private IDbCommand m_lastCommand = null;
+
         /// <summary>
         /// Execute a stored procedure transposing the result set back to <typeparamref name="TModel"/>
         /// </summary>
@@ -165,7 +168,7 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments);
                     try
                     {
                         int tr = 0;
@@ -304,7 +307,7 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, stmt);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
                     try
                     {
                         using (var rdr = dbc.ExecuteReader())
@@ -348,7 +351,7 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments);
                     try
                     {
                         using (var rdr = dbc.ExecuteReader())
@@ -389,7 +392,7 @@ namespace SanteDB.OrmLite
                 var stmt = this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec).Limit(1);
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, stmt);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
                     try
                     {
                         using (var rdr = dbc.ExecuteReader())
@@ -433,7 +436,7 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, stmt.Build().Limit(1));
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt.Build().Limit(1));
                     try
                     {
                         using (var rdr = dbc.ExecuteReader())
@@ -480,7 +483,7 @@ namespace SanteDB.OrmLite
 
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, stmt);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
                     try
                     {
                         using (var rdr = dbc.ExecuteReader())
@@ -532,7 +535,7 @@ namespace SanteDB.OrmLite
                 var stmt = this.m_provider.Exists(this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec));
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, stmt);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
                     try
                     {
                         return (bool)dbc.ExecuteScalar();
@@ -573,7 +576,7 @@ namespace SanteDB.OrmLite
                 var stmt = this.m_provider.Exists(querySpec);
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, stmt);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
                     try
                     {
                         return (bool)dbc.ExecuteScalar();
@@ -615,7 +618,7 @@ namespace SanteDB.OrmLite
                 var stmt = this.m_provider.Count(this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec));
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, stmt);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
                     try
                     {
                         return (long)dbc.ExecuteScalar();
@@ -656,7 +659,7 @@ namespace SanteDB.OrmLite
                 var stmt = this.m_provider.Count(querySpec);
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, stmt);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
                     try
                     {
                         return Convert.ToInt32(dbc.ExecuteScalar());
@@ -740,7 +743,7 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, query);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
                     try
                     {
                         using (var rdr = dbc.ExecuteReader())
@@ -831,7 +834,7 @@ namespace SanteDB.OrmLite
                 // Execute
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, stmt);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
                     try
                     {
                         // There are returned keys and we support simple mode returned inserts
@@ -939,7 +942,7 @@ namespace SanteDB.OrmLite
                 var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where(where);
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, query);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
                     try
                     {
                         dbc.ExecuteNonQuery();
@@ -984,7 +987,7 @@ namespace SanteDB.OrmLite
                 var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where(whereClause);
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, query);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
                     try
                     {
                         dbc.ExecuteNonQuery();
@@ -1058,7 +1061,7 @@ namespace SanteDB.OrmLite
                 // Now update
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, query);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
                     try
                     {
                         dbc.ExecuteNonQuery();
@@ -1097,7 +1100,7 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_provider.CreateCommand(this, stmt);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
                     try
                     {
                         dbc.ExecuteNonQuery();

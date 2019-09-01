@@ -234,6 +234,12 @@ namespace SanteDB.OrmLite
 
                     itm?.Dispose();
                 }
+            if(this.m_lastCommand != null)
+            {
+                try { this.m_lastCommand.Cancel(); }
+                catch { }
+            }
+
             this.m_cacheCommit?.Clear();
             this.m_cacheCommit = null;
             this.m_transaction?.Dispose();
