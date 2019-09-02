@@ -18,6 +18,7 @@
  * Date: 2019-3-1
  */
 using SanteDB.Core.Configuration.Data;
+using SanteDB.Core.Diagnostics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,6 +35,8 @@ namespace SanteDB.OrmLite.Migration
 
         // Features
         private static IEnumerable<IDataFeature> m_features = null;
+
+        private static Tracer m_traceSource = Tracer.GetTracer(typeof(SqlFeatureUtil));
 
         /// <summary>
         /// Load the available features
@@ -52,6 +55,7 @@ namespace SanteDB.OrmLite.Migration
                             return retVal;
                         }
                         catch (Exception e){
+                            m_traceSource.TraceError("Could not load {0}: {1}", n, e);
                             return (SqlFeature)null;
                         }
                     })).OfType<IDataFeature>().ToList();
