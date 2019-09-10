@@ -688,10 +688,15 @@ namespace SanteDB.OrmLite
 
             var retVal = new SqlStatement(this.m_provider);
 
+            bool noCase = modelProperty.GetCustomAttribute<NoCaseAttribute>() != null;
+            string parmValue = noCase ? $"{this.m_provider.CreateSqlKeyword(SqlKeyword.Lower)}(?)" : "?";
             retVal.Append("(");
             foreach (var itm in values)
             {
-                retVal.Append($"{tableAlias}.{columnName}");
+                if (noCase)
+                    retVal.Append($"{this.m_provider.CreateSqlKeyword(SqlKeyword.Lower)}({tableAlias}.{columnName})");
+                else
+                    retVal.Append($"{tableAlias}.{columnName}");
                 var semantic = " OR ";
                 var iValue = itm;
                 if (iValue is String)
@@ -711,7 +716,7 @@ namespace SanteDB.OrmLite
                                 // Now find the function
                                 var filterFn = this.m_provider.GetFilterFunction(fnName);
                                 if (filterFn == null)
-                                    retVal.Append($" = ? ", CreateParameterValue(sValue, modelProperty.PropertyType));
+                                    retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, modelProperty.PropertyType));
                                 else
                                 {
                                     retVal.RemoveLast();
@@ -720,48 +725,48 @@ namespace SanteDB.OrmLite
 
                             }
                             else
-                                retVal.Append(" = ? ", CreateParameterValue(sValue, modelProperty.PropertyType));
+                                retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, modelProperty.PropertyType));
                             break;
                         case '<':
                             semantic = " AND ";
                             if (sValue[1] == '=')
-                                retVal.Append(" <= ?", CreateParameterValue(sValue.Substring(2), modelProperty.PropertyType));
+                                retVal.Append($" <= {parmValue}", CreateParameterValue(sValue.Substring(2), modelProperty.PropertyType));
                             else
-                                retVal.Append(" < ?", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                                retVal.Append($" < {parmValue}", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
                             break;
                         case '>':
                             semantic = " AND ";
                             if (sValue[1] == '=')
-                                retVal.Append(" >= ?", CreateParameterValue(sValue.Substring(2), modelProperty.PropertyType));
+                                retVal.Append($" >= {parmValue}", CreateParameterValue(sValue.Substring(2), modelProperty.PropertyType));
                             else
-                                retVal.Append(" > ?", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                                retVal.Append($" > {parmValue}", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
                             break;
                         case '!':
                             semantic = " AND ";
                             if (sValue.Equals("!null"))
                                 retVal.Append(" IS NOT NULL");
                             else
-                                retVal.Append(" <> ?", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                                retVal.Append($" <> {parmValue}", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
                             break;
                         case '~':
                             if (sValue.Contains("*") || sValue.Contains("?"))
-                                retVal.Append(" ILIKE ? ", CreateParameterValue(sValue.Substring(1).Replace("*", "%"), modelProperty.PropertyType));
+                                retVal.Append($" ILIKE {parmValue} ", CreateParameterValue(sValue.Substring(1).Replace("*", "%"), modelProperty.PropertyType));
                             else
-                                retVal.Append(" ILIKE '%' || ? || '%'", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                                retVal.Append($" ILIKE '%' || {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
                             break;
                         case '^':
-                            retVal.Append(" ILIKE ? || '%'", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                            retVal.Append($" ILIKE {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
                             break;
                         default:
                             if (sValue.Equals("null"))
                                 retVal.Append(" IS NULL");
                             else
-                                retVal.Append(" = ? ", CreateParameterValue(sValue, modelProperty.PropertyType));
+                                retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, modelProperty.PropertyType));
                             break;
                     }
                 }
                 else
-                    retVal.Append(" = ? ", CreateParameterValue(iValue, modelProperty.PropertyType));
+                    retVal.Append($" = {parmValue} ", CreateParameterValue(iValue, modelProperty.PropertyType));
 
                 if (values.IndexOf(itm) < values.Count - 1)
                     retVal.Append(semantic);

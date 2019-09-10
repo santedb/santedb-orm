@@ -253,8 +253,19 @@ namespace SanteDB.OrmLite
                 case "Contains":
                     this.Visit(node.Object);
                     this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.ILike));
+
                     this.m_sqlStatement.Append(" '%' || ");
-                    this.Visit(node.Arguments[0]);
+
+                    if (node.Object.NodeType == ExpressionType.Call &&
+                        (node.Object as MethodCallExpression).Method.Name == "ToLower") // We must apply the same call
+                    {
+                        this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.Lower)).Append("(");
+                        this.Visit(node.Arguments[0]);
+                        this.m_sqlStatement.Append(")");
+                    }
+                    else
+                        this.Visit(node.Arguments[0]);
+
                     this.m_sqlStatement.Append(" || '%' ");
                     break;
                 case "ToLower":
