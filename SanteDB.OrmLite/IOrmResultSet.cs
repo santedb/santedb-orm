@@ -34,5 +34,9 @@ namespace SanteDB.OrmLite
         /// </summary>
         IOrmResultSet Keys<TKey>();
 
+        /// <summary>
+        /// Convert this result set to an SQL statement
+        /// </summary>
+        SqlStatement ToSqlStatement();
     }
 }

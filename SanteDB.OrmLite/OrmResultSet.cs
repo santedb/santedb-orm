@@ -184,5 +184,14 @@ namespace SanteDB.OrmLite
         {
             return this.Take(n);
         }
+
+        /// <summary>
+        /// Convert to an SQL statement
+        /// </summary>
+        public SqlStatement ToSqlStatement()
+        {
+            return this.Statement.Build();
+        }
+
     }
 }
