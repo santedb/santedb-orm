@@ -257,6 +257,8 @@ namespace SanteDB.OrmLite
             for (int i = 0; i < rdr.FieldCount; i++)
             {
                 var value = rdr[i];
+                if (value == DBNull.Value)
+                    value = null;
                 var name = rdr.GetName(i).ToLowerInvariant();
                 retVal.Add(name, value);
             }

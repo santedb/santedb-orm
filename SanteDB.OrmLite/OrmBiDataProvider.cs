@@ -103,7 +103,7 @@ namespace SanteDB.OrmLite
                 throw new InvalidOperationException($"Could not find a query definition for invariant {provider.Invariant}");
 
             // Prepare the templated SQL
-            var parmRegex = new Regex(@"\$\{([\w_][\d\w\._]*?)\}");
+            var parmRegex = new Regex(@"\$\{([\w_][\-\d\w\._]*?)\}");
             List<Object> values = new List<object>();
             var stmt = parmRegex.Replace(rdbmsQueryDefinition.Sql, (m) =>
             {
@@ -162,7 +162,9 @@ namespace SanteDB.OrmLite
                 {
                     context.Open();
                     DateTime startTime = DateTime.Now;
-                    var results = context.Query<ExpandoObject>(new SqlStatement(provider, stmt, values.ToArray())).Skip(offset).Take(count ?? 10000).ToArray();
+                    var sqlStmt = new SqlStatement(provider, stmt, values.ToArray());
+                    this.m_tracer.TraceInfo("Executing BI Query: {0}", context.GetQueryLiteral(sqlStmt.Build()));
+                    var results = context.Query<ExpandoObject>(sqlStmt).Skip(offset).Take(count ?? 10000).ToArray();
                     return new BisResultContext(
                         queryDefinition,
                         parameters,
