@@ -116,8 +116,9 @@ namespace SanteDB.OrmLite
             // Aggregation definitions
             if (aggregation?.Length > 0)
             {
-                var agg = aggregation.FirstOrDefault(o => o.Invariants.Contains(provider.Invariant)) ??
-                    aggregation.FirstOrDefault(o => o.Invariants.Count == 0);
+                var agg = aggregation.FirstOrDefault(o => o.Invariants?.Contains(provider.Invariant) == true) ??
+                    aggregation.FirstOrDefault(o => o.Invariants?.Count == 0) ??
+                    aggregation.FirstOrDefault(o=>o.Invariants == null);
 
                 // Aggregation found
                 if (agg == null)
@@ -150,7 +151,7 @@ namespace SanteDB.OrmLite
                 }).ToArray() ?? new string[] { "*" };
                 var groupings = agg.Groupings.Select(g =>g.ColumnSelector).ToArray();
                 // Aggregate
-                stmt = $"SELECT {String.Join(",", selector)} " +
+                stmt = $"SELECT {String.Join(",", groupings.Union(selector))} " +
                     $"FROM ({stmt}) {(provider.Features.HasFlag(SqlEngineFeatures.MustNameSubQuery) ? " AS _inner" : "")} " +
                     $"GROUP BY {String.Join(",", groupings)}";
             }
