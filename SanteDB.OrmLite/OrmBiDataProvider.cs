@@ -34,7 +34,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Executes the query
         /// </summary>
-        public BisResultContext ExecuteQuery(BiQueryDefinition queryDefinition, Dictionary<string, object> parameters, BiAggregationDefinition[] aggregation, int offset, int? count)
+        public BisResultContext ExecuteQuery(BiQueryDefinition queryDefinition, IDictionary<string, object> parameters, BiAggregationDefinition[] aggregation, int offset, int? count)
         {
             if (queryDefinition == null)
                 throw new ArgumentNullException(nameof(queryDefinition));
@@ -184,7 +184,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Execute the specified query
         /// </summary>
-        public BisResultContext ExecuteQuery(string queryId, Dictionary<string, object> parameters, BiAggregationDefinition[] aggregation, int offset, int? count)
+        public BisResultContext ExecuteQuery(string queryId, IDictionary<string, object> parameters, BiAggregationDefinition[] aggregation, int offset, int? count)
         {
             var query = ApplicationServiceContext.Current.GetService<IBiMetadataRepository>()?.Get<BiQueryDefinition>(queryId);
             if (query == null)
@@ -193,10 +193,11 @@ namespace SanteDB.OrmLite
                 return this.ExecuteQuery(query, parameters, aggregation, offset, count);
         }
 
+
         /// <summary>
         /// Executes the specified view
         /// </summary>
-        public BisResultContext ExecuteView(BiViewDefinition viewDef, Dictionary<string, object> parameters, int offset, int? count)
+        public BisResultContext ExecuteView(BiViewDefinition viewDef, IDictionary<string, object> parameters, int offset, int? count)
         {
             viewDef = BiUtils.ResolveRefs(viewDef) as BiViewDefinition;
             var retVal = this.ExecuteQuery(viewDef.Query, parameters, viewDef.AggregationDefinitions?.ToArray(), offset, count);
@@ -204,5 +205,7 @@ namespace SanteDB.OrmLite
                 retVal = ApplicationServiceContext.Current.GetService<IBiPivotProvider>().Pivot(retVal, viewDef.Pivot);
             return retVal;
         }
+
+
     }
 }
