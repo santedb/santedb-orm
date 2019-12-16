@@ -149,10 +149,11 @@ namespace SanteDB.OrmLite
                             throw new InvalidOperationException("Cannot apply aggregation function");
                     }
                 }).ToArray() ?? new string[] { "*" };
-                var groupings = agg.Groupings.Select(g =>g.ColumnSelector).ToArray();
+                String[] groupings = agg.Groupings.Select(g => g.ColumnSelector).ToArray(),
+                    colGroupings = agg.Groupings.Select(g => $"{g.ColumnSelector} AS {g.Name}").ToArray();
                 // Aggregate
-                stmt = $"SELECT {String.Join(",", groupings.Union(selector))} " +
-                    $"FROM ({stmt}) {(provider.Features.HasFlag(SqlEngineFeatures.MustNameSubQuery) ? " AS _inner" : "")} " +
+                stmt = $"SELECT {String.Join(",", colGroupings.Union(selector))} " +
+                        $"FROM ({stmt}) {(provider.Features.HasFlag(SqlEngineFeatures.MustNameSubQuery) ? " AS _inner" : "")} " +
                     $"GROUP BY {String.Join(",", groupings)}";
             }
 
