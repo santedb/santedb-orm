@@ -55,6 +55,11 @@ namespace SanteDB.OrmLite.Providers
         string Invariant { get; }
 
         /// <summary>
+        ///  True if this provider can cancel commands
+        /// </summary>
+        bool CanCancelCommands { get; }
+
+        /// <summary>
         /// Create SQL keyword
         /// </summary>
         String CreateSqlKeyword(SqlKeyword keywordType);

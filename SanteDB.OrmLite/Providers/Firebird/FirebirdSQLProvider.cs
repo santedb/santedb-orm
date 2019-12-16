@@ -65,6 +65,11 @@ namespace SanteDB.OrmLite.Providers.Firebird
         public string ConnectionString { get; set; }
 
         /// <summary>
+        /// True if commands can be cancel
+        /// </summary>
+        public bool CanCancelCommands => false;
+
+        /// <summary>
         /// Gets the features that this provider 
         /// </summary>
         public SqlEngineFeatures Features

@@ -309,7 +309,7 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt.Limit(1));
                     try
                     {
                         using (var rdr = dbc.ExecuteReader())

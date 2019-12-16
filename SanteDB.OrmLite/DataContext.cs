@@ -236,7 +236,7 @@ namespace SanteDB.OrmLite
                 }
             if(this.m_lastCommand != null)
             {
-                try { this.m_lastCommand.Cancel(); }
+                try { if(this.m_provider.CanCancelCommands) this.m_lastCommand?.Cancel(); }
                 catch { }
             }
 

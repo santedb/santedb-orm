@@ -407,11 +407,11 @@ namespace SanteDB.OrmLite
                             var subTableColumn = linkColumn;
                             string existsClause = String.Empty;
 
-                            if (linkColumn == null)
+                            if (linkColumn == null || scopedTables.Any(o => o.AssociationWith(subTableMap) != null)) // Or there is a better linker
                             {
                                 var tableWithJoin = scopedTables.Select(o => o.AssociationWith(subTableMap)).FirstOrDefault(o => o != null);
                                 linkColumn = tableWithJoin.Columns.SingleOrDefault(o => scopedTables.Any(s => s.OrmType == o.ForeignKey?.Table));
-                                var targetColumn = tableWithJoin.Columns.SingleOrDefault(o => o.ForeignKey.Table == subTableMap.OrmType);
+                                var targetColumn = tableWithJoin.Columns.SingleOrDefault(o => o.ForeignKey?.Table == subTableMap.OrmType);
                                 subTableColumn = subTableMap.GetColumn(targetColumn.ForeignKey.Column);
                                 // The sub-query statement needs to be joined as well 
                                 var lnkPfx = IncrementSubQueryAlias(tablePrefix);
@@ -750,12 +750,12 @@ namespace SanteDB.OrmLite
                             break;
                         case '~':
                             if (sValue.Contains("*") || sValue.Contains("?"))
-                                retVal.Append($" ILIKE {parmValue} ", CreateParameterValue(sValue.Substring(1).Replace("*", "%"), modelProperty.PropertyType));
+                                retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} {parmValue} ", CreateParameterValue(sValue.Substring(1).Replace("*", "%"), modelProperty.PropertyType));
                             else
-                                retVal.Append($" ILIKE '%' || {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                                retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
                             break;
                         case '^':
-                            retVal.Append($" ILIKE {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                            retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
                             break;
                         default:
                             if (sValue.Equals("null"))

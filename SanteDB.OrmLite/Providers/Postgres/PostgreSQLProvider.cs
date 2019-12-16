@@ -60,6 +60,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public bool TraceSql { get; set; }
 
         /// <summary>
+        /// True if commands can be cancel
+        /// </summary>
+        public bool CanCancelCommands => true;
+
+        /// <summary>
         /// Gets or sets the connection string
         /// </summary>
         public String ReadonlyConnectionString { get; set; }

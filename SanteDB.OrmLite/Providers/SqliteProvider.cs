@@ -57,6 +57,11 @@ namespace SanteDB.OrmLite.Providers
         public String ReadonlyConnectionString { get; set; }
 
         /// <summary>
+        /// True if commands can be cancel
+        /// </summary>
+        public bool CanCancelCommands => true;
+
+        /// <summary>
         /// Gets or sets the trace SQL flag
         /// </summary>
         public bool TraceSql { get; set; }
