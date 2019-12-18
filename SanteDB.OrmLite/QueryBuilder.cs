@@ -444,7 +444,7 @@ namespace SanteDB.OrmLite
                                         if (redirectProperty != null)
                                             clsProperty = clsProperty.DeclaringType.GetRuntimeProperty(redirectProperty);
 
-                                        guardCondition.Append(clsProperty.GetCustomAttributes<XmlElementAttribute>().First().ElementName);
+                                        guardCondition.Append(clsProperty.GetSerializationName());
                                         if (typeof(IdentifiedData).IsAssignableFrom(clsModel))
                                             guardCondition.Append(".");
                                     }
