@@ -47,13 +47,8 @@ namespace SanteDB.OrmLite
                 throw new InvalidOperationException($"ADO.NET BI queries can only source data from 1 connection source, query {queryDefinition.Name} has {queryDefinition.DataSources?.Count}");
 
             // Ensure we have sufficient priviledge
-            var pdpService = ApplicationServiceContext.Current.GetService<IPolicyDecisionService>();
             foreach (var pol in queryDefinition.DataSources.SelectMany(o => o?.MetaData.Demands).Union(queryDefinition.MetaData?.Demands))
-            {
-                var outcome = pdpService.GetPolicyOutcome(AuthenticationContext.Current.Principal, pol);
-                if (outcome != Core.Model.Security.PolicyGrantType.Grant)
-                    throw new PolicyViolationException(AuthenticationContext.Current.Principal, pol, outcome);
-            }
+                ApplicationServiceContext.Current.GetService<IPolicyEnforcementService>().Demand(pol);
 
             // Apply defaults where possible
             foreach (var defaultParm in queryDefinition.Parameters.Where(p => !String.IsNullOrEmpty(p.DefaultValue) && !parameters.ContainsKey(p.Name)))
@@ -152,7 +147,7 @@ namespace SanteDB.OrmLite
                 String[] groupings = agg.Groupings.Select(g => g.ColumnSelector).ToArray(),
                     colGroupings = agg.Groupings.Select(g => $"{g.ColumnSelector} AS {g.Name}").ToArray();
                 // Aggregate
-                stmt = $"SELECT {String.Join(",", colGroupings.Union(selector))} " +
+                stmt = $"SELECT {String.Join(",", colGroupings.Concat(selector))} " +
                         $"FROM ({stmt}) {(provider.Features.HasFlag(SqlEngineFeatures.MustNameSubQuery) ? " AS _inner" : "")} " +
                     $"GROUP BY {String.Join(",", groupings)}";
             }
