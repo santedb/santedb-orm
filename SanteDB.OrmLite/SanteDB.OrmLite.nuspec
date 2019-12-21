@@ -6,7 +6,7 @@
     <title>$title$</title>
     <authors>Mohawk College of Applied Arts and Technology &amp; Fyfe Software Inc.</authors>
     <owners>Mohawk College of Applied Arts and Technology &amp; Fyfe Software Inc.</owners>
-    <license type="expression">Apache</license>
+    <license type="expression">Apache-2.0</license>
     <projectUrl>http://santesuite.org</projectUrl>
     <iconUrl>http://santesuite.org/assets/img/logo.png</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
