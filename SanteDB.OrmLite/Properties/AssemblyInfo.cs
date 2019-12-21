@@ -54,7 +54,7 @@ using System.Runtime.InteropServices;
 // [assembly: AssemblyVersion("1.100.0*")]
 [assembly: AssemblyVersion("1.100.0.*")]
 [assembly: AssemblyFileVersion("1.100.0.0")]
-[assembly: AssemblyInformationalVersion("Halifax")]
+[assembly: AssemblyInformationalVersion("Iqaluit")]
 
 [assembly: PluginTraceSource(Constants.TracerName + ".PostgreSQL")]
 [assembly: PluginTraceSource(Constants.TracerName + ".Sqlite")]
