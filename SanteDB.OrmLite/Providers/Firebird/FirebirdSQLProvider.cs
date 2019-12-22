@@ -203,6 +203,8 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     // Set value
                     if (itm == null)
                         parm.Value = DBNull.Value;
+                    else if (value?.GetType().IsEnum == true)
+                        parm.Value = (int)value;
                     else
                         parm.Value = itm;
 

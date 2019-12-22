@@ -246,6 +246,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     // Set value
                     if (itm == null)
                         parm.Value = DBNull.Value;
+                    else if (value?.GetType().IsEnum == true)
+                        parm.Value = (int)value;
                     else
                         parm.Value = itm;
 
@@ -298,6 +300,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             else if (type.StripNullable() == typeof(float) || type.StripNullable() == typeof(double)) return System.Data.DbType.Double;
             else if (type.StripNullable() == typeof(Decimal)) return System.Data.DbType.Decimal;
             else if (type.StripNullable() == typeof(Guid)) return DbType.Guid;
+            else if (type.StripNullable().IsEnum) return DbType.Int32;
             else
                 throw new ArgumentOutOfRangeException(nameof(type), "Can't map parameter type");
         }
