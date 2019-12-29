@@ -51,9 +51,9 @@ using System.Runtime.InteropServices;
 //
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
-// [assembly: AssemblyVersion("1.109.0*")]
-[assembly: AssemblyVersion("1.109.0.*")]
-[assembly: AssemblyFileVersion("1.109.0.0")]
+// [assembly: AssemblyVersion("1.110.0*")]
+[assembly: AssemblyVersion("1.110.0.*")]
+[assembly: AssemblyFileVersion("1.110.0.0")]
 [assembly: AssemblyInformationalVersion("Iqaluit")]
 
 [assembly: PluginTraceSource(Constants.TracerName + ".PostgreSQL")]
