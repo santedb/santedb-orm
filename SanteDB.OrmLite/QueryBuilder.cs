@@ -790,6 +790,8 @@ namespace SanteDB.OrmLite
                 return retVal;
             else if ("null".Equals(value))
                 return DBNull.Value;
+            else if (MapUtil.TryConvert(value, toType, out object result))
+                return result;
             else
                 throw new ArgumentOutOfRangeException(value.ToString());
         }
