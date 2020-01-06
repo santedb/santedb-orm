@@ -720,9 +720,8 @@ namespace SanteDB.OrmLite
                                 else
                                 {
                                     retVal.RemoveLast();
-                                    retVal.Append(filterFn.CreateSqlStatement(retVal, $"{tableAlias}.{columnName}", parms.Split(','), operand, modelProperty.PropertyType));
+                                    retVal = filterFn.CreateSqlStatement(retVal, $"{tableAlias}.{columnName}", parms.Split(','), operand, modelProperty.PropertyType).Build();
                                 }
-
                             }
                             else
                                 retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, modelProperty.PropertyType));
@@ -790,6 +789,8 @@ namespace SanteDB.OrmLite
                 return retVal;
             else if ("null".Equals(value))
                 return DBNull.Value;
+            else if (MapUtil.TryConvert(value, toType, out object result))
+                return result;
             else
                 throw new ArgumentOutOfRangeException(value.ToString());
         }
