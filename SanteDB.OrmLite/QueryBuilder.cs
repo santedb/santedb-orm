@@ -720,9 +720,8 @@ namespace SanteDB.OrmLite
                                 else
                                 {
                                     retVal.RemoveLast();
-                                    retVal.Append(filterFn.CreateSqlStatement(retVal, $"{tableAlias}.{columnName}", parms.Split(','), operand, modelProperty.PropertyType));
+                                    retVal = filterFn.CreateSqlStatement(retVal, $"{tableAlias}.{columnName}", parms.Split(','), operand, modelProperty.PropertyType).Build();
                                 }
-
                             }
                             else
                                 retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, modelProperty.PropertyType));

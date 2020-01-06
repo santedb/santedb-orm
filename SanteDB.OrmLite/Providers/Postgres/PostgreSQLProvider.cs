@@ -52,7 +52,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         private DbProviderFactory m_provider = null;
 
         // Filter functions
-        private static Dictionary<String, IDbFilterFunction> s_filterFunctions = new Dictionary<string, IDbFilterFunction>();
+        private static Dictionary<String, IDbFilterFunction> s_filterFunctions = null;
 
         /// <summary>
         /// Trace SQL commands
@@ -440,7 +440,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             if (s_filterFunctions == null)
             {
-                s_filterFunctions = AppDomain.CurrentDomain.GetAssemblies().SelectMany(a => a.ExportedTypes)
+                s_filterFunctions = AppDomain.CurrentDomain.GetAssemblies()
+                        .Where(a=>!a.IsDynamic)
+                        .SelectMany(a => a.ExportedTypes)
                         .Where(t => typeof(IDbFilterFunction).IsAssignableFrom(t) && !t.IsAbstract)
                         .Select(t => Activator.CreateInstance(t) as IDbFilterFunction)
                         .Where(o => o.Provider == "pgsql")

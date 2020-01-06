@@ -81,6 +81,7 @@
     <Compile Include="Providers\DbStatementReport.cs" />
     <Compile Include="Providers\Firebird\FirebirdSQLConfigurationProvider.cs" />
     <Compile Include="Providers\IDbMonitorProvider.cs" />
+    <Compile Include="Providers\Postgres\DateExtensionFunctions.cs" />
     <Compile Include="Providers\Postgres\PostgreSQLConfigurationProvider.cs" />
     <Compile Include="IAdoLoadedData.cs" />
     <Compile Include="Migration\SqlFeature.cs" />
