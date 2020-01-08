@@ -115,9 +115,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
             switch (parms.Length)
             {
                 case 1:
-                    return current.Append($"levenshtein({filterColumn}, ?) {op} ?", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(value, typeof(Int32)));
+                    return current.Append($"levenshtein(LOWER({filterColumn}), LOWER(?)) {op} ?", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(value, typeof(Int32)));
                 case 4: // with insert, delete and substitute costs
-                    return current.Append($"levenshtein({filterColumn}, ?, {String.Join(",", parms.Skip(1))}) {op} ?", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(value, typeof(Int32)));
+                    return current.Append($"levenshtein(LOWER({filterColumn}), LOWER(?), {String.Join(",", parms.Skip(1))}) {op} ?", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(value, typeof(Int32)));
                 default:
                     throw new ArgumentOutOfRangeException("Invalid number of parameters of string diff");
             }
