@@ -691,8 +691,9 @@ namespace SanteDB.OrmLite
             bool noCase = modelProperty.GetCustomAttribute<NoCaseAttribute>() != null;
             string parmValue = noCase ? $"{this.m_provider.CreateSqlKeyword(SqlKeyword.Lower)}(?)" : "?";
             retVal.Append("(");
-            foreach (var itm in values)
+            for (var i = 0; i < values.Count; i++)
             {
+                var itm = values[i];
                 if (noCase)
                     retVal.Append($"{this.m_provider.CreateSqlKeyword(SqlKeyword.Lower)}({tableAlias}.{columnName})");
                 else
@@ -734,12 +735,32 @@ namespace SanteDB.OrmLite
                                 retVal.Append($" < {parmValue}", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
                             break;
                         case '>':
-                            semantic = " AND ";
-                            if (sValue[1] == '=')
-                                retVal.Append($" >= {parmValue}", CreateParameterValue(sValue.Substring(2), modelProperty.PropertyType));
+                            // peek the next value and see if it is < then we use BETWEEN
+                            if (i < values.Count - 1 && values[i + 1].ToString().StartsWith("<"))
+                            {
+                                object lower = null, upper = null;
+                                if (sValue[1] == '=')
+                                    lower = CreateParameterValue(sValue.Substring(2), modelProperty.PropertyType);
+                                else
+                                    lower = CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType);
+                                sValue = values[++i].ToString();
+                                if (sValue[1] == '=')
+                                    upper = CreateParameterValue(sValue.Substring(2), modelProperty.PropertyType);
+                                else
+                                    upper = CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType);
+                                semantic = " OR ";
+                                retVal.Append($" BETWEEN {parmValue} AND {parmValue}", lower, upper);
+                            }
                             else
-                                retVal.Append($" > {parmValue}", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                            {
+                                semantic = " AND ";
+                                if (sValue[1] == '=')
+                                    retVal.Append($" >= {parmValue}", CreateParameterValue(sValue.Substring(2), modelProperty.PropertyType));
+                                else
+                                    retVal.Append($" > {parmValue}", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                            }
                             break;
+
                         case '!':
                             semantic = " AND ";
                             if (sValue.Equals("!null"))
@@ -767,7 +788,7 @@ namespace SanteDB.OrmLite
                 else
                     retVal.Append($" = {parmValue} ", CreateParameterValue(iValue, modelProperty.PropertyType));
 
-                if (values.IndexOf(itm) < values.Count - 1)
+                if (i < values.Count - 1)
                     retVal.Append(semantic);
             }
 
