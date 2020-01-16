@@ -86,7 +86,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     SqlEngineFeatures.ReturnedInsertsAsReader |
                     SqlEngineFeatures.LimitOffset |
                     SqlEngineFeatures.FetchOffset |
-                    SqlEngineFeatures.MustNameSubQuery;
+                    SqlEngineFeatures.MustNameSubQuery | 
+                    SqlEngineFeatures.SetTimeout;
             }
         }
 

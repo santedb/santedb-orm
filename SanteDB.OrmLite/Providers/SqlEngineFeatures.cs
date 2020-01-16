@@ -35,6 +35,7 @@ namespace SanteDB.OrmLite.Providers
         FetchOffset = 0x10,
         ReturnedInsertsAsParms = 0x20,
         StrictSubQueryColumnNames = 0x40,
-        MustNameSubQuery = 0x80
+        MustNameSubQuery = 0x80,
+        SetTimeout = 0x100
     }
 }

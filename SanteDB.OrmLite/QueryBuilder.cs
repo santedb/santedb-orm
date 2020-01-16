@@ -485,10 +485,16 @@ namespace SanteDB.OrmLite
                                 else
                                     subQueryStatement.And($"{existsClause} IN (");
 
+                                // Does this query object have obsolete version sequence?
+                                if(typeof(IVersionedAssociation).IsAssignableFrom(propertyType)) // Add obslt guard
+                                {
+                                    subQuery.Add(new KeyValuePair<string, object>(propertyType.GetRuntimeProperty(nameof(IVersionedAssociation.ObsoleteVersionSequenceId)).GetSerializationName(), "null"));
+                                }
+
                                 if (subQuery.Count(p => !p.Key.Contains(".")) == 0)
-                                    subQueryStatement.Append(genMethod.Invoke(this, new Object[] { subQuery, prefix, true, null, new ColumnMapping[] { subTableColumn } }) as SqlStatement);
+                                    subQueryStatement.Append(genMethod.Invoke(this, new Object[] { subQuery.Distinct(), prefix, true, null, new ColumnMapping[] { subTableColumn } }) as SqlStatement);
                                 else
-                                    subQueryStatement.Append(genMethod.Invoke(this, new Object[] { subQuery, prefix, false, null, new ColumnMapping[] { subTableColumn } }) as SqlStatement);
+                                    subQueryStatement.Append(genMethod.Invoke(this, new Object[] { subQuery.Distinct(), prefix, false, null, new ColumnMapping[] { subTableColumn } }) as SqlStatement);
 
                                 //subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{subTableColumn.Name}");
                                 //existsClause = $"{prefix}{subTableColumn.Table.TableName}.{subTableColumn.Name}";

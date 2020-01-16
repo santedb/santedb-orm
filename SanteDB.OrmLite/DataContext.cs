@@ -169,6 +169,22 @@ namespace SanteDB.OrmLite
                 this.m_connection.Open();
             }
 
+            // Can set timeouts
+            if(this.m_provider.Features.HasFlag(SqlEngineFeatures.SetTimeout))
+                try
+                {
+                    using (var cmd = this.m_connection.CreateCommand())
+                    {
+                        cmd.CommandType = CommandType.Text;
+                        cmd.CommandText = "SET statement_timeout to '3 min'";
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+                catch (Exception e)
+                {
+                    this.m_tracer.TraceWarning("Error setting timeout: {0}", e);
+                }
+
         }
 
         /// <summary>
