@@ -168,7 +168,8 @@ namespace SanteDB.OrmLite
                 this.m_connection.Close();
                 this.m_connection.Open();
             }
-
+	    else if (this.m_connection.State != ConnectionState.Open)
+		this.m_connection.Open();
             // Can set timeouts
             if(this.m_provider.Features.HasFlag(SqlEngineFeatures.SetTimeout))
                 try
