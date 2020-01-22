@@ -168,22 +168,28 @@ namespace SanteDB.OrmLite
                 this.m_connection.Close();
                 this.m_connection.Open();
             }
-	    else if (this.m_connection.State != ConnectionState.Open)
-		this.m_connection.Open();
+            else if (this.m_connection.State != ConnectionState.Open)
+                this.m_connection.Open();
+
             // Can set timeouts
-            if(this.m_provider.Features.HasFlag(SqlEngineFeatures.SetTimeout))
+            if (this.m_provider.Features.HasFlag(SqlEngineFeatures.SetTimeout))
                 try
                 {
                     using (var cmd = this.m_connection.CreateCommand())
                     {
                         cmd.CommandType = CommandType.Text;
-                        cmd.CommandText = "SET statement_timeout to '3 min'";
+                        cmd.CommandText = "SET statement_timeout to 60000";
                         cmd.ExecuteNonQuery();
                     }
                 }
                 catch (Exception e)
                 {
                     this.m_tracer.TraceWarning("Error setting timeout: {0}", e);
+                }
+                finally // Sometimes the psql server will cack the connection 
+                {
+                    if (this.m_connection.State != ConnectionState.Open)
+                        this.m_connection.Open();
                 }
 
         }
@@ -251,9 +257,9 @@ namespace SanteDB.OrmLite
 
                     itm?.Dispose();
                 }
-            if(this.m_lastCommand != null)
+            if (this.m_lastCommand != null)
             {
-                try { if(this.m_provider.CanCancelCommands) this.m_lastCommand?.Cancel(); }
+                try { if (this.m_provider.CanCancelCommands) this.m_lastCommand?.Cancel(); }
                 catch { }
             }
 
@@ -281,7 +287,7 @@ namespace SanteDB.OrmLite
                 else if (data.Key.HasValue && data.LoadState > (existing?.LoadState ?? 0))
                     this.m_cacheCommit[data.Key.Value] = data;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 this.m_tracer.TraceEvent(EventLevel.Warning, "Object {0} won't be added to cache: {1}", data, e);
             }
@@ -294,7 +300,7 @@ namespace SanteDB.OrmLite
         public IdentifiedData GetCacheCommit(Guid key)
         {
             IdentifiedData retVal = null;
-            lock(this.m_lockObject)
+            lock (this.m_lockObject)
                 this.m_cacheCommit.TryGetValue(key, out retVal);
             return retVal;
         }

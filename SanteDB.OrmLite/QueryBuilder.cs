@@ -388,7 +388,7 @@ namespace SanteDB.OrmLite
 
                     // Link to this table in the other?
                     // Allow hacking of the query before we get to the auto-generated stuff
-                    if (!this.m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, typeof(TModel), subProp, tablePrefix, propertyPredicate, parm.Value, scopedTables)))
+                    if (!this.m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, typeof(TModel), subProp, tablePrefix, propertyPredicate, parm.Value, scopedTables, queryParms.ToArray())))
                     {
                         // Is this a collection?
                         if (typeof(IList).IsAssignableFrom(subProp.PropertyType)) // Other table points at this on
@@ -563,7 +563,7 @@ namespace SanteDB.OrmLite
                         }
                     }
                 }
-                else if (!this.m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, typeof(TModel), typeof(TModel).GetQueryProperty(propertyPredicate.Path), tablePrefix, propertyPredicate, parm.Value, scopedTables)))
+                else if (!this.m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, typeof(TModel), typeof(TModel).GetQueryProperty(propertyPredicate.Path), tablePrefix, propertyPredicate, parm.Value, scopedTables, parm)))
                     whereClause.And(CreateWhereCondition(typeof(TModel), propertyPredicate.Path, parm.Value, tablePrefix, scopedTables));
 
             }
@@ -658,12 +658,22 @@ namespace SanteDB.OrmLite
             var propertyInfo = tmodel.GetQueryProperty(propertyPath);
             if (propertyInfo == null)
                 throw new ArgumentOutOfRangeException(propertyPath);
+
             PropertyInfo domainProperty = scopedTables.Select(o => { tableMapping = o; return m_mapper.MapModelProperty(tmodel, o.OrmType, propertyInfo); }).FirstOrDefault(o => o != null);
 
             // Now map the property path
             var tableAlias = $"{tablePrefix}{tableMapping.TableName}";
             Guid pkey = Guid.Empty;
-            if (domainProperty == null && Guid.TryParse(value.ToString(), out pkey))
+
+            var sValue = value.ToString();
+            if (value is IList)
+            {
+                var vals = (value as IEnumerable).OfType<Object>().Where(s => !"!null".Equals(s));
+                if (vals.Count() == 1)
+                    sValue = vals.First().ToString();
+            }
+
+            if (domainProperty == null && Guid.TryParse(sValue, out pkey))
             {
                 domainProperty = tableMapping.PrimaryKey.First().SourceProperty;
                 // Link property to the key 
