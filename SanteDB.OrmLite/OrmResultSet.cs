@@ -212,5 +212,15 @@ namespace SanteDB.OrmLite
             return this.Statement.Build();
         }
 
+        /// <summary>
+        /// Intersect the data 
+        /// </summary>
+        public OrmResultSet<TData> Union(OrmResultSet<TData> other)
+        {
+            var sql = this.Context.CreateSqlStatement<TData>().Append("(").Append(this.ToSqlStatement()).Append(")");
+            sql = sql.Append(" UNION ").Append("(").Append(other.ToSqlStatement()).Append(")");
+            return new OrmResultSet<TData>(this.Context, sql);
+        }
+
     }
 }
