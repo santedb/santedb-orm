@@ -84,6 +84,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 return SqlEngineFeatures.AutoGenerateGuids |
                     SqlEngineFeatures.AutoGenerateTimestamps |
                     SqlEngineFeatures.ReturnedInsertsAsReader |
+                    SqlEngineFeatures.StrictSubQueryColumnNames |
                     SqlEngineFeatures.LimitOffset |
                     SqlEngineFeatures.FetchOffset |
                     SqlEngineFeatures.MustNameSubQuery | 
