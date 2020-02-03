@@ -217,8 +217,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         public OrmResultSet<TData> Union(OrmResultSet<TData> other)
         {
-            var sql = this.Context.CreateSqlStatement<TData>().Append("(").Append(this.ToSqlStatement()).Append(")");
-            sql = sql.Append(" UNION ").Append("(").Append(other.ToSqlStatement()).Append(")");
+            var sql = this.ToSqlStatement();
+            sql = sql.Append(" UNION ").Append(other.ToSqlStatement());
             return new OrmResultSet<TData>(this.Context, sql);
         }
 
