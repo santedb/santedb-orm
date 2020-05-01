@@ -21,10 +21,13 @@
 /*
  * This product includes software developed by Borland Software Corp.
  */
+using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Warehouse;
+using SanteDB.Core.Services;
+using SanteDB.OrmLite.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -337,7 +340,13 @@ namespace SanteDB.OrmLite.Providers.Firebird
         private DbProviderFactory GetProviderFactory()
         {
             if (this.m_provider == null) // HACK for Mono
-                this.m_provider = DbProviderFactories.GetFactory("Fbsql");
+            {
+                var provType = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant == this.Invariant)?.Type;
+                if (provType == null)
+                    throw new InvalidOperationException("Cannot find FBSQL provider");
+                this.m_provider = Activator.CreateInstance(provType) as DbProviderFactory;
+            }
+
 
             if (this.m_provider == null)
                 throw new InvalidOperationException("Missing FirebirdSQL provider");

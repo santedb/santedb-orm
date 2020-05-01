@@ -17,10 +17,13 @@
  * User: fyfej
  * Date: 2019-11-27
  */
+using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Warehouse;
+using SanteDB.Core.Services;
+using SanteDB.OrmLite.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -104,8 +107,12 @@ namespace SanteDB.OrmLite.Providers.Postgres
         private DbProviderFactory GetProviderFactory()
         {
             if (this.m_provider == null) // HACK for Mono
-                this.m_provider = typeof(DbProviderFactories).GetMethod("GetFactory", new Type[] { typeof(String) }).Invoke(null, new object[] { "Npgsql" }) as DbProviderFactory;
-
+            {
+                var provType = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant == this.Invariant)?.Type;
+                if (provType == null)
+                    throw new InvalidOperationException("Cannot find NPGSQL provider");
+                this.m_provider = Activator.CreateInstance(provType) as DbProviderFactory;
+            }
             if (this.m_provider == null)
                 throw new InvalidOperationException("Missing Npgsql provider");
             return this.m_provider;

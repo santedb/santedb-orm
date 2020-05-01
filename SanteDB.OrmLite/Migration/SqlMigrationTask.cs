@@ -119,7 +119,7 @@ namespace SanteDB.OrmLite.Migration
             }
             catch (Exception e)
             {
-                throw new ConfigurationException($"Error deploying {this.m_feature.Name} : {e.Message}", e);
+                throw new DataException($"Error deploying {this.m_feature.Name} : {e.Message}", e);
             }
         }
 
@@ -165,7 +165,7 @@ namespace SanteDB.OrmLite.Migration
             }
             catch (Exception e)
             {
-                throw new ConfigurationException($"Error deploying {this.m_feature.Name} : {e.Message}", e);
+                throw new DataException($"Error deploying {this.m_feature.Name} : {e.Message}", e);
             }
         }
 
