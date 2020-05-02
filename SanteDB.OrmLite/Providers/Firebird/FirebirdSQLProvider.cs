@@ -341,10 +341,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             if (this.m_provider == null) // HACK for Mono
             {
-                var provType = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant == this.Invariant)?.Type;
+                var provType = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type;
                 if (provType == null)
                     throw new InvalidOperationException("Cannot find FBSQL provider");
-                this.m_provider = Activator.CreateInstance(provType) as DbProviderFactory;
+                this.m_provider = provType.GetField("Instance").GetValue(null) as DbProviderFactory;
             }
 
 

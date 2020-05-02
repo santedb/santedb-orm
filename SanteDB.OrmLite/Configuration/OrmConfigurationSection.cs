@@ -54,7 +54,7 @@ namespace SanteDB.OrmLite.Configuration
         /// <summary>
         /// Ado providers
         /// </summary>
-        [XmlArray("adoNetProvider"), XmlArrayItem("add")]
+        [XmlArray("dbProviderFactories"), XmlArrayItem("add")]
         public List<ProviderRegistrationConfiguration> AdoProvider { get; set; }
 
         /// <summary>
