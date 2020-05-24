@@ -658,7 +658,7 @@ namespace SanteDB.OrmLite
             var propertyInfo = tmodel.GetQueryProperty(propertyPath);
             if (propertyInfo == null)
                 throw new ArgumentOutOfRangeException(propertyPath);
-
+           
             PropertyInfo domainProperty = scopedTables.Select(o => { tableMapping = o; return m_mapper.MapModelProperty(tmodel, o.OrmType, propertyInfo); }).FirstOrDefault(o => o != null);
 
             // Now map the property path
@@ -669,7 +669,7 @@ namespace SanteDB.OrmLite
             if (value is IList)
             {
                 var vals = (value as IEnumerable).OfType<Object>().Where(s => !"!null".Equals(s));
-                if (vals.Count() == 1)
+                if (vals.Any())
                     sValue = vals.First().ToString();
             }
 
