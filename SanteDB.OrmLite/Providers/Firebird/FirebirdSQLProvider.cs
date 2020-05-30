@@ -456,7 +456,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                         .SelectMany(a => a.ExportedTypes)
                         .Where(t => typeof(IDbFilterFunction).IsAssignableFrom(t) && !t.IsAbstract)
                         .Select(t => Activator.CreateInstance(t) as IDbFilterFunction)
-                        .Where(o => o.Provider == "pgsql")
+                        .Where(o => o.Provider == "fbsql")
                         .ToDictionary(o => o.Name, o => o);
             }
             IDbFilterFunction retVal = null;
