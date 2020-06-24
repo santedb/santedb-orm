@@ -23,6 +23,7 @@ using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Warehouse;
 using SanteDB.OrmLite.Providers;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
@@ -37,9 +38,7 @@ namespace SanteDB.OrmLite
     /// </summary>
     public partial class DataContext : IDisposable
     {
-        // Lock object
-        private object m_lockObject = new object();
-
+       
         // the connection
         private IDbConnection m_connection;
 
@@ -50,16 +49,16 @@ namespace SanteDB.OrmLite
         private IDbProvider m_provider;
 
         // Data dictionary
-        private Dictionary<String, Object> m_dataDictionary = new Dictionary<string, object>();
+        private ConcurrentDictionary<String, Object> m_dataDictionary = new ConcurrentDictionary<string, object>();
 
         // Items to be added to cache after an action
-        private Dictionary<Guid, IdentifiedData> m_cacheCommit = new Dictionary<Guid, IdentifiedData>();
+        private ConcurrentDictionary<Guid, IdentifiedData> m_cacheCommit = new ConcurrentDictionary<Guid, IdentifiedData>();
 
         // Trace source
         private Tracer m_tracer = new Tracer(Constants.TracerName);
 
         // Commands prepared on this connection
-        private Dictionary<String, IDbCommand> m_preparedCommands = new Dictionary<string, IDbCommand>();
+        private ConcurrentDictionary<String, IDbCommand> m_preparedCommands = new ConcurrentDictionary<string, IDbCommand>();
 
         /// <summary>
         /// Connection
@@ -199,11 +198,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         internal void AddPreparedCommand(IDbCommand cmd)
         {
-            if (!this.m_preparedCommands.ContainsKey(cmd.CommandText))
-                lock (this.m_preparedCommands)
-                    if (!this.m_preparedCommands.ContainsKey(cmd.CommandText)) // Check after lock
-                        this.m_preparedCommands.Add(cmd.CommandText, cmd);
-
+            this.m_preparedCommands.TryAdd(cmd.CommandText, cmd);
         }
 
         /// <summary>
@@ -279,10 +274,7 @@ namespace SanteDB.OrmLite
                 IdentifiedData existing = null;
                 if (data.Key.HasValue && !this.m_cacheCommit.TryGetValue(data.Key.Value, out existing))
                 {
-                    lock (this.m_lockObject)
-                        // check again
-                        if (!m_cacheCommit.ContainsKey(data.Key.Value))
-                            this.m_cacheCommit.Add(data.Key.Value, data);
+                    this.m_cacheCommit.TryAdd(data.Key.Value, data);
                 }
                 else if (data.Key.HasValue && data.LoadState > (existing?.LoadState ?? 0))
                     this.m_cacheCommit[data.Key.Value] = data;
@@ -300,8 +292,7 @@ namespace SanteDB.OrmLite
         public IdentifiedData GetCacheCommit(Guid key)
         {
             IdentifiedData retVal = null;
-            lock (this.m_lockObject)
-                this.m_cacheCommit.TryGetValue(key, out retVal);
+            this.m_cacheCommit.TryGetValue(key, out retVal);
             return retVal;
         }
 

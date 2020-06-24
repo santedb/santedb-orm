@@ -116,6 +116,9 @@ namespace SanteDB.OrmLite
     public partial class DataContext
     {
 
+        // Lock
+        private object m_lockObject = new object();
+
         // Base types
         private static readonly HashSet<Type> BaseTypes = new HashSet<Type>()
         {
@@ -719,9 +722,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void AddData(string key, object value)
         {
-            lock (this.m_dataDictionary)
-                if (!this.m_dataDictionary.ContainsKey(key))
-                    this.m_dataDictionary.Add(key, value);
+            this.m_dataDictionary.TryAdd(key, value);
         }
 
         /// <summary>

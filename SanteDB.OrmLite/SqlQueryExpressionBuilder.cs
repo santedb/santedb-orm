@@ -74,6 +74,8 @@ namespace SanteDB.OrmLite
         {
             if (node == null)
                 return node;
+            else if (node.CanReduce)
+                node = node.Reduce();
 
             // Convert node type
             switch (node.NodeType)
