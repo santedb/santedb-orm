@@ -256,12 +256,17 @@ namespace SanteDB.OrmLite
             {
                 try { if (this.m_provider.CanCancelCommands) this.m_lastCommand?.Cancel(); }
                 catch { }
+                finally { this.m_lastCommand?.Dispose(); this.m_lastCommand = null;  }
             }
 
             this.m_cacheCommit?.Clear();
             this.m_cacheCommit = null;
             this.m_transaction?.Dispose();
+            this.m_transaction = null;
             this.m_connection?.Dispose();
+            this.m_connection = null;
+            this.m_dataDictionary.Clear();
+            this.m_dataDictionary = null;
         }
 
         /// <summary>

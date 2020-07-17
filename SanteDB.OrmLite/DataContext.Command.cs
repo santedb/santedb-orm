@@ -233,8 +233,6 @@ namespace SanteDB.OrmLite
             {
                 var retVal = Activator.CreateInstance(typeof(TModel));
                 (retVal as CompositeResult).ParseValues(rdr, this.m_provider);
-                foreach (var itm in (retVal as CompositeResult).Values.OfType<IAdoLoadedData>())
-                    itm.Context = this;
                 return (TModel)retVal;
             }
             else if (BaseTypes.Contains(typeof(TModel)))
@@ -274,7 +272,7 @@ namespace SanteDB.OrmLite
         private object MapObject(Type tModel, IDataReader rdr)
         {
             var tableMapping = TableMapping.Get(tModel);
-            dynamic result = Activator.CreateInstance(tModel);
+            object result = Activator.CreateInstance(tModel);
             // Read each column and pull from reader
             foreach (var itm in tableMapping.Columns)
             {
@@ -291,10 +289,6 @@ namespace SanteDB.OrmLite
                 }
             }
 
-            if (result is IAdoLoadedData)
-                (result as IAdoLoadedData).Context = this;
-            else
-                this.m_tracer.TraceEvent(EventLevel.Verbose,  "Type {0} does not implement IAdoLoadedData", tModel);
             return result;
 
         }
@@ -916,9 +910,6 @@ namespace SanteDB.OrmLite
                     }
                 }
 
-                if (value is IAdoLoadedData)
-                    (value as IAdoLoadedData).Context = this;
-
                 return value;
 #if DEBUG
             }
@@ -1075,9 +1066,6 @@ namespace SanteDB.OrmLite
                             dbc.Dispose();
                     }
                 }
-
-                if (value is IAdoLoadedData)
-                    (value as IAdoLoadedData).Context = this;
 
                 return value;
 #if DEBUG
