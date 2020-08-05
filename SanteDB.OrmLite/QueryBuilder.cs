@@ -161,7 +161,7 @@ namespace SanteDB.OrmLite
     public class QueryBuilder
     {
         // Filter function regex
-        public static readonly Regex DbFilterFunctionRegex = new Regex(@"^:\((\w*?)(\|(.*?)\)|\))(.*)");
+        public static readonly Regex ExtendedFunctionRegex = new Regex(@"^:\((\w*?)(\|(.*?)\)|\))(.*)");
 
         // Join cache
         private Dictionary<String, KeyValuePair<SqlStatement, List<TableMapping>>> s_joinCache = new Dictionary<String, KeyValuePair<SqlStatement, List<TableMapping>>>();
@@ -722,7 +722,7 @@ namespace SanteDB.OrmLite
                     switch (sValue[0])
                     {
                         case ':': // function
-                            var opMatch = DbFilterFunctionRegex.Match(sValue);
+                            var opMatch = ExtendedFunctionRegex.Match(sValue);
                             if (opMatch.Success)
                             {
                                 // Extract

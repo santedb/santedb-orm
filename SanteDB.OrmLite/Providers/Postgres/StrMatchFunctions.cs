@@ -87,11 +87,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
     }
 
-
     /// <summary>
     /// Postgrsql string difference function
     /// </summary>
-    public class PostgresLEvenshteinFunction : IDbFilterFunction
+    public class PostgresLevenshteinFunction : IDbFilterFunction
     {
         /// <summary>
         /// Gets thje provider name
