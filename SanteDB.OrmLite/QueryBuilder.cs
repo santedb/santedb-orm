@@ -816,7 +816,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Create a parameter value
         /// </summary>
-        internal static object CreateParameterValue(object value, Type toType)
+        public static object CreateParameterValue(object value, Type toType)
         {
             object retVal = null;
             if (value.GetType() == toType ||

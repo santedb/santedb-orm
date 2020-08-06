@@ -18,8 +18,11 @@
  * Date: 2019-11-27
  */
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using SanteDB.Core;
+using SanteDB.Core.Services;
 
 namespace SanteDB.OrmLite.Providers.Postgres
 {
@@ -87,181 +90,12 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
     }
 
-    /// <summary>
-    /// Postgrsql string difference function
-    /// </summary>
-    public class PostgresLevenshteinFunction : IDbFilterFunction
-    {
-        /// <summary>
-        /// Gets thje provider name
-        /// </summary>
-        public string Provider => "pgsql";
+    
+    
+   
 
-        /// <summary>
-        /// Gets the name of the filter
-        /// </summary>
-        public string Name => "levenshtein";
+    
+   
 
-        /// <summary>
-        /// Apply the filter
-        /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
-        {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
-            String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
-
-            switch (parms.Length)
-            {
-                case 1:
-                    return current.Append($"levenshtein(TRIM(LOWER({filterColumn})), TRIM(LOWER(?))) {op} ?", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(value, typeof(Int32)));
-                case 4: // with insert, delete and substitute costs
-                    return current.Append($"levenshtein(TRIM(LOWER({filterColumn})), TRIM(LOWER(?)), {String.Join(",", parms.Skip(1))}) {op} ?", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(value, typeof(Int32)));
-                default:
-                    throw new ArgumentOutOfRangeException("Invalid number of parameters of string diff");
-            }
-        }
-    }
-    /// <summary>
-    /// Represents the PostgreSQL soundex function
-    /// </summary>
-    /// <example>
-    /// ?name.component.value=:(soundex)Fyfe
-    /// or
-    /// ?name.component.value=:(soundex|Fyfe)&lt;3
-    /// </example>
-    public class PostgresSoundexFunction : IDbFilterFunction
-    {
-        /// <summary>
-        /// Gets the name of the function
-        /// </summary>
-        public string Name => "soundex";
-
-        /// <summary>
-        /// Provider 
-        /// </summary>
-        public string Provider => "pgsql";
-
-        /// <summary>
-        /// Creates the SQL statement
-        /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
-        {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
-            String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
-
-            if (parms.Length == 1) // There is a threshold
-                return current.Append($"difference({filterColumn}, ?) {op} ?", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(value, operandType));
-            else
-                return current.Append($"soundex({filterColumn}) {op} soundex(?)", QueryBuilder.CreateParameterValue(value, operandType));
-        }
-    }
-
-    /// <summary>
-    /// Represents the PostgreSQL soundex function
-    /// </summary>
-    public class PostgresMetaphoneFunction : IDbFilterFunction
-    {
-        /// <summary>
-        /// Gets the name of the function
-        /// </summary>
-        public string Name => "metaphone";
-
-        /// <summary>
-        /// Provider 
-        /// </summary>
-        public string Provider => "pgsql";
-
-        /// <summary>
-        /// Creates the SQL statement
-        /// </summary>
-        /// <example>
-        /// ?name.component.value=:(metaphone)Justin
-        /// or
-        /// ?name.component.value=:(metaphone|5)Hamilton
-        /// </example>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
-        {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
-            String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
-
-            if (op != "=") // There is a threshold
-                return current.Append($"metaphone({filterColumn}, {parms[0]}) {op} metaphone(?, {parms[0]})", QueryBuilder.CreateParameterValue(value, operandType));
-            else
-                return current.Append($"metaphone({filterColumn}, 4) {op} metaphone(?, 4)", QueryBuilder.CreateParameterValue(value, operandType));
-        }
-    }
-
-    /// <summary>
-    /// Represents the PostgreSQL soundex function
-    /// </summary>
-    public class PostgresDoubleMetaphoneFunction : IDbFilterFunction
-    {
-        /// <summary>
-        /// Gets the name of the function
-        /// </summary>
-        public string Name => "dmetaphone";
-
-        /// <summary>
-        /// Provider 
-        /// </summary>
-        public string Provider => "pgsql";
-
-        /// <summary>
-        /// Creates the SQL statement
-        /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
-        {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
-            String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
-            return current.Append($"((dmetaphone({filterColumn}) {op} dmetaphone(?)) OR (dmetaphone_alt({filterColumn}) {op} dmetaphone_alt(?)))", QueryBuilder.CreateParameterValue(value, operandType));
-        }
-    }
-
-    /// <summary>
-    /// Represents the PostgreSQL soundex function
-    /// </summary>
-    /// <example>
-    /// ?name.component.value=:(soundslike|Betty)
-    /// ?name.component.value=:(soundslike|Betty,metaphone)
-    /// </example>
-    public class PostgresSoundslikeFunction : IDbFilterFunction
-    {
-        /// <summary>
-        /// Gets the name of the function
-        /// </summary>
-        public string Name => "soundslike";
-
-        /// <summary>
-        /// Provider 
-        /// </summary>
-        public string Provider => "pgsql";
-
-        /// <summary>
-        /// Creates the SQL statement
-        /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
-        {
-            if (parms.Length == 1)
-                return current.Append($"metaphone({filterColumn}, 4) = metaphone(?, 4)", QueryBuilder.CreateParameterValue(parms[0], operandType));
-            else
-            {
-                switch (parms[1])
-                {
-                    case "metaphone":
-                        return current.Append($"metaphone({filterColumn}, 4) = metaphone(?, 4)", QueryBuilder.CreateParameterValue(parms[0], operandType));
-                    case "dmetaphone":
-                        return current.Append($"((dmetaphone({filterColumn}) = dmetaphone(?)) OR (dmetaphone_alt({filterColumn}) = dmetaphone_alt(?)))", QueryBuilder.CreateParameterValue(parms[0], operandType));
-                    case "soundex":
-                        return current.Append($"soundex({filterColumn}) = soundex(?)", QueryBuilder.CreateParameterValue(parms[0], operandType));
-                    default:
-                        throw new NotSupportedException($"Sounds-like algorithm {parms[1]} is not supported");
-                }
-            }
-        }
-    }
-
+   
 }
