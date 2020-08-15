@@ -335,15 +335,17 @@ namespace SanteDB.OrmLite
             String sql = retVal.ToString();
             var qList = query.Arguments?.ToArray() ?? new object[0];
             int parmId = 0;
-            while (sql.Contains("?"))
+            int lastIndex = 0;
+            while (sql.IndexOf("?", lastIndex) > -1)
             {
-                var pIndex = sql.IndexOf("?");
+                var pIndex = sql.IndexOf("?", lastIndex);
                 retVal.Remove(pIndex, 1);
                 var obj = qList[parmId++];
                 if (obj is String || obj is Guid || obj is Guid? || obj is DateTime || obj is DateTimeOffset)
                     obj = $"'{obj}'";
                 retVal.Insert(pIndex, obj);
                 sql = retVal.ToString();
+                lastIndex = pIndex + obj.ToString().Length;
             }
             return retVal.ToString();
         }

@@ -160,8 +160,6 @@ namespace SanteDB.OrmLite
     /// </example>
     public class QueryBuilder
     {
-        // Filter function regex
-        public static readonly Regex ExtendedFunctionRegex = new Regex(@"^:\((\w*?)(\|(.*?)\)|\))(.*)");
 
         // Join cache
         private Dictionary<String, KeyValuePair<SqlStatement, List<TableMapping>>> s_joinCache = new Dictionary<String, KeyValuePair<SqlStatement, List<TableMapping>>>();
@@ -172,6 +170,11 @@ namespace SanteDB.OrmLite
         // Mapper
         private ModelMapper m_mapper;
         private IDbProvider m_provider;
+
+        /// <summary>
+        /// Provider
+        /// </summary>
+        public IDbProvider Provider => this.m_provider;
 
         /// <summary>
         /// Represents model mapper
@@ -722,7 +725,7 @@ namespace SanteDB.OrmLite
                     switch (sValue[0])
                     {
                         case ':': // function
-                            var opMatch = ExtendedFunctionRegex.Match(sValue);
+                            var opMatch = QueryFilterExtensions.ExtendedFilterRegex.Match(sValue);
                             if (opMatch.Success)
                             {
                                 // Extract
@@ -819,6 +822,8 @@ namespace SanteDB.OrmLite
         public static object CreateParameterValue(object value, Type toType)
         {
             object retVal = null;
+            if (value is String str && str.StartsWith("\"") && str.EndsWith("\"")) // quoted string
+                value = str.Substring(1, str.Length - 2).Replace("\\\"", "\"");
             if (value.GetType() == toType ||
                 value.GetType() == toType.StripNullable())
                 return value;
