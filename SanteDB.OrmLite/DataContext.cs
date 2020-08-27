@@ -343,6 +343,8 @@ namespace SanteDB.OrmLite
                 var obj = qList[parmId++];
                 if (obj is String || obj is Guid || obj is Guid? || obj is DateTime || obj is DateTimeOffset)
                     obj = $"'{obj}'";
+                else if (obj == null)
+                    obj = "null";
                 retVal.Insert(pIndex, obj);
                 sql = retVal.ToString();
                 lastIndex = pIndex + obj.ToString().Length;

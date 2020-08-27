@@ -336,6 +336,8 @@ namespace SanteDB.OrmLite
                     selectStatement = new SqlStatement(this.m_provider, $"SELECT *").Append(selectStatement);
                 // columnSelector = scopedTables.SelectMany(o => o.Columns).ToArray();
             }
+            else if(columnSelector.All(o=>o.SourceProperty == null)) // Fake / constants
+                selectStatement = new SqlStatement(this.m_provider, $"SELECT {String.Join(",", columnSelector.Select(o=>o.Name))} ").Append(selectStatement);
             else
             {
                 var columnList = String.Join(",", columnSelector.Select(o =>
@@ -418,7 +420,7 @@ namespace SanteDB.OrmLite
                                 subTableColumn = subTableMap.GetColumn(targetColumn.ForeignKey.Column);
                                 // The sub-query statement needs to be joined as well 
                                 var lnkPfx = IncrementSubQueryAlias(tablePrefix);
-                                subQueryStatement.Append($"SELECT {lnkPfx}{tableWithJoin.TableName}.{linkColumn.Name} FROM {tableWithJoin.TableName} AS {lnkPfx}{tableWithJoin.TableName} WHERE ");
+                                subQueryStatement.Append($"SELECT 1 FROM {tableWithJoin.TableName} AS {lnkPfx}{tableWithJoin.TableName} WHERE ");
                                 existsClause = $"{lnkPfx}{tableWithJoin.TableName}.{targetColumn.Name}";
                                 //throw new InvalidOperationException($"Cannot find foreign key reference to table {tableMap.TableName} in {subTableMap.TableName}");
                             }
@@ -465,7 +467,7 @@ namespace SanteDB.OrmLite
 
                                 // Sub path is specified
                                 if (String.IsNullOrEmpty(propertyPredicate.SubPath) && "null".Equals(parm.Value))
-                                    subQueryStatement.And($"{existsClause} NOT IN (");
+                                    subQueryStatement.And($"NOT EXISTS (");
                                 // Query Optimization - Sub-Path is specfified and the only object is a NOT value (other than classifier)
                                 else if(!String.IsNullOrEmpty(propertyPredicate.SubPath) &&
                                     subQuery.Count <= 2 &&
@@ -474,7 +476,7 @@ namespace SanteDB.OrmLite
                                         (p.Value as String)?.StartsWith("!") == true ||
                                         (p.Value as List<String>)?.All(v=>v.StartsWith("!")) == true)) == 1)
                                 {
-                                    subQueryStatement.And($"{existsClause} NOT IN (");
+                                    subQueryStatement.And($"NOT EXISTS (");
                                     subQuery = subQuery.Select(a => 
                                     {
                                         if ((a.Value as String)?.StartsWith("!") == true)
@@ -486,7 +488,7 @@ namespace SanteDB.OrmLite
                                     }).ToList();
                                 }
                                 else
-                                    subQueryStatement.And($"{existsClause} IN (");
+                                    subQueryStatement.And($"EXISTS (");
 
                                 // Does this query object have obsolete version sequence?
                                 if(typeof(IVersionedAssociation).IsAssignableFrom(propertyType)) // Add obslt guard
@@ -495,17 +497,19 @@ namespace SanteDB.OrmLite
                                 }
 
                                 if (subQuery.Count(p => !p.Key.Contains(".")) == 0)
-                                    subQueryStatement.Append(genMethod.Invoke(this, new Object[] { subQuery.Distinct(), prefix, true, null, new ColumnMapping[] { subTableColumn } }) as SqlStatement);
+                                    subQueryStatement.Append(genMethod.Invoke(this, new Object[] { subQuery.Distinct(), prefix, true, null, new ColumnMapping[] { ColumnMapping.Get("1") } }) as SqlStatement);
                                 else
-                                    subQueryStatement.Append(genMethod.Invoke(this, new Object[] { subQuery.Distinct(), prefix, false, null, new ColumnMapping[] { subTableColumn } }) as SqlStatement);
+                                    subQueryStatement.Append(genMethod.Invoke(this, new Object[] { subQuery.Distinct(), prefix, false, null, new ColumnMapping[] { ColumnMapping.Get("1") } }) as SqlStatement);
 
-                                //subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{subTableColumn.Name}");
+                                subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{subTableColumn.Name}");
                                 //existsClause = $"{prefix}{subTableColumn.Table.TableName}.{subTableColumn.Name}";
+
                                 subQueryStatement.Append(")");
                             }
 
+                            //subQueryStatement.And($"{existsClause} = {tablePrefix}{localTable.TableName}.{localTable.GetColumn(linkColumn.ForeignKey.Column).Name}");
                             if (subTableColumn != linkColumn)
-                                whereClause.And($"{tablePrefix}{localTable.TableName}.{localTable.GetColumn(linkColumn.ForeignKey.Column).Name} IN (").Append(subQueryStatement).Append(")");
+                                whereClause.And($"EXISTS (").Append(subQueryStatement).Append(")");
                             else
                                 whereClause.And(subQueryStatement);
 

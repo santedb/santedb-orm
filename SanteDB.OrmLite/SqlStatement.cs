@@ -191,7 +191,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement Or(String clause, params object[] args)
         {
-            return this.And(new SqlStatement(this.m_provider, clause, args));
+            return this.Or(new SqlStatement(this.m_provider, clause, args));
         }
 
         /// <summary>

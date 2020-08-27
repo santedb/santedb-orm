@@ -87,6 +87,11 @@ namespace SanteDB.OrmLite
         public bool IsSecret { get; private set; }
 
         /// <summary>
+        /// Column mapping ctor
+        /// </summary>
+        private ColumnMapping() { }
+
+        /// <summary>
         /// Create a column mapping
         /// </summary>
         private ColumnMapping(PropertyInfo pi, TableMapping table)
@@ -102,6 +107,14 @@ namespace SanteDB.OrmLite
             this.Table = table;
             this.IsAlwaysJoin = pi.GetCustomAttribute<AlwaysJoinAttribute>() != null;
             this.JoinFilters = pi.GetCustomAttributes<JoinFilterAttribute>().ToList();
+        }
+
+        /// <summary>
+        /// Get property mapping
+        /// </summary>
+        public static ColumnMapping Get(String columnName)
+        {
+            return new ColumnMapping() { Name = columnName };
         }
 
         /// <summary>
