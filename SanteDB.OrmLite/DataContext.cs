@@ -265,7 +265,7 @@ namespace SanteDB.OrmLite
             this.m_transaction = null;
             this.m_connection?.Dispose();
             this.m_connection = null;
-            this.m_dataDictionary.Clear();
+            this.m_dataDictionary?.Clear();
             this.m_dataDictionary = null;
         }
 

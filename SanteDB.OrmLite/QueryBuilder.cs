@@ -411,6 +411,7 @@ namespace SanteDB.OrmLite
 
                             var subTableColumn = linkColumn;
                             string existsClause = String.Empty;
+                            var lnkPfx = IncrementSubQueryAlias(tablePrefix);
 
                             if (linkColumn == null || scopedTables.Any(o => o.AssociationWith(subTableMap) != null)) // Or there is a better linker
                             {
@@ -419,7 +420,6 @@ namespace SanteDB.OrmLite
                                 var targetColumn = tableWithJoin.Columns.SingleOrDefault(o => o.ForeignKey?.Table == subTableMap.OrmType);
                                 subTableColumn = subTableMap.GetColumn(targetColumn.ForeignKey.Column);
                                 // The sub-query statement needs to be joined as well 
-                                var lnkPfx = IncrementSubQueryAlias(tablePrefix);
                                 subQueryStatement.Append($"SELECT 1 FROM {tableWithJoin.TableName} AS {lnkPfx}{tableWithJoin.TableName} WHERE ");
                                 existsClause = $"{lnkPfx}{tableWithJoin.TableName}.{targetColumn.Name}";
                                 //throw new InvalidOperationException($"Cannot find foreign key reference to table {tableMap.TableName} in {subTableMap.TableName}");
@@ -507,9 +507,8 @@ namespace SanteDB.OrmLite
                                 subQueryStatement.Append(")");
                             }
 
-                            //subQueryStatement.And($"{existsClause} = {tablePrefix}{localTable.TableName}.{localTable.GetColumn(linkColumn.ForeignKey.Column).Name}");
                             if (subTableColumn != linkColumn)
-                                whereClause.And($"EXISTS (").Append(subQueryStatement).Append(")");
+                                whereClause.And($"EXISTS (").Append(subQueryStatement).And($"{tablePrefix}{localTable.TableName}.{localTable.GetColumn(linkColumn.ForeignKey.Column).Name} = {lnkPfx}{linkColumn.Table.TableName}.{linkColumn.Name}").Append(")");
                             else
                                 whereClause.And(subQueryStatement);
 
@@ -737,6 +736,13 @@ namespace SanteDB.OrmLite
                                     parms = opMatch.Groups[3].Value,
                                     operand = opMatch.Groups[4].Value;
 
+                                List<String> extendedParms = new List<string>();
+                                var parmExtract = QueryFilterExtensions.ParameterExtractRegex.Match(parms + ",");
+                                while (parmExtract.Success)
+                                {
+                                    extendedParms.Add(parmExtract.Groups[1].Value);
+                                    parmExtract = QueryFilterExtensions.ParameterExtractRegex.Match(parmExtract.Groups[2].Value);
+                                }
                                 // Now find the function
                                 var filterFn = this.m_provider.GetFilterFunction(fnName);
                                 if (filterFn == null)
@@ -744,7 +750,7 @@ namespace SanteDB.OrmLite
                                 else
                                 {
                                     retVal.RemoveLast();
-                                    retVal = filterFn.CreateSqlStatement(retVal, $"{tableAlias}.{columnName}", parms.Split(','), operand, modelProperty.PropertyType).Build();
+                                    retVal = filterFn.CreateSqlStatement(retVal, $"{tableAlias}.{columnName}", extendedParms.ToArray(), operand, modelProperty.PropertyType).Build();
                                 }
                             }
                             else
