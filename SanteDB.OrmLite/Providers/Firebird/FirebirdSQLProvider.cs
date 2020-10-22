@@ -93,7 +93,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             get
             {
-                return "fbsql";
+                return "FirebirdSQL";
             }
         }
 
@@ -343,7 +343,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             {
                 var provType = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type;
                 if (provType == null)
-                    throw new InvalidOperationException("Cannot find FBSQL provider");
+                    throw new InvalidOperationException("Cannot find FirebirdSQL provider");
                 this.m_provider = provType.GetField("Instance").GetValue(null) as DbProviderFactory;
             }
 
@@ -359,10 +359,13 @@ namespace SanteDB.OrmLite.Providers.Firebird
         private String CorrectConnectionStringLib()
         {
             var cstring = new DbConnectionStringBuilder();
-            // HACK: FBSQL doesn't understand || parameters
+            // HACK: FirebirdSQL doesn't understand || parameters
             cstring.ConnectionString = this.ConnectionString; //.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString());
             if (!cstring.ContainsKey("ClientLibrary"))
                 cstring.Add("ClientLibrary", Path.Combine(Path.GetDirectoryName(typeof(FirebirdSQLProvider).Assembly.Location), "fbclient.dll"));
+
+            if (!cstring.ContainsKey("Charset"))
+                cstring.Add("Charset", "NONE");
             return cstring.ConnectionString;
         }
 
@@ -456,7 +459,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                         .SelectMany(a => a.ExportedTypes)
                         .Where(t => typeof(IDbFilterFunction).IsAssignableFrom(t) && !t.IsAbstract)
                         .Select(t => Activator.CreateInstance(t) as IDbFilterFunction)
-                        .Where(o => o.Provider == "fbsql")
+                        .Where(o => o.Provider == "FirebirdSQL")
                         .ToDictionary(o => o.Name, o => o);
             }
             IDbFilterFunction retVal = null;
