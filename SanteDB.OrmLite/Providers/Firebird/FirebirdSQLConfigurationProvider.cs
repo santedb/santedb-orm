@@ -39,7 +39,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Get the invariant name
         /// </summary>
-        public override string Invariant => "fbsql";
+        public override string Invariant => "FirebirdSQL";
 
         /// <summary>
         /// Get the name
@@ -98,6 +98,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 && !connectionString.GetComponent("initial catalog").StartsWith("|DataDirectory|")
                 && !Path.IsPathRooted(connectionString.GetComponent("initial catalog")))
                 connectionString.SetComponent("initial catalog", $"|DataDirectory|\\{connectionString.GetComponent("initial catalog")}");
+            connectionString.SetComponent("Charset", "NONE");
             return connectionString;
         }
         /// <summary>
@@ -111,6 +112,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             var fbConnectionType = Type.GetType("FirebirdSql.Data.FirebirdClient.FbConnection, FirebirdSql.Data.FirebirdClient");
             if (fbConnectionType == null)
                 throw new InvalidOperationException("Cannot find FirebirdSQL provider");
+            
             var createDbMethod = fbConnectionType.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).SingleOrDefault(o=>o.Name == "CreateDatabase" && o.GetParameters().Length == 2);
             if (createDbMethod == null)
                 throw new InvalidOperationException("Cannot find FirebirdSQL CreateDatabase method. Perhaps this is an invalid version of ADO.NET provider");

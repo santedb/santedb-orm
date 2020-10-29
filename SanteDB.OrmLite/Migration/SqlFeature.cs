@@ -145,7 +145,7 @@ namespace SanteDB.OrmLite.Migration
                             return "SELECT TRUE";
                         else
                             return $"select not(string_to_array(get_sch_vrsn(), '.')::int[] between string_to_array('{updateRange[0]}','.')::int[] and string_to_array('{updateRange[1]}', '.')::int[])";
-                    case "fbsql":
+                    case "FirebirdSQL":
                         if (String.IsNullOrEmpty(this.m_checkRange))
                             return "SELECT true FROM rdb$database";
                         else
