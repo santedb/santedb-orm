@@ -395,8 +395,10 @@ namespace SanteDB.OrmLite
                                         var stmt = this.m_sqlStatement.RemoveLast().SQL.Trim();
                                         if (stmt == "<>")
                                             this.m_sqlStatement.Append(" IS NOT NULL ");
-                                        else
+                                        else if (stmt == "=")
                                             this.m_sqlStatement.Append(" IS NULL ");
+                                        else
+                                            throw new InvalidOperationException($"Cannot determine how to convert {node} in SQL");
                                     }
                                     else
                                         this.m_sqlStatement.Append(" ? ", value);
