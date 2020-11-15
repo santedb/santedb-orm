@@ -39,5 +39,6 @@ namespace SanteDB.OrmLite.Attributes
         /// Gets or sets the name of the attribute
         /// </summary>
         public String Name { get; set; }
+
     }
 }

@@ -24,12 +24,12 @@ using System.Text.RegularExpressions;
 using SanteDB.Core;
 using SanteDB.Core.Services;
 
-namespace SanteDB.OrmLite.Providers.Postgres
+namespace SanteDB.OrmLite.Providers.Firebird
 {
     /// <summary>
     /// PostgreSQL LEFT() function
     /// </summary>
-    public class PostgresSubstringFunction : IDbFilterFunction
+    public class FirebirdSubstringFunction : IDbFilterFunction
     {
 
         /// <summary>
@@ -40,7 +40,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => "pgsql";
+        public string Provider => "fbsql";
 
         /// <summary>
         /// Create the SQL for first
@@ -75,7 +75,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => "pgsql";
+        public string Provider => "fbsql";
 
         /// <summary>
         /// Create the SQL statement
@@ -103,7 +103,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => "pgsql";
+        public string Provider => "fbsql";
 
         /// <summary>
         /// Create the SQL statement
