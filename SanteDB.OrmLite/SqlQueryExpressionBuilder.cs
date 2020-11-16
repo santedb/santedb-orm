@@ -271,12 +271,14 @@ namespace SanteDB.OrmLite
                     this.m_sqlStatement.Append(" || '%' ");
                     break;
                 case "ToLower":
+                case "ToLowerInvariant":
                     this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.Lower));
                     this.m_sqlStatement.Append("(");
                     this.Visit(node.Object);
                     this.m_sqlStatement.Append(") ");
                     break;
                 case "ToUpper":
+                case "ToUpperInvariant":
                     this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.Upper));
                     this.m_sqlStatement.Append("(");
                     this.Visit(node.Object);
