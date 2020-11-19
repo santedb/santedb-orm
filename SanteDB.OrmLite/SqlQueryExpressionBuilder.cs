@@ -271,12 +271,14 @@ namespace SanteDB.OrmLite
                     this.m_sqlStatement.Append(" || '%' ");
                     break;
                 case "ToLower":
+                case "ToLowerInvariant":
                     this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.Lower));
                     this.m_sqlStatement.Append("(");
                     this.Visit(node.Object);
                     this.m_sqlStatement.Append(") ");
                     break;
                 case "ToUpper":
+                case "ToUpperInvariant":
                     this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.Upper));
                     this.m_sqlStatement.Append("(");
                     this.Visit(node.Object);
@@ -395,8 +397,10 @@ namespace SanteDB.OrmLite
                                         var stmt = this.m_sqlStatement.RemoveLast().SQL.Trim();
                                         if (stmt == "<>")
                                             this.m_sqlStatement.Append(" IS NOT NULL ");
-                                        else
+                                        else if (stmt == "=")
                                             this.m_sqlStatement.Append(" IS NULL ");
+                                        else
+                                            throw new InvalidOperationException($"Cannot determine how to convert {node} in SQL");
                                     }
                                     else
                                         this.m_sqlStatement.Append(" ? ", value);
