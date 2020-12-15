@@ -269,7 +269,7 @@ namespace SanteDB.OrmLite
         public SqlStatement SelectFrom(Type dataType, params ColumnMapping[] columns)
         {
             var tableMap = TableMapping.Get(dataType);
-            return this.Append(new SqlStatement(this.m_provider, $"SELECT {String.Join(",", columns.Select(o=>o.Name))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
+            return this.Append(new SqlStatement(this.m_provider, $"SELECT {String.Join(",", columns.Select(o => o.Name))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
         }
 
         /// <summary>
@@ -332,9 +332,9 @@ namespace SanteDB.OrmLite
         {
             var orderMap = TableMapping.Get(typeof(TExpression));
             var fldRef = orderField.Body;
-            while(fldRef.NodeType != ExpressionType.MemberAccess)
+            while (fldRef.NodeType != ExpressionType.MemberAccess)
             {
-                switch(fldRef.NodeType)
+                switch (fldRef.NodeType)
                 {
                     case ExpressionType.Convert:
                         fldRef = (fldRef as UnaryExpression).Operand;
@@ -510,11 +510,20 @@ namespace SanteDB.OrmLite
                     m_alias = tableMap.TableName
                 });
 
-            
+
             retVal.Append(new SqlStatement<T>(this.m_provider, $" FROM {tableMap.TableName} AS {tableMap.TableName} "));
             return retVal;
         }
-
+        /// <summary>
+        /// Construct a SELECT FROM statement with the specified selectors
+        /// </summary>
+        /// <param name="selector">The types from which to select columns</param>
+        /// <returns>The constructed sql statement</returns>
+        public SqlStatement<T> SelectFrom(params ColumnMapping[] columns)
+        {
+            var tableMap = TableMapping.Get(typeof(T));
+            return this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {String.Join(",", columns.Select(o => o.Name))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
+        }
 
         /// <summary>
         /// Construct a SELECT FROM statement with the specified selectors
@@ -541,7 +550,7 @@ namespace SanteDB.OrmLite
             {
                 m_alias = tableMap.TableName
             });
-            
+
             retVal.Append($" FROM {tableMap.TableName} AS {tableMap.TableName} ");
 
             return retVal;

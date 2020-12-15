@@ -22,6 +22,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Xml;
 
 namespace SanteDB.OrmLite.Providers.Postgres
 {
@@ -85,12 +86,79 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 }
                 return current.Append($"GREATEST({filterColumn}::TIMESTAMP - ?::TIMESTAMP, ?::TIMESTAMP - {filterColumn}::TIMESTAMP) {op} '{qty} {unit}'::INTERVAL", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(parms[0], operandType));
             }
-            else if(TimeSpan.TryParse(value, out TimeSpan timespan))
+            else if (TimeSpan.TryParse(value, out TimeSpan timespan))
             {
                 return current.Append($"GREATEST({filterColumn}::TIMESTAMP - ?::TIMESTAMP, ?::TIMESTAMP - {filterColumn}::TIMESTAMP) {op} '{timespan.TotalSeconds} secs'::INTERVAL", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(parms[0], operandType));
             }
             else
-                throw new InvalidOperationException("Date difference needs to have whole number distance and single character unit or be a valid TimeSpan");
+            {
+                try
+                {
+                    // Try to parse as ISO date
+                    timespan = XmlConvert.ToTimeSpan(value);
+                    return current.Append($"GREATEST({filterColumn}::TIMESTAMP - ?::TIMESTAMP, ?::TIMESTAMP - {filterColumn}::TIMESTAMP) {op} '{timespan.TotalSeconds} secs'::INTERVAL", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(parms[0], operandType));
+                }
+                catch
+                {
+                    throw new InvalidOperationException("Date difference needs to have whole number distance and single character unit or be a valid TimeSpan");
+                }
+            }
+        }
+
+    }
+
+    /// <summary>
+    /// Age function
+    /// </summary>
+    /// <example>
+    /// ?dateOfBirth=:(age)&lt;P3Y2DT4H2M
+    /// </example>
+    public class PostgreAgeFunction : IDbFilterFunction
+    {
+        /// <summary>
+        /// Get the name for the function
+        /// </summary>
+        public string Name => "age";
+
+        /// <summary>
+        /// Provider 
+        /// </summary>
+        public string Provider => "pgsql";
+
+        /// <summary>
+        /// Create the SQL statement
+        /// </summary>
+        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        {
+            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            String op = match.Groups[1].Value, value = match.Groups[2].Value;
+            if (String.IsNullOrEmpty(op)) op = "=";
+
+            if (TimeSpan.TryParse(value, out TimeSpan timespan))
+            {
+                if(parms.Length == 1)
+                    return current.Append($"GREATEST({filterColumn}::TIMESTAMP - ?::TIMESTAMP, ?::TIMESTAMP - {filterColumn}::TIMESTAMP) {op} '{timespan.TotalSeconds} secs'::INTERVAL", QueryBuilder.CreateParameterValue(parms[0], operandType));
+                else
+                    return current.Append($"GREATEST({filterColumn}::TIMESTAMP - CURRENT_TIMESTAMP, CURRENT_TIMESTAMP - {filterColumn}::TIMESTAMP) {op} '{timespan.TotalSeconds} secs'::INTERVAL");
+
+            }
+            else
+            {
+                try
+                {
+                    // Try to parse as ISO date
+                    timespan = XmlConvert.ToTimeSpan(value);
+
+                    if (parms.Length == 1)
+                        return current.Append($"GREATEST({filterColumn}::TIMESTAMP - ?::TIMESTAMP, ?::TIMESTAMP - {filterColumn}::TIMESTAMP) {op} '{timespan.TotalSeconds} secs'::INTERVAL", QueryBuilder.CreateParameterValue(parms[0], operandType));
+                    else
+                        return current.Append($"GREATEST({filterColumn}::TIMESTAMP - CURRENT_TIMESTAMP, CURRENT_TIMESTAMP - {filterColumn}::TIMESTAMP) {op} '{timespan.TotalSeconds} secs'::INTERVAL");
+                }
+                catch
+                {
+                    throw new InvalidOperationException("Age needs to have whole number distance and single character unit or be a valid TimeSpan");
+                }
+            }
         }
 
     }

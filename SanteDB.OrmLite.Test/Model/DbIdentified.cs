@@ -38,7 +38,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Gets or sets the identified data
     /// </summary>
-    public abstract class DbIdentified : IAdoLoadedData, IDbIdentified
+    public abstract class DbIdentified : IDbIdentified
     {
         /// <summary>
         /// Create database identified

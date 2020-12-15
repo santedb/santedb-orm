@@ -18,6 +18,8 @@
  */
 using SanteDB.OrmLite.Providers;
 using System;
+using System.Collections;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -252,22 +254,40 @@ namespace SanteDB.OrmLite
                     this.Visit(node.Arguments[0]);
                     break;
                 case "Contains":
-                    this.Visit(node.Object);
-                    this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.ILike));
 
-                    this.m_sqlStatement.Append(" '%' || ");
-
-                    if (node.Object.NodeType == ExpressionType.Call &&
-                        (node.Object as MethodCallExpression).Method.Name == "ToLower") // We must apply the same call
+                    // Determine the defining type
+                    if (node.Method.DeclaringType == typeof(Enumerable)) // is a LINQ CONTAINS() 
                     {
-                        this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.Lower)).Append("(");
-                        this.Visit(node.Arguments[0]);
+                        Expression enumerable = node.Arguments[0],
+                            contained = node.Arguments[1];
+
+                        this.Visit(contained);
+                        this.m_sqlStatement.Append(" IN (");
+
+                        var value = this.GetConstantValue(enumerable) as IEnumerable;
+                        this.m_sqlStatement.Append(String.Join(",", value.OfType<Object>().Select(o => "?")), value.OfType<Object>().ToArray());
+
                         this.m_sqlStatement.Append(")");
                     }
-                    else
-                        this.Visit(node.Arguments[0]);
+                    else if (node.Method.DeclaringType == typeof(String)) // is a STRING contains()
+                    {
+                        this.Visit(node.Object);
+                        this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.ILike));
 
-                    this.m_sqlStatement.Append(" || '%' ");
+                        this.m_sqlStatement.Append(" '%' || ");
+
+                        if (node.Object?.NodeType == ExpressionType.Call &&
+                            (node.Object as MethodCallExpression).Method.Name == "ToLower") // We must apply the same call
+                        {
+                            this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.Lower)).Append("(");
+                            this.Visit(node.Arguments[0]);
+                            this.m_sqlStatement.Append(")");
+                        }
+                        else
+                            this.Visit(node.Arguments[0]);
+
+                        this.m_sqlStatement.Append(" || '%' ");
+                    }
                     break;
                 case "ToLower":
                 case "ToLowerInvariant":

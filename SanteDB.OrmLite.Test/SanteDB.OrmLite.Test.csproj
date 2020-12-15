@@ -111,18 +111,34 @@
     <Compile Include="Model\Security\DbSessionClaim.cs" />
     <Compile Include="IQueryableTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="QueryBuildingTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FirebirdSql.Data.FirebirdClient">
       <Version>5.12.1</Version>
     </PackageReference>
     <PackageReference Include="MSTest.TestAdapter">
-      <Version>1.3.2</Version>
+      <Version>2.1.2</Version>
     </PackageReference>
     <PackageReference Include="MSTest.TestFramework">
-      <Version>1.3.2</Version>
+      <Version>2.1.2</Version>
     </PackageReference>
   </ItemGroup>
+  <Choose>
+    <When Condition="$(SolutionName.Contains('-ext'))">
+      <ItemGroup>
+        <ProjectReference Include="..\..\santedb-model\SanteDB.Core.Model\SanteDB.Core.Model.csproj">
+          <Project>{F1A82A4F-4A57-47D7-AE76-444C8A4FF54A}</Project>
+          <Name>SanteDB.Core.Model</Name>
+        </ProjectReference>
+      </ItemGroup>
+    </When>
+    <Otherwise>
+      <ItemGroup>
+        <PackageReference Include="SanteDB.Core.Model" Version="2.0.56.0" />
+      </ItemGroup>
+    </Otherwise>
+  </Choose>
   <ItemGroup>
     <ProjectReference Include="..\SanteDB.OrmLite\SanteDB.OrmLite.csproj">
       <Project>{407c87e6-a1f3-45e6-b883-a8176b350817}</Project>

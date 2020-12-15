@@ -89,7 +89,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     SqlEngineFeatures.StrictSubQueryColumnNames |
                     SqlEngineFeatures.LimitOffset |
                     SqlEngineFeatures.FetchOffset |
-                    SqlEngineFeatures.MustNameSubQuery | 
+                    SqlEngineFeatures.MustNameSubQuery |
                     SqlEngineFeatures.SetTimeout;
             }
         }
@@ -107,7 +107,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             if (this.m_provider == null) // HACK for Mono
             {
-                var provType = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type;
+                var provType = ApplicationServiceContext.Current?.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type
+                    ?? Type.GetType("Npgsql.NpgsqlFactory, Npgsql");
                 if (provType == null)
                     throw new InvalidOperationException("Cannot find NPGSQL provider");
                 this.m_provider = provType.GetField("Instance").GetValue(null) as DbProviderFactory;
@@ -449,7 +450,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             if (s_filterFunctions == null)
             {
                 s_filterFunctions = AppDomain.CurrentDomain.GetAssemblies()
-                        .Where(a=>!a.IsDynamic)
+                        .Where(a => !a.IsDynamic)
                         .SelectMany(a => a.ExportedTypes)
                         .Where(t => typeof(IDbFilterFunction).IsAssignableFrom(t) && !t.IsAbstract)
                         .Select(t => Activator.CreateInstance(t) as IDbFilterFunction)
@@ -482,7 +483,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                                 Status = rdr["state"].ToString() == "active" ? DbStatementStatus.Active : DbStatementStatus.Idle,
                                 Query = rdr["query"].ToString()
                             };
-                    }
+                }
             }
         }
     }

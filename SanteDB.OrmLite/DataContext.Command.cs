@@ -924,6 +924,43 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Delete from the database
         /// </summary>
+        public void Delete<TModel>(SqlStatement keyFilter)
+        {
+#if DEBUG
+            var sw = new Stopwatch();
+            sw.Start();
+            try
+            {
+#endif
+                var keyColumnName = TableMapping.Get(typeof(TModel)).Columns.First(o => o.IsPrimaryKey);
+                var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where($"{keyColumnName} IN (").Append(keyFilter).Append(")");
+                lock (this.m_lockObject)
+                {
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
+                    try
+                    {
+                        dbc.ExecuteNonQuery();
+                    }
+                    finally
+                    {
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
+                }
+
+#if DEBUG
+            }
+            finally
+            {
+                sw.Stop();
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "DELETE executed in {0} ms", sw.ElapsedMilliseconds);
+            }
+#endif
+        }
+
+        /// <summary>
+        /// Delete from the database
+        /// </summary>
         public void Delete<TModel>(Expression<Func<TModel, bool>> where)
         {
 #if DEBUG
