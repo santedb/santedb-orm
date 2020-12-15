@@ -39,7 +39,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => "fbsql";
+        public string Provider => "FirebirdSQL";
 
         /// <summary>
         /// Create the SQL for first
@@ -74,7 +74,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => "fbsql";
+        public string Provider => "FirebirdSQL";
 
         /// <summary>
         /// Create the SQL statement
@@ -102,7 +102,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => "fbsql";
+        public string Provider => "FirebirdSQL";
 
         /// <summary>
         /// Create the SQL statement

@@ -59,7 +59,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         private readonly Regex m_uuidRegex = new Regex(@"(\'[A-Za-z0-9]{8}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{12}\')");
 
         // Filter functions
-        private static Dictionary<String, IDbFilterFunction> s_filterFunctions = new Dictionary<string, IDbFilterFunction>();
+        private static Dictionary<String, IDbFilterFunction> s_filterFunctions = null;
 
         /// <summary>
         /// Gets or sets the connection string for the provider
@@ -340,7 +340,8 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             if (this.m_provider == null) // HACK for Mono
             {
-                var provType = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type;
+                var provType = ApplicationServiceContext.Current?.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type 
+                    ?? Type.GetType("FirebirdSql.Data.FirebirdClient.FirebirdClientFactory, FirebirdSql.Data.FirebirdClient");
                 if (provType == null)
                     throw new InvalidOperationException("Cannot find FirebirdSQL provider");
                 this.m_provider = provType.GetField("Instance").GetValue(null) as DbProviderFactory;
@@ -458,7 +459,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                         .SelectMany(a => a.ExportedTypes)
                         .Where(t => typeof(IDbFilterFunction).IsAssignableFrom(t) && !t.IsAbstract)
                         .Select(t => Activator.CreateInstance(t) as IDbFilterFunction)
-                        .Where(o => o.Provider == "fbsql")
+                        .Where(o => o.Provider == "FirebirdSQL")
                         .ToDictionary(o => o.Name, o => o);
             }
             IDbFilterFunction retVal = null;
