@@ -224,6 +224,18 @@ namespace SanteDB.OrmLite
 #endif
 
         /// <summary>
+        /// Determines if <paramref name="obj"/> exists in the database
+        /// </summary>
+        public bool Exists<TModel>(TModel obj)
+        {
+            var sqlStatement = this.CreateSqlStatement();
+            foreach (var cm in TableMapping.Get(typeof(TModel)).Columns.Where(o => o.IsPrimaryKey))
+                sqlStatement.And($"{cm.Name} = ?", cm.SourceProperty.GetValue(obj));
+            sqlStatement = this.CreateSqlStatement<TModel>().SelectFrom(ColumnMapping.One).Where(sqlStatement);
+            return this.Any(sqlStatement);
+        }
+
+        /// <summary>
         /// Map an object 
         /// </summary>
         private TModel MapObject<TModel>(IDataReader rdr)
@@ -530,7 +542,7 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.m_provider.Exists(this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec));
+                var stmt = this.m_provider.Exists(this.CreateSqlStatement<TModel>().SelectFrom(ColumnMapping.One).Where(querySpec));
                 lock (this.m_lockObject)
                 {
                     var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
@@ -729,7 +741,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Executes the query against the database
         /// </summary>
-        internal IEnumerable<TModel> ExecQuery<TModel>(SqlStatement query)
+        public IEnumerable<TModel> ExecQuery<TModel>(SqlStatement query)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -764,6 +776,30 @@ namespace SanteDB.OrmLite
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "QUERY {0} executed in {1} ms", this.GetQueryLiteral(query), sw.ElapsedMilliseconds);
             }
 #endif
+        }
+
+        /// <summary>
+        /// Bulk insert data
+        /// </summary>
+        public IEnumerable<TModel> InsertOrUpdate<TModel>(IEnumerable<TModel> source)
+        {
+            return source.Select(o => this.Exists(o) ? this.Update(o) : this.Insert(o));
+        }
+
+        /// <summary>
+        /// Bulk insert data
+        /// </summary>
+        public IEnumerable<TModel> Insert<TModel>(IEnumerable<TModel> source)
+        {
+            return source.Select(o => this.Insert(o));
+        }
+
+        /// <summary>
+        /// Bulk update data
+        /// </summary>
+        public IEnumerable<TModel> Update<TModel>(IEnumerable<TModel> source)
+        {
+            return source.Select(o => this.Update(o));
         }
 
         /// <summary>
@@ -933,7 +969,7 @@ namespace SanteDB.OrmLite
             {
 #endif
                 var keyColumnName = TableMapping.Get(typeof(TModel)).Columns.First(o => o.IsPrimaryKey);
-                var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where($"{keyColumnName} IN (").Append(keyFilter).Append(")");
+                var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where($"{keyColumnName.Name} IN (").Append(keyFilter).Append(")");
                 lock (this.m_lockObject)
                 {
                     var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
