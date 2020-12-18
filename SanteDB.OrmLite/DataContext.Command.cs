@@ -247,13 +247,15 @@ namespace SanteDB.OrmLite
                 return (TModel)retVal;
             }
             else if (BaseTypes.Contains(typeof(TModel)))
-                try {
-                    return (TModel)rdr[0];
-                }
-                catch(InvalidCastException e)
-                {
-                    return (TModel)this.m_provider.ConvertValue(rdr[0], typeof(TModel));
-                }
+            {
+                var obj = rdr[0];
+                if(obj == DBNull.Value)
+                    return default(TModel);
+                else if (typeof(TModel).IsAssignableFrom(obj.GetType()))
+                    return (TModel)obj;
+                else 
+                    return (TModel)this.m_provider.ConvertValue(obj, typeof(TModel));
+            }
             else if (typeof(ExpandoObject).IsAssignableFrom(typeof(TModel)))
                 return this.MapExpando<TModel>(rdr);
             else
@@ -783,7 +785,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IEnumerable<TModel> InsertOrUpdate<TModel>(IEnumerable<TModel> source)
         {
-            return source.Select(o => this.Exists(o) ? this.Update(o) : this.Insert(o));
+            return source.Select(o => this.Exists(o) ? this.Update(o) : this.Insert(o)).ToList();
         }
 
         /// <summary>
@@ -791,7 +793,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IEnumerable<TModel> Insert<TModel>(IEnumerable<TModel> source)
         {
-            return source.Select(o => this.Insert(o));
+            return source.Select(o => this.Insert(o)).ToList();
         }
 
         /// <summary>
@@ -799,7 +801,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IEnumerable<TModel> Update<TModel>(IEnumerable<TModel> source)
         {
-            return source.Select(o => this.Update(o));
+            return source.Select(o => this.Update(o)).ToList();
         }
 
         /// <summary>

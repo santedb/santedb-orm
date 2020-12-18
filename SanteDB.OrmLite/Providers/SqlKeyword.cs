@@ -38,6 +38,14 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Represents case insenstivie like
         /// </summary>
-        ILike
+        ILike,
+        /// <summary>
+        /// Represents False (or 0)
+        /// </summary>
+        False,
+        /// <summary>
+        /// Represents True (or 1)
+        /// </summary>
+        True
     }
 }

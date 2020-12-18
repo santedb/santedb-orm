@@ -305,6 +305,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     return " LOWER ";
                 case SqlKeyword.Upper:
                     return " UPPER ";
+                case SqlKeyword.False:
+                    return " FALSE ";
+                case SqlKeyword.True:
+                    return " TRUE ";
                 default:
                     throw new ArgumentOutOfRangeException(nameof(keywordType));
             }

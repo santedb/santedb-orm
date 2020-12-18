@@ -21,6 +21,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -133,6 +134,18 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Select distinct records
+        /// </summary>
+        public OrmResultSet<TData> Distinct()
+        {
+            var innerQuery = this.Statement.Build();
+            if (!this.Statement.SQL.StartsWith("SELECT DISTINCT"))
+                return new OrmResultSet<TData>(this.Context, this.Context.CreateSqlStatement($"SELECT DISTINCT {innerQuery.SQL.Substring(7)}", innerQuery.Arguments.ToArray()));
+            else
+                return this;
+        }
+
+        /// <summary>
         /// Gets the specified keys from the object
         /// </summary>
         public OrmResultSet<T> Keys<T>(bool qualifyKeyTableName = true)
@@ -158,6 +171,34 @@ namespace SanteDB.OrmLite
 
             return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (").Append(innerQuery).Append(") AS I"));
 
+        }
+
+        /// <summary>
+        /// Get member information from lambda
+        /// </summary>
+        protected MemberInfo GetMember(Expression expression)
+        {
+            if (expression is MemberExpression) return (expression as MemberExpression).Member;
+            else if (expression is UnaryExpression) return this.GetMember((expression as UnaryExpression).Operand);
+            else throw new InvalidOperationException($"{expression} not supported, please use a member access expression");
+        }
+
+        /// <summary>
+        /// Select the specified column
+        /// </summary>
+        public OrmResultSet<T> Select<T>(Expression<Func<TData, T>> column)
+        {
+            var mapping = TableMapping.Get(typeof(TData)).GetColumn(this.GetMember(column.Body));
+            return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT {mapping.Name} FROM (").Append(this.Statement).Append(") AS I"));
+        }
+
+        /// <summary>
+        /// Select the specified column
+        /// </summary>
+        public OrmResultSet<dynamic> Select(params Expression<Func<TData, dynamic>>[] columns)
+        {
+            var mapping = TableMapping.Get(typeof(TData));
+            return new OrmResultSet<dynamic>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", columns.Select(o => mapping.GetColumn(this.GetMember(o.Body))).Select(o => o.Name))} FROM (").Append(this.Statement).Append(") AS I"));
         }
 
         /// <summary>

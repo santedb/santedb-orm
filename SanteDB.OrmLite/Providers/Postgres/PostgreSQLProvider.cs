@@ -405,6 +405,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     return " LOWER ";
                 case SqlKeyword.Upper:
                     return " UPPER ";
+                case SqlKeyword.False:
+                    return " FALSE ";
+                case SqlKeyword.True:
+                    return " TRUE ";
                 default:
                     throw new NotImplementedException();
             }
