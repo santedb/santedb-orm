@@ -496,5 +496,13 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 }
             }
         }
+
+        /// <summary>
+        /// Get reset sequence command
+        /// </summary>
+        public SqlStatement GetResetSequence(string sequenceName, object sequenceValue)
+        {
+            return new SqlStatement(this, $"ALTER SEQUENCE {sequenceName} RESTART WITH {(int)sequenceValue}");
+        }
     }
 }

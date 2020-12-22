@@ -136,5 +136,9 @@ namespace SanteDB.OrmLite.Providers
         /// <returns>The retrieved filter function if it is provided by the provider</returns>
         IDbFilterFunction GetFilterFunction(String name);
 
+        /// <summary>
+        /// Gets the reset sequence command
+        /// </summary>
+        SqlStatement GetResetSequence(string sequenceName, object sequenceValue);
     }
 }

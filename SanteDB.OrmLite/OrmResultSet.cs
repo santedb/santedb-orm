@@ -193,6 +193,24 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Get the maximum value of the specifed column
+        /// </summary>
+        public T Max<T>(Expression<Func<TData, T>> column)
+        {
+            var mapping = TableMapping.Get(typeof(TData)).GetColumn(this.GetMember(column.Body));
+            return this.Context.ExecuteScalar<T>(this.Context.CreateSqlStatement($"SELECT MAX({mapping.Name}) FROM (").Append(this.Statement).Append(") AS I"));
+        }
+
+        /// <summary>
+        /// Get the maximum value of the specifed column
+        /// </summary>
+        public T Min<T>(Expression<Func<TData, T>> column)
+        {
+            var mapping = TableMapping.Get(typeof(TData)).GetColumn(this.GetMember(column.Body));
+            return this.Context.ExecuteScalar<T>(this.Context.CreateSqlStatement($"SELECT MIN({mapping.Name}) FROM (").Append(this.Statement).Append(") AS I"));
+        }
+
+        /// <summary>
         /// Select the specified column
         /// </summary>
         public OrmResultSet<dynamic> Select(params Expression<Func<TData, dynamic>>[] columns)

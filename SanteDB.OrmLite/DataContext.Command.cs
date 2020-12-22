@@ -307,6 +307,48 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Resets the specified sequence according to the logic in the provider
+        /// </summary>
+        public void ResetSequence(string sequenceName, object sequenceValue)
+        {
+#if DEBUG
+            var sw = new Stopwatch();
+            sw.Start();
+            try
+            {
+#endif
+                lock (this.m_lockObject)
+                {
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, this.m_provider.GetResetSequence(sequenceName, sequenceValue));
+                    try
+                    {
+                        dbc.ExecuteNonQuery();
+                    }
+                    catch (TimeoutException)
+                    {
+                        try { dbc.Cancel(); } catch { }
+                        throw;
+                    }
+                    finally
+                    {
+#if DBPERF
+                        this.PerformanceMonitor(stmt, sw);
+#endif
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
+                }
+#if DEBUG
+            }
+            finally
+            {
+                sw.Stop();
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "RESET SEQUENCE{0} to {1}", sequenceName, sequenceValue);
+            }
+#endif
+        }
+
+        /// <summary>
         /// First or default returns only the first object or null if not found
         /// </summary>
         public Object FirstOrDefault(Type returnType, SqlStatement stmt)
@@ -531,7 +573,48 @@ namespace SanteDB.OrmLite
 #endif
         }
 
+        /// <summary>
+        /// Returns only if only one result is available
+        /// </summary>
+        public TReturn ExecuteScalar<TReturn>(SqlStatement sqlStatement)
+        {
+#if DEBUG
+            var sw = new Stopwatch();
+            sw.Start();
+            try
+            {
+#endif
+                lock (this.m_lockObject)
+                {
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, sqlStatement);
+                    try
+                    {
+                        return (TReturn)dbc.ExecuteScalar();
+                    }
+                    catch (TimeoutException)
+                    {
+                        try { dbc.Cancel(); } catch { }
+                        throw;
+                    }
+                    finally
+                    {
+#if DBPERF
+                        this.PerformanceMonitor(stmt, sw);
+#endif
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
+                }
 
+#if DEBUG
+            }
+            finally
+            {
+                sw.Stop();
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "SCALAR {0} executed in {1} ms", sqlStatement, sw.ElapsedMilliseconds);
+            }
+#endif
+        }
 
         /// <summary>
         /// Returns only if only one result is available

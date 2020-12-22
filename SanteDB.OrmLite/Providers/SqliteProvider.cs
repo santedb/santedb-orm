@@ -339,5 +339,13 @@ namespace SanteDB.OrmLite.Providers
         {
             throw new NotImplementedException();
         }
+
+        /// <summary>
+        /// Reset sequence
+        /// </summary>
+        public SqlStatement GetResetSequence(string sequenceName, object sequenceValue)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
