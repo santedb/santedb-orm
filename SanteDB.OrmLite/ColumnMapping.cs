@@ -142,5 +142,14 @@ namespace SanteDB.OrmLite
                 this.m_specifiedProperty = this.SourceProperty.DeclaringType.GetRuntimeProperty($"{this.SourceProperty.Name}Specified");
             return (bool)(this.m_specifiedProperty?.GetValue(value) ?? false);
         }
+
+        /// <summary>
+        /// A column mapping representing 1 (for using in SELECT 1 FROM)
+        /// </summary>
+        public static readonly ColumnMapping One = new ColumnMapping()
+        {
+            Name = "1",
+            SourceProperty = null
+        };
     }
 }

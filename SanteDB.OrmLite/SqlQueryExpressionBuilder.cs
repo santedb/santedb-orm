@@ -261,13 +261,18 @@ namespace SanteDB.OrmLite
                         Expression enumerable = node.Arguments[0],
                             contained = node.Arguments[1];
 
-                        this.Visit(contained);
-                        this.m_sqlStatement.Append(" IN (");
-
                         var value = this.GetConstantValue(enumerable) as IEnumerable;
-                        this.m_sqlStatement.Append(String.Join(",", value.OfType<Object>().Select(o => "?")), value.OfType<Object>().ToArray());
+                        if (value.OfType<Object>().Count() == 0)
+                            this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.False));
+                        else
+                        {
+                            this.Visit(contained);
+                            this.m_sqlStatement.Append(" IN (");
 
-                        this.m_sqlStatement.Append(")");
+                            this.m_sqlStatement.Append(String.Join(",", value.OfType<Object>().Select(o => "?")), value.OfType<Object>().ToArray());
+
+                            this.m_sqlStatement.Append(")");
+                        }
                     }
                     else if (node.Method.DeclaringType == typeof(String)) // is a STRING contains()
                     {
@@ -387,60 +392,68 @@ namespace SanteDB.OrmLite
                     this.Visit(node.Expression);
                     this.m_sqlStatement.Append(" IS NOT NULL ");
                     break;
+                
                 default:
+                   
                     if (node.Expression != null)
                     {
-                        var expr = node.Expression;
-                        while (expr.NodeType == ExpressionType.Convert)
-                            expr = (expr as UnaryExpression)?.Operand;
-                        // Ignore typeas
-                        switch (expr.NodeType)
+                        if (node.Expression.Type.IsGenericType &&
+                       node.Expression.Type.GetGenericTypeDefinition() == typeof(Nullable<>))
+                            this.Visit(node.Expression);
+                        else
                         {
-                            case ExpressionType.Parameter:
-                                // Translate
-                                var tableMap = TableMapping.Get(expr.Type);
-                                var columnMap = tableMap.GetColumn(node.Member);
-                                this.Visit(expr);
-                                this.m_sqlStatement.Append($".{columnMap.Name}");
-                                break;
-                            case ExpressionType.Constant:
-                            case ExpressionType.TypeAs:
-                            case ExpressionType.MemberAccess:
-                                // Ok, this is a constant member access.. so ets get the value
-                                var cons = this.GetConstantValue(expr);
-                                if (node.Member is PropertyInfo)
-                                {
-                                    var value = (node.Member as PropertyInfo).GetValue(cons);
-                                    if (value == null)
+                            var expr = node.Expression;
+                            while (expr.NodeType == ExpressionType.Convert)
+                                expr = (expr as UnaryExpression)?.Operand;
+                            // Ignore typeas
+                            switch (expr.NodeType)
+                            {
+                                case ExpressionType.Parameter:
+                                    // Translate
+                                    var tableMap = TableMapping.Get(expr.Type);
+                                    var columnMap = tableMap.GetColumn(node.Member);
+                                    this.Visit(expr);
+                                    this.m_sqlStatement.Append($".{columnMap.Name}");
+                                    break;
+                                case ExpressionType.Constant:
+                                case ExpressionType.TypeAs:
+                                case ExpressionType.MemberAccess:
+                                    // Ok, this is a constant member access.. so ets get the value
+                                    var cons = this.GetConstantValue(expr);
+                                    if (node.Member is PropertyInfo)
                                     {
-                                        var stmt = this.m_sqlStatement.RemoveLast().SQL.Trim();
-                                        if (stmt == "<>")
-                                            this.m_sqlStatement.Append(" IS NOT NULL ");
-                                        else if (stmt == "=")
-                                            this.m_sqlStatement.Append(" IS NULL ");
+                                        var value = (node.Member as PropertyInfo).GetValue(cons);
+                                        if (value == null)
+                                        {
+                                            var stmt = this.m_sqlStatement.RemoveLast().SQL.Trim();
+                                            if (stmt == "<>")
+                                                this.m_sqlStatement.Append(" IS NOT NULL ");
+                                            else if (stmt == "=")
+                                                this.m_sqlStatement.Append(" IS NULL ");
+                                            else
+                                                throw new InvalidOperationException($"Cannot determine how to convert {node} in SQL");
+                                        }
                                         else
-                                            throw new InvalidOperationException($"Cannot determine how to convert {node} in SQL");
+                                            this.m_sqlStatement.Append(" ? ", value);
+                                    }
+                                    else if (node.Member is FieldInfo)
+                                    {
+                                        var value = (node.Member as FieldInfo).GetValue(cons);
+                                        if (value == null)
+                                        {
+                                            var stmt = this.m_sqlStatement.RemoveLast().SQL.Trim();
+                                            if (stmt == "<>")
+                                                this.m_sqlStatement.Append(" IS NOT NULL ");
+                                            else
+                                                this.m_sqlStatement.Append(" IS NULL ");
+                                        }
+                                        else
+                                            this.m_sqlStatement.Append(" ? ", value);
                                     }
                                     else
-                                        this.m_sqlStatement.Append(" ? ", value);
-                                }
-                                else if (node.Member is FieldInfo)
-                                {
-                                    var value = (node.Member as FieldInfo).GetValue(cons);
-                                    if (value == null)
-                                    {
-                                        var stmt = this.m_sqlStatement.RemoveLast().SQL.Trim();
-                                        if (stmt == "<>")
-                                            this.m_sqlStatement.Append(" IS NOT NULL ");
-                                        else
-                                            this.m_sqlStatement.Append(" IS NULL ");
-                                    }
-                                    else
-                                        this.m_sqlStatement.Append(" ? ", value);
-                                }
-                                else
-                                    throw new NotSupportedException();
-                                break;
+                                        throw new NotSupportedException();
+                                    break;
+                            }
                         }
                     }
                     else // constant expression

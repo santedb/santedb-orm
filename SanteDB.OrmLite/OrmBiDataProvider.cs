@@ -83,20 +83,20 @@ namespace SanteDB.OrmLite
                 if (parmDef == null) continue; // skip
                 else switch (parmDef.Type)
                     {
-                        case BisParameterDataType.Boolean:
+                        case BiDataType.Boolean:
                             parameters[kv.Key] = Boolean.Parse(kv.Value.ToString());
                             break;
-                        case BisParameterDataType.Date:
-                        case BisParameterDataType.DateTime:
+                        case BiDataType.Date:
+                        case BiDataType.DateTime:
                             parameters[kv.Key] = DateTime.Parse(kv.Value.ToString());
                             break;
-                        case BisParameterDataType.Integer:
+                        case BiDataType.Integer:
                             parameters[kv.Key] = Int32.Parse(kv.Value.ToString());
                             break;
-                        case BisParameterDataType.String:
+                        case BiDataType.String:
                             parameters[kv.Key] = kv.Value.ToString();
                             break;
-                        case BisParameterDataType.Uuid:
+                        case BiDataType.Uuid:
                             parameters[kv.Key] = Guid.Parse(kv.Value.ToString());
                             break;
                         default:

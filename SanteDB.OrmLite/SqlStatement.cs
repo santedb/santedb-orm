@@ -269,7 +269,7 @@ namespace SanteDB.OrmLite
         public SqlStatement SelectFrom(Type dataType, params ColumnMapping[] columns)
         {
             var tableMap = TableMapping.Get(dataType);
-            return this.Append(new SqlStatement(this.m_provider, $"SELECT {String.Join(",", columns.Select(o => o.Name))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
+            return this.Append(new SqlStatement(this.m_provider, $"SELECT {String.Join(",", columns.Select(o => $"{o.Table.TableName}.{o.Name}"))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
         }
 
         /// <summary>

@@ -305,6 +305,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     return " LOWER ";
                 case SqlKeyword.Upper:
                     return " UPPER ";
+                case SqlKeyword.False:
+                    return " FALSE ";
+                case SqlKeyword.True:
+                    return " TRUE ";
                 default:
                     throw new ArgumentOutOfRangeException(nameof(keywordType));
             }
@@ -491,6 +495,14 @@ namespace SanteDB.OrmLite.Providers.Firebird
                             };
                 }
             }
+        }
+
+        /// <summary>
+        /// Get reset sequence command
+        /// </summary>
+        public SqlStatement GetResetSequence(string sequenceName, object sequenceValue)
+        {
+            return new SqlStatement(this, $"ALTER SEQUENCE {sequenceName} RESTART WITH {(int)sequenceValue}");
         }
     }
 }
