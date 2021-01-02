@@ -1182,10 +1182,11 @@ namespace SanteDB.OrmLite
                     var itmValue = itm.SourceProperty.GetValue(value);
 
                     if (itmValue == null ||
+                        !itm.IsNonNull && (
                         itmValue.Equals(default(Guid)) && !tableMap.OrmType.IsConstructedGenericType ||
                         itmValue.Equals(default(DateTime)) ||
                         itmValue.Equals(default(DateTimeOffset)) ||
-                        itmValue.Equals(default(Decimal)))
+                        itmValue.Equals(default(Decimal))))
                         itmValue = null;
 
                     // Only update if specified

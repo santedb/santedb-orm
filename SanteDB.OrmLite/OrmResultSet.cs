@@ -189,7 +189,7 @@ namespace SanteDB.OrmLite
         public OrmResultSet<T> Select<T>(Expression<Func<TData, T>> column)
         {
             var mapping = TableMapping.Get(typeof(TData)).GetColumn(this.GetMember(column.Body));
-            return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT {mapping.Name} FROM (").Append(this.Statement).Append(") AS I"));
+            return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT I.{mapping.Name} FROM (").Append(this.Statement).Append(") AS I"));
         }
 
         /// <summary>

@@ -497,7 +497,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public SqlStatement GetResetSequence(string sequenceName, object sequenceValue)
         {
-            return new SqlStatement(this, $"SELECT setval(?, ?)", sequenceName, sequenceValue);
+            return new SqlStatement(this, $"SELECT setval('{sequenceName}', {sequenceValue})");
         }
 
     }
