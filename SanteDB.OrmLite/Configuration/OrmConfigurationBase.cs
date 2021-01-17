@@ -102,7 +102,10 @@ namespace SanteDB.OrmLite.Configuration
         /// <summary>
         /// Resolves connection string
         /// </summary>
-        protected abstract String ResolveConnectionString(String connectionStringName);
+        protected String ResolveConnectionString(String connectionStringName)
+        {
+            return ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetConnectionString(connectionStringName)?.Value;
+        }
 
     }
 }
