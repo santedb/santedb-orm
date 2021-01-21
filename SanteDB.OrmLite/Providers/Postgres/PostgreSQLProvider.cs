@@ -253,7 +253,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     parm.DbType = this.MapParameterType(value?.GetType());
 
                     // Set value
-                    if (itm == null)
+                    if (itm == null || itm == DBNull.Value)
                         parm.Value = DBNull.Value;
                     else if (value?.GetType().IsEnum == true)
                         parm.Value = (int)value;
@@ -298,7 +298,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public DbType MapParameterType(Type type)
         {
-            if (type == null) return DbType.Object;
+            if (type == null || type == typeof(DBNull)) return DbType.Object;
             else if (type.StripNullable() == typeof(String)) return System.Data.DbType.String;
             else if (type.StripNullable() == typeof(DateTime)) return System.Data.DbType.DateTime;
             else if (type.StripNullable() == typeof(DateTimeOffset)) return DbType.DateTimeOffset;
@@ -311,7 +311,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             else if (type.StripNullable() == typeof(Guid)) return DbType.Guid;
             else if (type.StripNullable().IsEnum) return DbType.Int32;
             else
-                throw new ArgumentOutOfRangeException(nameof(type), "Can't map parameter type");
+                throw new ArgumentOutOfRangeException(nameof(type), $"Can't map parameter type {type.Name}");
         }
 
         /// <summary>

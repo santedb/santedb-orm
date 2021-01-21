@@ -65,7 +65,10 @@ namespace SanteDB.OrmLite
                 throw new InvalidOperationException($"ADO.NET BI queries can only source data from 1 connection source, query {queryDefinition.Name} has {queryDefinition.DataSources?.Count}");
 
             // Ensure we have sufficient priviledge
-            foreach (var pol in queryDefinition.DataSources.SelectMany(o => o?.MetaData.Demands).Union(queryDefinition.MetaData?.Demands))
+            var demandList = queryDefinition.DataSources.SelectMany(o => o?.MetaData.Demands);
+            if (queryDefinition.MetaData?.Demands != null)
+                demandList = demandList.Union(queryDefinition.MetaData?.Demands);
+            foreach (var pol in demandList)
                 ApplicationServiceContext.Current.GetService<IPolicyEnforcementService>().Demand(pol);
 
             // Apply defaults where possible
@@ -84,20 +87,35 @@ namespace SanteDB.OrmLite
                 else switch (parmDef.Type)
                     {
                         case BiDataType.Boolean:
-                            parameters[kv.Key] = Boolean.Parse(kv.Value.ToString());
+                            if (string.IsNullOrEmpty(kv.Value?.ToString()))
+                                parameters[kv.Key] = DBNull.Value;
+                            else
+                                parameters[kv.Key] = Boolean.Parse(kv.Value.ToString());
                             break;
                         case BiDataType.Date:
                         case BiDataType.DateTime:
-                            parameters[kv.Key] = DateTime.Parse(kv.Value.ToString());
+                            if (string.IsNullOrEmpty(kv.Value?.ToString()))
+                                parameters[kv.Key] = DBNull.Value;
+                            else
+                                parameters[kv.Key] = DateTime.Parse(kv.Value.ToString());
                             break;
                         case BiDataType.Integer:
-                            parameters[kv.Key] = Int32.Parse(kv.Value.ToString());
+                            if (string.IsNullOrEmpty(kv.Value?.ToString()))
+                                parameters[kv.Key] = DBNull.Value;
+                            else
+                                parameters[kv.Key] = Int32.Parse(kv.Value.ToString());
                             break;
                         case BiDataType.String:
-                            parameters[kv.Key] = kv.Value.ToString();
+                            if (string.IsNullOrEmpty(kv.Value?.ToString()))
+                                parameters[kv.Key] = DBNull.Value;
+                            else
+                                parameters[kv.Key] = kv.Value.ToString();
                             break;
                         case BiDataType.Uuid:
-                            parameters[kv.Key] = Guid.Parse(kv.Value.ToString());
+                            if (string.IsNullOrEmpty(kv.Value?.ToString()))
+                                parameters[kv.Key] = DBNull.Value;
+                            else
+                                parameters[kv.Key] = Guid.Parse(kv.Value.ToString());
                             break;
                         default:
                             throw new InvalidOperationException($"Cannot determine how to parse {parmDef.Type}");
