@@ -27,6 +27,7 @@ using System.Xml.Serialization;
 
 namespace SanteDB.OrmLite.Configuration
 {
+
     /// <summary>
     /// ORM Configuration Section
     /// </summary>
