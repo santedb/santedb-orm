@@ -372,6 +372,15 @@ namespace SanteDB.OrmLite
         {
             if (e.NodeType == ExpressionType.TypeAs || e.NodeType == ExpressionType.Convert)
                 return this.ExtractConstantExpression((e as UnaryExpression).Operand);
+            else if(e.NodeType == ExpressionType.MemberAccess && e is MemberExpression memExpr)
+            {
+                var baseExpr = this.ExtractConstantExpression(memExpr.Expression);
+                if (memExpr.Member is PropertyInfo propInfo)
+                    return Expression.Constant(propInfo.GetValue(baseExpr.Value));
+                else if(memExpr.Member is FieldInfo fieldInfo)
+                    return Expression.Constant(fieldInfo.GetValue(baseExpr.Value));
+
+            }
             return e as ConstantExpression;
         }
 

@@ -908,6 +908,8 @@ namespace SanteDB.OrmLite
                     var val = col.SourceProperty.GetValue(value);
                     if (val == null ||
                         !col.IsNonNull && (
+                        val.Equals(default(Int32)) ||
+                        val.Equals(default(Int64)) ||
                         val.Equals(default(Guid)) ||
                         val.Equals(default(DateTime)) ||
                         val.Equals(default(DateTimeOffset)) ||

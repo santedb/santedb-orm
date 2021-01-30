@@ -136,6 +136,7 @@ namespace SanteDB.OrmLite
     ///     - The queries it writes use efficient CTE tables
     ///     - It can do intelligent join conditions
     ///     - It uses Model LINQ expressions directly to SQL without the need to translate from Model LINQ to Domain LINQ queries
+    ///     - It lets us hack the query (via IQueryHack interface) to manually write code
     /// </remarks>
     /// <example lang="cs" name="LINQ Expression illustrating join across tables">
     /// <![CDATA[QueryBuilder.CreateQuery<Patient>(o => o.DeterminerConcept.Mnemonic == "Instance")]]>
@@ -223,7 +224,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Query query 
         /// </summary>
-        /// <param name="query"></param>
+        /// TODO: Refactor this
         public SqlStatement CreateQuery<TModel>(IEnumerable<KeyValuePair<String, Object>> query, String tablePrefix, bool skipJoins, ModelSort<TModel>[] orderBy, params ColumnMapping[] selector)
         {
             var tableType = m_mapper.MapModelType(typeof(TModel));
@@ -701,9 +702,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         /// <param name="tableAlias">The alias for the table on which the predicate is based</param>
         /// <param name="modelProperty">The model property information for type information</param>
-        /// <param name="column">The column data for the data model</param>
+        /// <param name="columnName">The column data for the data model</param>
         /// <param name="values">The values to be matched</param>
-        /// <returns></returns>
         public SqlStatement CreateSqlPredicate(String tableAlias, String columnName, PropertyInfo modelProperty, IList values)
         {
 
