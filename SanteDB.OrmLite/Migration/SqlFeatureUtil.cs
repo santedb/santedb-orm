@@ -59,7 +59,7 @@ namespace SanteDB.OrmLite.Migration
                 }
                 catch(Exception e)
                 {
-                    throw new Exception($"Could not install {itm.Id}", e);
+                    m_traceSource.TraceError("Could not install {0} - {1}", itm.Id, e);
                 }
             }
         }
