@@ -265,6 +265,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             else if (type.StripNullable() == typeof(DateTime)) return System.Data.DbType.DateTime;
             else if (type.StripNullable() == typeof(DateTimeOffset)) return DbType.DateTime;
             else if (type.StripNullable() == typeof(Int32)) return System.Data.DbType.Int32;
+            else if (type.StripNullable() == typeof(Int64)) return System.Data.DbType.Int64;
             else if (type.StripNullable() == typeof(Boolean)) return System.Data.DbType.Boolean;
             else if (type.StripNullable() == typeof(byte[]))
                 return System.Data.DbType.Binary;

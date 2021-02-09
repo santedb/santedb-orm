@@ -91,29 +91,8 @@ namespace SanteDB.OrmLite.Migration
                 var config = this.Feature.Configuration as OrmConfigurationBase;
                 using (var conn = config.Provider.GetWriteConnection())
                 {
-                    conn.Open();
-
-                    string deploySql = this.m_feature.GetDeploySql();
-
-                    // Prepare SQL statements
-
                     // Check SQL 
-                    if (!String.IsNullOrEmpty(deploySql))
-                    {
-                        var stmts = deploySql.Split(new string[] { "--#!" }, StringSplitOptions.RemoveEmptyEntries);
-                        int i = 0;
-                        foreach (var dsql in stmts)
-                            using (var cmd = conn.Connection.CreateCommand())
-                            {
-                                if (String.IsNullOrEmpty(dsql.Trim())) continue;
-                                this.ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(((float)i++ / stmts.Length), $"Deploying {this.m_feature.Name}..."));
-                                cmd.CommandText = dsql;
-                                cmd.CommandType = System.Data.CommandType.Text;
-                                Debug.WriteLine("Execute: {0}", dsql);
-                                cmd.ExecuteNonQuery();
-                            }
-                    }
-                    return true;
+                    return conn.Install(this.m_feature);
                 }
             }
             catch (Exception e)
@@ -132,30 +111,7 @@ namespace SanteDB.OrmLite.Migration
                 var config = this.Feature.Configuration as OrmConfigurationBase;
                 using (var conn = config.Provider.GetWriteConnection())
                 {
-                    conn.Open();
-
-                    string checkSql = this.m_feature.GetCheckSql(),
-                        preConditionSql = this.m_feature.GetPreCheckSql();
-
-
-                    if(!String.IsNullOrEmpty(preConditionSql))
-                        using (var cmd = conn.Connection.CreateCommand())
-                        {
-                            cmd.CommandText = preConditionSql;
-                            cmd.CommandType = System.Data.CommandType.Text;
-                            if (!(bool)cmd.ExecuteScalar()) // can't install
-                                throw new ConstraintException($"Pre-check for {this.Name} failed");
-                            
-                        }
-                    if (!String.IsNullOrEmpty(checkSql))
-                        using (var cmd = conn.Connection.CreateCommand())
-                        {
-                            cmd.CommandText = checkSql;
-                            cmd.CommandType = System.Data.CommandType.Text;
-                            return !(bool)cmd.ExecuteScalar();
-                        }
-
-                    return true;
+                    return !conn.IsInstalled(this.m_feature);
                 }
             }
             catch (System.Data.Common.DbException) // CHECK FAILED & MUST SUCCEED IS FALSE = INSTALL
