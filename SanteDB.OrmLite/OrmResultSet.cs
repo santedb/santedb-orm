@@ -81,6 +81,14 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Instructs the reader to count the number of records
+        /// </summary>
+        public bool Any()
+        {
+            return this.Context.Any(this.Statement);
+        }
+
+        /// <summary>
         /// Instructs the reader to order by specified records
         /// </summary>
         /// <param name="selector">The key to order by</param>
@@ -89,6 +97,7 @@ namespace SanteDB.OrmLite
             return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy<TData>(keySelector, Core.Model.Map.SortOrderType.OrderBy));
         }
 
+        
         /// <summary>
         /// Instructs the reader to order by specified records
         /// </summary>

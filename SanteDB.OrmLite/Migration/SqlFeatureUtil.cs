@@ -20,6 +20,7 @@ using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Diagnostics;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -36,6 +37,86 @@ namespace SanteDB.OrmLite.Migration
         private static IEnumerable<IDataFeature> m_features = null;
 
         private static Tracer m_traceSource = Tracer.GetTracer(typeof(SqlFeatureUtil));
+
+
+        /// <summary>
+        /// Upgrade the schema 
+        /// </summary>
+        public static void UpgradeSchema(this DataContext conn, string scopeOfContext)
+        {
+            conn.Open();
+            foreach (var itm in GetFeatures(conn.Provider.Invariant).OfType<SqlFeature>().Where(o=>o.Scope == scopeOfContext).OrderBy(o=>o.Id))
+            {
+                try
+                {
+                    if (!conn.IsInstalled(itm))
+                    {
+                        m_traceSource.TraceInfo("Installing {0} ({1})...", itm.Id, itm.Description);
+                        conn.Install(itm);
+                    }
+                    else
+                        m_traceSource.TraceInfo("Skipping {0}...", itm.Id);
+                }
+                catch(Exception e)
+                {
+                    throw new Exception($"Could not install {itm.Id}", e);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Install the specified object
+        /// </summary>
+        public static bool Install(this DataContext conn, SqlFeature migration)
+        {
+
+            conn.Open();
+
+            var stmts = migration.GetDeploySql().Split(new string[] { "--#!" }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var dsql in stmts)
+                using (var cmd = conn.Connection.CreateCommand())
+                {
+                    if (String.IsNullOrEmpty(dsql.Trim()))
+                        continue;
+                    cmd.CommandText = dsql;
+                    cmd.CommandType = CommandType.Text;
+                    m_traceSource.TraceVerbose("EXEC: {0}", dsql);
+                    cmd.ExecuteNonQuery();
+                }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Returns true if the migration has been installed
+        /// </summary>
+        public static bool IsInstalled(this DataContext conn, SqlFeature migration)
+        {
+            conn.Open();
+
+            string checkSql = migration.GetCheckSql(),
+                        preConditionSql = migration.GetPreCheckSql();
+
+
+            if (!String.IsNullOrEmpty(preConditionSql))
+                using (var cmd = conn.Connection.CreateCommand())
+                {
+                    cmd.CommandText = preConditionSql;
+                    cmd.CommandType = System.Data.CommandType.Text;
+                    if (!(bool)cmd.ExecuteScalar()) // can't install
+                        throw new ConstraintException($"Pre-check for {migration.Id} failed");
+
+                }
+            if (!String.IsNullOrEmpty(checkSql))
+                using (var cmd = conn.Connection.CreateCommand())
+                {
+                    cmd.CommandText = checkSql;
+                    cmd.CommandType = System.Data.CommandType.Text;
+                    return (bool)cmd.ExecuteScalar();
+                }
+
+            return true;
+        }
 
         /// <summary>
         /// Load the available features

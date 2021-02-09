@@ -75,6 +75,11 @@ namespace SanteDB.OrmLite
         public IDictionary<String, Object> Data { get { return this.m_dataDictionary; } }
 
         /// <summary>
+        /// Internal utility method to get provider
+        /// </summary>
+        internal IDbProvider Provider => this.m_provider;
+
+        /// <summary>
         /// Cache on commit
         /// </summary>
         public IEnumerable<IdentifiedData> CacheOnCommit
