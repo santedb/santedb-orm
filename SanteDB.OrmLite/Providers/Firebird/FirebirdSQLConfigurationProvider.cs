@@ -98,6 +98,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 && !Path.IsPathRooted(connectionString.GetComponent("initial catalog")))
                 connectionString.SetComponent("initial catalog", $"|DataDirectory|\\{connectionString.GetComponent("initial catalog")}");
             connectionString.SetComponent("Charset", "NONE");
+            connectionString.SetComponent("client library", "fbclient.dll");
             return connectionString;
         }
         /// <summary>
@@ -108,6 +109,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             // This is a little tricky as we have to get the FireBird ADO and call the function through reflection since ORM doesn't have it
             connectionString = connectionString.Clone();
             connectionString.SetComponent("server type", "Embedded");
+            connectionString.SetComponent("client library", "fbclient.dll");
             var fbConnectionType = Type.GetType("FirebirdSql.Data.FirebirdClient.FbConnection, FirebirdSql.Data.FirebirdClient");
             if (fbConnectionType == null)
                 throw new InvalidOperationException("Cannot find FirebirdSQL provider");

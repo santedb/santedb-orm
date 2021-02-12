@@ -81,8 +81,9 @@ namespace SanteDB.OrmLite.Migration
                     cmd.CommandText = dsql;
                     cmd.CommandType = CommandType.Text;
                     m_traceSource.TraceVerbose("EXEC: {0}", dsql);
-                    cmd.ExecuteNonQuery();
+                    cmd.ExecuteScalar();
                 }
+
 
             return true;
         }
