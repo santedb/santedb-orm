@@ -449,9 +449,15 @@ namespace SanteDB.OrmLite
                                         if (redirectProperty != null)
                                             clsProperty = clsProperty.DeclaringType.GetRuntimeProperty(redirectProperty);
 
+                                        // Is this a uuid?
                                         guardCondition.Append(clsProperty.GetSerializationName());
-                                        if (typeof(IdentifiedData).IsAssignableFrom(clsModel))
-                                            guardCondition.Append(".");
+                                        if (guardClause.Key.Split('|').All(o => Guid.TryParse(o, out Guid _)))
+                                            break;
+                                        else
+                                        {
+                                            if (typeof(IdentifiedData).IsAssignableFrom(clsModel))
+                                                guardCondition.Append(".");
+                                        }
                                     }
                                     subQuery.Add(new KeyValuePair<string, object>(guardCondition.ToString(), guardClause.Key.Split('|')));
 

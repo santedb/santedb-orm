@@ -543,7 +543,7 @@ namespace SanteDB.OrmLite
                       return true;
                   }
                   return false;
-              }).Select(o => $"{o.Table.TableName}.{o.Name}"));
+              }).Select(o => $"{(!o.Table.HasName ? "" : o.Table.TableName + ".")}{o.Name}"));
 
             // Append the result to query
             var retVal = this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {columnList} ")
