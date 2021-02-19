@@ -130,8 +130,8 @@ namespace SanteDB.OrmLite
 
             // Query definition
             var rdbmsQueryDefinition = queryDefinition.QueryDefinitions.FirstOrDefault(o => o.Invariants.Contains(provider.Invariant));
-            if (queryDefinition == null)
-                throw new InvalidOperationException($"Could not find a query definition for invariant {provider.Invariant}");
+            if (rdbmsQueryDefinition == null)
+                throw new InvalidOperationException($"Could not find a SQL definition for invariant {provider.Invariant} from {queryDefinition?.Id} (supported invariants: {String.Join(",", queryDefinition.QueryDefinitions.SelectMany(o=>o.Invariants))})");
 
             // Prepare the templated SQL
             var parmRegex = new Regex(@"\$\{([\w_][\-\d\w\._]*?)\}");
@@ -207,7 +207,7 @@ namespace SanteDB.OrmLite
                 }
                 catch (Exception e)
                 {
-                    this.m_tracer.TraceError("Error executing BIS data query: {0}", e);
+                    this.m_tracer.TraceError("Error executing BIS data query {1} \r\n SQL: {2}\r\n Error: {0}", e, queryDefinition.Id, stmt);
                     throw new DataPersistenceException($"Error executing BIS data query", e);
                 }
             }
