@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2019 - 2020, Fyfe Software Inc. and the SanteSuite Contributors (See NOTICE.md)
+ * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors (See NOTICE.md)
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you 
  * may not use this file except in compliance with the License. You may 
@@ -14,7 +14,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2019-11-27
+ * Date: 2021-2-9
  */
 using SanteDB.BI;
 using SanteDB.BI.Model;
@@ -130,8 +130,8 @@ namespace SanteDB.OrmLite
 
             // Query definition
             var rdbmsQueryDefinition = queryDefinition.QueryDefinitions.FirstOrDefault(o => o.Invariants.Contains(provider.Invariant));
-            if (queryDefinition == null)
-                throw new InvalidOperationException($"Could not find a query definition for invariant {provider.Invariant}");
+            if (rdbmsQueryDefinition == null)
+                throw new InvalidOperationException($"Could not find a SQL definition for invariant {provider.Invariant} from {queryDefinition?.Id} (supported invariants: {String.Join(",", queryDefinition.QueryDefinitions.SelectMany(o=>o.Invariants))})");
 
             // Prepare the templated SQL
             var parmRegex = new Regex(@"\$\{([\w_][\-\d\w\._]*?)\}");
@@ -207,7 +207,7 @@ namespace SanteDB.OrmLite
                 }
                 catch (Exception e)
                 {
-                    this.m_tracer.TraceError("Error executing BIS data query: {0}", e);
+                    this.m_tracer.TraceError("Error executing BIS data query {1} \r\n SQL: {2}\r\n Error: {0}", e, queryDefinition.Id, stmt);
                     throw new DataPersistenceException($"Error executing BIS data query", e);
                 }
             }

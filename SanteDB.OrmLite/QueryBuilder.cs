@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2019 - 2020, Fyfe Software Inc. and the SanteSuite Contributors (See NOTICE.md)
+ * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors (See NOTICE.md)
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you 
  * may not use this file except in compliance with the License. You may 
@@ -14,7 +14,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2020-5-1
+ * Date: 2021-2-9
  */
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Attributes;
@@ -449,9 +449,15 @@ namespace SanteDB.OrmLite
                                         if (redirectProperty != null)
                                             clsProperty = clsProperty.DeclaringType.GetRuntimeProperty(redirectProperty);
 
+                                        // Is this a uuid?
                                         guardCondition.Append(clsProperty.GetSerializationName());
-                                        if (typeof(IdentifiedData).IsAssignableFrom(clsModel))
-                                            guardCondition.Append(".");
+                                        if (guardClause.Key.Split('|').All(o => Guid.TryParse(o, out Guid _)))
+                                            break;
+                                        else
+                                        {
+                                            if (typeof(IdentifiedData).IsAssignableFrom(clsModel))
+                                                guardCondition.Append(".");
+                                        }
                                     }
                                     subQuery.Add(new KeyValuePair<string, object>(guardCondition.ToString(), guardClause.Key.Split('|')));
 
@@ -548,23 +554,22 @@ namespace SanteDB.OrmLite
                             if (String.IsNullOrEmpty(propertyPredicate.CastAs))
                             {
                                 var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { subProp.PropertyType }, new Type[] { subQuery.GetType(), typeof(string), typeof(bool), typeof(ModelSort<>).MakeGenericType(subProp.PropertyType).MakeArrayType(), typeof(ColumnMapping[]) });
-                                subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, prefix, subSkipJoins, null, new ColumnMapping[] { fkColumnDef } }) as SqlStatement;
+                                subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, prefix, subSkipJoins, null, new ColumnMapping[] { ColumnMapping.One } }) as SqlStatement;
                             }
                             else // we need to cast!
                             {
                                 var castAsType = new SanteDB.Core.Model.Serialization.ModelSerializationBinder().BindToType("SanteDB.Core.Model", propertyPredicate.CastAs);
 
                                 var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { castAsType }, new Type[] { subQuery.GetType(), typeof(String), typeof(bool), typeof(ModelSort<>).MakeGenericType(castAsType).MakeArrayType(), typeof(ColumnMapping[]) });
-                                subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, prefix, false, null, new ColumnMapping[] { fkColumnDef } }) as SqlStatement;
+                                subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, prefix, false, null, new ColumnMapping[] { ColumnMapping.One } }) as SqlStatement;
                             }
 
                             //cteStatements.Add(new SqlStatement(this.m_provider, $"{tablePrefix}cte{cteStatements.Count} AS (").Append(subQueryStatement).Append(")"));
                             //subQueryStatement.And($"{tablePrefix}{tableMapping.TableName}.{linkColumn.Name} = {sqName}{fkTableDef.TableName}.{fkColumnDef.Name} ");
 
                             // Join up to the parent table
-                            //subQueryStatement.And($"{tablePrefix}{tableMapping.TableName}.{linkColumn.Name} = {prefix}{fkTableDef.TableName}.{fkColumnDef.Name}");
-
-                            whereClause.And($"{tablePrefix}{tableMapping.TableName}.{linkColumn.Name} IN (").Append(subQueryStatement).Append(")");
+                            subQueryStatement.And($"{tablePrefix}{tableMapping.TableName}.{linkColumn.Name} = {prefix}{fkTableDef.TableName}.{fkColumnDef.Name}");
+                            whereClause.And($" EXISTS (").Append(subQueryStatement).Append(")");
 
                         }
                     }

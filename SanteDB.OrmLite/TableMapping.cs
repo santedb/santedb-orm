@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2019 - 2020, Fyfe Software Inc. and the SanteSuite Contributors (See NOTICE.md)
+ * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors (See NOTICE.md)
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you 
  * may not use this file except in compliance with the License. You may 
@@ -14,7 +14,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2019-11-27
+ * Date: 2021-2-9
  */
 using SanteDB.OrmLite.Attributes;
 using System;
@@ -49,6 +49,11 @@ namespace SanteDB.OrmLite
         public String TableName { get; private set; }
 
         /// <summary>
+        /// True if the object has a table attribute
+        /// </summary>
+        public bool HasName { get; private set; }
+
+        /// <summary>
         /// Column mappings
         /// </summary>
         public IEnumerable<ColumnMapping> Columns { get; private set; }
@@ -74,6 +79,7 @@ namespace SanteDB.OrmLite
 
             this.OrmType = t;
             this.TableName = t.GetCustomAttribute<TableAttribute>()?.Name ?? t.Name;
+            this.HasName = this.TableName != t.Name;
             this.Columns = t.GetProperties().Where(o => o.GetCustomAttribute<ColumnAttribute>() != null).Select(o => ColumnMapping.Get(o, this)).ToList();
             foreach (var itm in this.Columns)
                 this.m_mappings.Add(itm.SourceProperty.Name, itm);
