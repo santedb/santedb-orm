@@ -2,24 +2,24 @@
 using System.Configuration;
 using System.IO;
 using System.Linq;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
 using SanteDB.OrmLite.Providers.Firebird;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 
-namespace SanteDB.OrmLite.Test
+namespace SanteDB.OrmLite.Tests
 {
-    [TestClass]
-    [DeploymentItem(@"santedb_test.fdb")]
-    [DeploymentItem(@"fbclient.dll")]
-    [DeploymentItem(@"firebird.conf")]
-    [DeploymentItem(@"firebird.msg")]
-    [DeploymentItem(@"ib_util.dll")]
-    [DeploymentItem(@"icudt52.dll")]
-    [DeploymentItem(@"icudt52l.dat")]
-    [DeploymentItem(@"icuin52.dll")]
-    [DeploymentItem(@"icuuc52.dll")]
-    [DeploymentItem(@"plugins\engine12.dll", "plugins")]
-    [DeploymentItem(@"FirebirdSql.Data.FirebirdClient.dll")]
+    [TestFixture(Category = "ORM")]
+    //[DeploymentItem(@"santedb_test.fdb")]
+    //[DeploymentItem(@"fbclient.dll")]
+    //[DeploymentItem(@"firebird.conf")]
+    //[DeploymentItem(@"firebird.msg")]
+    //[DeploymentItem(@"ib_util.dll")]
+    //[DeploymentItem(@"icudt52.dll")]
+    //[DeploymentItem(@"icudt52l.dat")]
+    //[DeploymentItem(@"icuin52.dll")]
+    //[DeploymentItem(@"icuuc52.dll")]
+    //[DeploymentItem(@"plugins\engine12.dll", "plugins")]
+    //[DeploymentItem(@"FirebirdSql.Data.FirebirdClient.dll")]
     public class QueryBuildingTest
     {
         // Provider for unit tests
@@ -28,18 +28,18 @@ namespace SanteDB.OrmLite.Test
         /// <summary>
         /// Setup test
         /// </summary>
-        [ClassInitialize]
-        public static void ClassSetup(TestContext context)
+        [SetUp]
+        public void ClassSetup()
         {
             AppDomain.CurrentDomain.SetData(
               "DataDirectory",
-              Path.Combine(context.DeploymentDirectory, string.Empty));
+              Path.Combine(TestContext.CurrentContext.TestDirectory, string.Empty));
         }
 
         /// <summary>
         /// Tests that the query builder can create an IN[] clause
         /// </summary>
-        [TestMethod]
+        [Test]
         public void TestConstructsArrayContainerQuery()
         {
             using (var context = this.m_provider.GetReadonlyConnection())
