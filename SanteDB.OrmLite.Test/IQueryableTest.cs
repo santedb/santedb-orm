@@ -2,24 +2,13 @@
 using System.Configuration;
 using System.IO;
 using System.Linq;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
 using SanteDB.OrmLite.Providers.Firebird;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 
-namespace SanteDB.OrmLite.Test
+namespace SanteDB.OrmLite.Tests
 {
-    [TestClass]
-    [DeploymentItem(@"santedb_test.fdb")]
-    [DeploymentItem(@"fbclient.dll")]
-    [DeploymentItem(@"firebird.conf")]
-    [DeploymentItem(@"firebird.msg")]
-    [DeploymentItem(@"ib_util.dll")]
-    [DeploymentItem(@"icudt52.dll")]
-    [DeploymentItem(@"icudt52l.dat")]
-    [DeploymentItem(@"icuin52.dll")]
-    [DeploymentItem(@"icuuc52.dll")]
-    [DeploymentItem(@"plugins\engine12.dll", "plugins")]
-    [DeploymentItem(@"FirebirdSql.Data.FirebirdClient.dll")]
+    [TestFixture(Category = "ORM")]
     public class IQueryableTest
     {
 
@@ -29,18 +18,18 @@ namespace SanteDB.OrmLite.Test
         /// <summary>
         /// Setup test
         /// </summary>
-        [ClassInitialize]
-        public static void ClassSetup(TestContext context)
+        [SetUp]
+        public void ClassSetup()
         {
             AppDomain.CurrentDomain.SetData(
               "DataDirectory",
-              Path.Combine(context.DeploymentDirectory, string.Empty));
+              Path.Combine(TestContext.CurrentContext.TestDirectory, string.Empty));
         }
 
         /// <summary>
         /// Test that a simple query can be executed
         /// </summary>
-        [TestMethod]
+        [Test]
         public void TestCanDoSimpleQuery()
         {
             using(var context = this.m_provider.GetReadonlyConnection())
@@ -57,7 +46,7 @@ namespace SanteDB.OrmLite.Test
         /// <summary>
         /// Test that a simple query can be executed
         /// </summary>
-        [TestMethod]
+        [Test]
         public void TestCanLimitOffset()
         {
             using (var context = this.m_provider.GetReadonlyConnection())
@@ -81,7 +70,7 @@ namespace SanteDB.OrmLite.Test
         /// <summary>
         /// Test that ordering works
         /// </summary>
-        [TestMethod]
+        [Test]
         public void TestCanOrderBy()
         {
             using (var context = this.m_provider.GetReadonlyConnection())
@@ -109,7 +98,7 @@ namespace SanteDB.OrmLite.Test
         /// <summary>
         /// Test that enumeration works
         /// </summary>
-        [TestMethod]
+        [Test]
         public void TestCanEnumerateResults()
         {
             using (var context = this.m_provider.GetReadonlyConnection())
