@@ -65,7 +65,7 @@ namespace SanteDB.OrmLite
         {
             get
             {
-                if(this.m_primaryKey == null)
+                if (this.m_primaryKey == null)
                     this.m_primaryKey = this.Columns.Where(o => o.IsPrimaryKey);
                 return this.m_primaryKey;
             }
@@ -103,6 +103,20 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Creates a table mapping that is redirected
+        /// </summary>
+        public static TableMapping Redirect(Type original, Type shadow)
+        {
+            var retVal = new TableMapping(original);
+            var shadowMap = Get(shadow);
+            var invalidMaps = retVal.m_mappings.Where(c => !shadowMap.Columns.Any(s => s.Name == c.Value.Name));
+            foreach (var i in invalidMaps.ToArray())
+                retVal.m_mappings.Remove(i.Key);
+            retVal.TableName = shadowMap.TableName;
+            return retVal;
+        }
+
+        /// <summary>
         /// Get column mapping
         /// </summary>
         public ColumnMapping GetColumn(PropertyInfo pi)
@@ -128,7 +142,7 @@ namespace SanteDB.OrmLite
         public ColumnMapping GetColumn(string propertyName, bool scanHeirarchy = false)
         {
             ColumnMapping map = null;
-            if(!this.m_mappings.TryGetValue(propertyName, out map) && scanHeirarchy &&
+            if (!this.m_mappings.TryGetValue(propertyName, out map) && scanHeirarchy &&
                 this.OrmType.BaseType != typeof(Object))
             {
                 var t = TableMapping.Get(this.OrmType.BaseType);
@@ -149,4 +163,5 @@ namespace SanteDB.OrmLite
                 return TableMapping.Get(att.AssociationTable);
         }
     }
+
 }

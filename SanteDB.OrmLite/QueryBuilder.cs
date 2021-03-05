@@ -233,11 +233,12 @@ namespace SanteDB.OrmLite
 
             bool skipParentJoin = true;
             SqlStatement selectStatement = null;
-            KeyValuePair<SqlStatement, List<TableMapping>> cacheHit;
+            Dictionary<Type, TableMapping> skippedJoinMappings = new Dictionary<Type, TableMapping>();
 
             // Is the query using any of the properties from this table?
             var useKeys = !skipJoins ||
-                typeof(IVersionedEntity).IsAssignableFrom(typeof(TModel)) && query.Any(o => {
+                typeof(IVersionedEntity).IsAssignableFrom(typeof(TModel)) && query.Any(o =>
+                {
                     var mPath = this.m_mapper.MapModelProperty(typeof(TModel), typeof(TModel).GetQueryProperty(QueryPredicate.Parse(o.Key).Path));
                     if (mPath == null || mPath.Name == "ObsoletionTime" && o.Value.Equals("null"))
                         return false;
@@ -259,54 +260,70 @@ namespace SanteDB.OrmLite
             }
             else
             {
-                if (!s_joinCache.TryGetValue($"{tablePrefix}.{typeof(TModel).Name}", out cacheHit))
+                //if (!s_joinCache.TryGetValue($"{tablePrefix}.{typeof(TModel).Name}", out cacheHit))
+                //{
+                selectStatement = new SqlStatement(this.m_provider, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
+
+                Stack<TableMapping> fkStack = new Stack<TableMapping>();
+                fkStack.Push(tableMap);
+
+                List<JoinFilterAttribute> joinFilters = new List<JoinFilterAttribute>();
+
+                // Always join tables?
+                do
                 {
-                    selectStatement = new SqlStatement(this.m_provider, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
-
-                    Stack<TableMapping> fkStack = new Stack<TableMapping>();
-                    fkStack.Push(tableMap);
-
-                    List<JoinFilterAttribute> joinFilters = new List<JoinFilterAttribute>();
-
-                    // Always join tables?
-                    do
+                    var dt = fkStack.Pop();
+                    foreach (var jt in dt.Columns.Where(o => o.IsAlwaysJoin))
                     {
-                        var dt = fkStack.Pop();
-                        foreach (var jt in dt.Columns.Where(o => o.IsAlwaysJoin))
+                        var fkTbl = TableMapping.Get(jt.ForeignKey.Table);
+                        var fkAtt = fkTbl.GetColumn(jt.ForeignKey.Column);
+
+                        // is this just a sub-statement? If so we should only join tables which will provide some sort of use
+                        if(!String.IsNullOrEmpty(tablePrefix))
                         {
-                            var fkTbl = TableMapping.Get(jt.ForeignKey.Table);
-                            var fkAtt = fkTbl.GetColumn(jt.ForeignKey.Column);
-                            selectStatement.Append($"INNER JOIN {fkAtt.Table.TableName} AS {tablePrefix}{fkAtt.Table.TableName} ON ({tablePrefix}{jt.Table.TableName}.{jt.Name} = {tablePrefix}{fkAtt.Table.TableName}.{fkAtt.Name} ");
-
-                            foreach (var flt in jt.JoinFilters.Union(joinFilters).GroupBy(o => o.PropertyName).ToArray())
+                            var sha = fkTbl.OrmType.GetCustomAttributes<SkipHintAttribute>();
+                            if (sha.Any() && !query.Any(q => sha.Any(s => q.Key.StartsWith(s.QueryHint)))) // Self join on skip to speed up the queries
                             {
-                                var fltCol = fkTbl.GetColumn(flt.Key);
-                                if (fltCol == null)
-                                    joinFilters.AddRange(flt);
-                                else
-                                {
-                                    selectStatement.And($"({String.Join(" OR ", flt.Select(o => $"{tablePrefix}{fltCol.Table.TableName}.{fltCol.Name} = '{o.Value}'"))})");
-                                    joinFilters.RemoveAll(o => flt.Contains(o));
-                                }
+                                scopedTables.Add(TableMapping.Redirect(fkTbl.OrmType, dt.OrmType));
+                                var pkMap = dt.PrimaryKey.First();
+                                selectStatement.Append($"INNER JOIN {dt.TableName} AS {tablePrefix}{fkAtt.Table.TableName} ON ({tablePrefix}{jt.Table.TableName}.{pkMap.Name} = {tablePrefix}{fkAtt.Table.TableName}.{pkMap.Name} )");
+                                continue;
                             }
-
-                            selectStatement.Append(")");
-                            if (!scopedTables.Contains(fkTbl))
-                                fkStack.Push(fkTbl);
-                            scopedTables.Add(fkAtt.Table);
                         }
-                    } while (fkStack.Count > 0);
+                        selectStatement.Append($"INNER JOIN {fkAtt.Table.TableName} AS {tablePrefix}{fkAtt.Table.TableName} ON ({tablePrefix}{jt.Table.TableName}.{jt.Name} = {tablePrefix}{fkAtt.Table.TableName}.{fkAtt.Name} ");
 
-                    // Add the heavy work to the cache
-                    lock (s_joinCache)
-                        if (!s_joinCache.ContainsKey($"{tablePrefix}.{typeof(TModel).Name}"))
-                            s_joinCache.Add($"{tablePrefix}.{typeof(TModel).Name}", new KeyValuePair<SqlStatement, List<TableMapping>>(selectStatement.Build(), scopedTables));
-                }
-                else
-                {
-                    selectStatement = cacheHit.Key.Build();
-                    scopedTables = cacheHit.Value;
-                }
+                        foreach (var flt in jt.JoinFilters.Union(joinFilters).GroupBy(o => o.PropertyName).ToArray())
+                        {
+                            var fltCol = fkTbl.GetColumn(flt.Key);
+                            if (fltCol == null)
+                                joinFilters.AddRange(flt);
+                            else
+                            {
+                                selectStatement.And($"({String.Join(" OR ", flt.Select(o => $"{tablePrefix}{fltCol.Table.TableName}.{fltCol.Name} = '{o.Value}'"))})");
+                                joinFilters.RemoveAll(o => flt.Contains(o));
+                            }
+                        }
+
+                        selectStatement.Append(")");
+                        if (!scopedTables.Contains(fkTbl))
+                            fkStack.Push(fkTbl);
+                        scopedTables.Add(fkAtt.Table);
+                    }
+                } while (fkStack.Count > 0);
+
+                // Add the heavy work to the cache
+                lock (s_joinCache)
+                    if (!s_joinCache.ContainsKey($"{tablePrefix}.{typeof(TModel).Name}"))
+                        s_joinCache.Add($"{tablePrefix}.{typeof(TModel).Name}", new KeyValuePair<SqlStatement, List<TableMapping>>(selectStatement.Build(), scopedTables));
+                //}
+                //else
+                //{
+                //    selectStatement = cacheHit.Key.Build();
+                //    scopedTables = cacheHit.Value;
+
+                // Optimize the join structure - We only join tables where we reference a property in them  
+
+                //}
             }
 
             // Column definitions
@@ -336,8 +353,8 @@ namespace SanteDB.OrmLite
                     selectStatement = new SqlStatement(this.m_provider, $"SELECT *").Append(selectStatement);
                 // columnSelector = scopedTables.SelectMany(o => o.Columns).ToArray();
             }
-            else if(columnSelector.All(o=>o.SourceProperty == null)) // Fake / constants
-                selectStatement = new SqlStatement(this.m_provider, $"SELECT {String.Join(",", columnSelector.Select(o=>o.Name))} ").Append(selectStatement);
+            else if (columnSelector.All(o => o.SourceProperty == null)) // Fake / constants
+                selectStatement = new SqlStatement(this.m_provider, $"SELECT {String.Join(",", columnSelector.Select(o => o.Name))} ").Append(selectStatement);
             else
             {
                 var columnList = String.Join(",", columnSelector.Select(o =>
@@ -403,6 +420,7 @@ namespace SanteDB.OrmLite
                             var subTableType = m_mapper.MapModelType(propertyType);
                             var subTableMap = TableMapping.Get(subTableType);
                             var linkColumns = subTableMap.Columns.Where(o => scopedTables.Any(s => s.OrmType == o.ForeignKey?.Table));
+
                             //var linkColumn = linkColumns.Count() > 1 ? linkColumns.FirstOrDefault(o=>o.SourceProperty.Name == "SourceKey") : linkColumns.FirstOrDefault();
                             var linkColumn = linkColumns.Count() > 1 ? linkColumns.FirstOrDefault(o => propertyPredicate.SubPath.StartsWith("source") ? o.SourceProperty.Name != "SourceKey" : o.SourceProperty.Name == "SourceKey") : linkColumns.FirstOrDefault();
 
@@ -475,15 +493,15 @@ namespace SanteDB.OrmLite
                                 if (String.IsNullOrEmpty(propertyPredicate.SubPath) && "null".Equals(parm.Value))
                                     subQueryStatement.And($"NOT EXISTS (");
                                 // Query Optimization - Sub-Path is specfified and the only object is a NOT value (other than classifier)
-                                else if(!String.IsNullOrEmpty(propertyPredicate.SubPath) &&
+                                else if (!String.IsNullOrEmpty(propertyPredicate.SubPath) &&
                                     subQuery.Count <= 2 &&
-                                    subQuery.Count(p=>
+                                    subQuery.Count(p =>
                                         !p.Key.Contains(".") && (
                                         (p.Value as String)?.StartsWith("!") == true ||
-                                        (p.Value as List<String>)?.All(v=>v.StartsWith("!")) == true)) == 1)
+                                        (p.Value as List<String>)?.All(v => v.StartsWith("!")) == true)) == 1)
                                 {
                                     subQueryStatement.And($"NOT EXISTS (");
-                                    subQuery = subQuery.Select(a => 
+                                    subQuery = subQuery.Select(a =>
                                     {
                                         if ((a.Value as String)?.StartsWith("!") == true)
                                             return new KeyValuePair<String, Object>(a.Key, (a.Value as String)?.Substring(1));
@@ -497,7 +515,7 @@ namespace SanteDB.OrmLite
                                     subQueryStatement.And($"EXISTS (");
 
                                 // Does this query object have obsolete version sequence?
-                                if(typeof(IVersionedAssociation).IsAssignableFrom(propertyType)) // Add obslt guard
+                                if (typeof(IVersionedAssociation).IsAssignableFrom(propertyType)) // Add obslt guard
                                 {
                                     subQuery.Add(new KeyValuePair<string, object>(propertyType.GetRuntimeProperty(nameof(IVersionedAssociation.ObsoleteVersionSequenceId)).GetSerializationName(), "null"));
                                 }
@@ -617,7 +635,7 @@ namespace SanteDB.OrmLite
         /// <param name="sortExpression">The sorting expression</param>
         private SqlStatement CreateOrderBy(Type tmodel, string tablePrefix, List<TableMapping> scopedTables, Expression sortExpression, SortOrderType order)
         {
-            switch(sortExpression.NodeType)
+            switch (sortExpression.NodeType)
             {
                 case ExpressionType.Convert:
                 case ExpressionType.ConvertChecked:
@@ -635,7 +653,7 @@ namespace SanteDB.OrmLite
                     PropertyInfo domainProperty = scopedTables.Select(o => { tableMapping = o; return m_mapper.MapModelProperty(tmodel, o.OrmType, propertyInfo); }).FirstOrDefault(o => o != null);
                     var columnData = tableMapping.GetColumn(domainProperty);
                     return new SqlStatement(this.m_provider, $" {columnData.Name} {(order == SortOrderType.OrderBy ? "ASC" : "DESC")}");
-                    
+
                 default:
                     throw new InvalidOperationException("Cannot sort by this property expression");
             }
@@ -669,7 +687,7 @@ namespace SanteDB.OrmLite
             var propertyInfo = tmodel.GetQueryProperty(propertyPath);
             if (propertyInfo == null)
                 throw new ArgumentOutOfRangeException(propertyPath);
-           
+
             PropertyInfo domainProperty = scopedTables.Select(o => { tableMapping = o; return m_mapper.MapModelProperty(tmodel, o.OrmType, propertyInfo); }).FirstOrDefault(o => o != null);
 
             // Now map the property path

@@ -29,7 +29,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// <summary>
     /// Represents an entity in the database
     /// </summary>
-    [Table("ent_tbl")]
+    [Table("ent_tbl"), SkipHint("template"), SkipHint("classConcept"), SkipHint("determinerConcept")]
 	public class DbEntity : DbIdentified
 	{
         /// <summary>
