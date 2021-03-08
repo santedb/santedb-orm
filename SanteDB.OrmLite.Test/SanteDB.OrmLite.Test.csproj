@@ -31,7 +31,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
+    <DebugType>portable</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
@@ -118,11 +118,8 @@
     <PackageReference Include="FirebirdSql.Data.FirebirdClient">
       <Version>5.12.1</Version>
     </PackageReference>
-    <PackageReference Include="MSTest.TestAdapter">
-      <Version>2.1.2</Version>
-    </PackageReference>
-    <PackageReference Include="MSTest.TestFramework">
-      <Version>2.1.2</Version>
+    <PackageReference Include="NUnit">
+      <Version>3.13.1</Version>
     </PackageReference>
   </ItemGroup>
   <Choose>
@@ -136,7 +133,7 @@
     </When>
     <Otherwise>
       <ItemGroup>
-        <PackageReference Include="SanteDB.Core.Model" Version="2.1.0.0" />
+        <PackageReference Include="SanteDB.Core.Model" Version="2.1.2.0" />
       </ItemGroup>
     </Otherwise>
   </Choose>
