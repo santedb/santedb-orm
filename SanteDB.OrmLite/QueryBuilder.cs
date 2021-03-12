@@ -218,14 +218,14 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement CreateQuery<TModel>(IEnumerable<KeyValuePair<String, Object>> query, String tablePrefix, ModelSort<TModel>[] orderBy, params ColumnMapping[] selector)
         {
-            return CreateQuery<TModel>(query, null, false, orderBy, selector);
+            return CreateQuery<TModel>(query, null, false, null, orderBy, selector);
         }
 
         /// <summary>
         /// Query query 
         /// </summary>
         /// TODO: Refactor this
-        public SqlStatement CreateQuery<TModel>(IEnumerable<KeyValuePair<String, Object>> query, String tablePrefix, bool skipJoins, ModelSort<TModel>[] orderBy, params ColumnMapping[] selector)
+        public SqlStatement CreateQuery<TModel>(IEnumerable<KeyValuePair<String, Object>> query, String tablePrefix, bool skipJoins, List<TableMapping> parentScopedTables, ModelSort<TModel>[] orderBy, params ColumnMapping[] selector)
         {
             var tableType = m_mapper.MapModelType(typeof(TModel));
             var tableMap = TableMapping.Get(tableType);
@@ -279,17 +279,20 @@ namespace SanteDB.OrmLite
                         var fkAtt = fkTbl.GetColumn(jt.ForeignKey.Column);
 
                         // is this just a sub-statement? If so we should only join tables which will provide some sort of use
-                        if(!String.IsNullOrEmpty(tablePrefix))
+                        //if(!String.IsNullOrEmpty(tablePrefix))
+                        //{
+                        if (selector.Length > 0 && (selector[0] == ColumnMapping.One || !selector.Any(o => o.Table.TableName == fkTbl.TableName)))
                         {
                             var sha = fkTbl.OrmType.GetCustomAttributes<SkipHintAttribute>();
                             if (sha.Any() && !query.Any(q => sha.Any(s => q.Key.StartsWith(s.QueryHint)))) // Self join on skip to speed up the queries
                             {
                                 scopedTables.Add(TableMapping.Redirect(fkTbl.OrmType, dt.OrmType));
-                                var pkMap = dt.PrimaryKey.First();
-                                selectStatement.Append($"INNER JOIN {dt.TableName} AS {tablePrefix}{fkAtt.Table.TableName} ON ({tablePrefix}{jt.Table.TableName}.{pkMap.Name} = {tablePrefix}{fkAtt.Table.TableName}.{pkMap.Name} )");
+                                //var pkMap = dt.PrimaryKey.First();
+                                //selectStatement.Append($"INNER JOIN {dt.TableName} AS {tablePrefix}{fkAtt.Table.TableName} ON ({tablePrefix}{jt.Table.TableName}.{fkAtt.Name} = {tablePrefix}{fkAtt.Table.TableName}.{fkAtt.Name} )");
                                 continue;
                             }
                         }
+                        //}
                         selectStatement.Append($"INNER JOIN {fkAtt.Table.TableName} AS {tablePrefix}{fkAtt.Table.TableName} ON ({tablePrefix}{jt.Table.TableName}.{jt.Name} = {tablePrefix}{fkAtt.Table.TableName}.{fkAtt.Name} ");
 
                         foreach (var flt in jt.JoinFilters.Union(joinFilters).GroupBy(o => o.PropertyName).ToArray())
@@ -487,7 +490,7 @@ namespace SanteDB.OrmLite
                                 // Generate method
                                 subQuery.RemoveAll(o => String.IsNullOrEmpty(o.Key));
                                 var prefix = IncrementSubQueryAlias(tablePrefix);
-                                var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { propertyType }, new Type[] { subQuery.GetType(), typeof(String), typeof(bool), typeof(ModelSort<>).MakeGenericType(propertyType).MakeArrayType(), typeof(ColumnMapping[]) });
+                                var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { propertyType }, new Type[] { subQuery.GetType(), typeof(String), typeof(bool), typeof(List<TableMapping>), typeof(ModelSort<>).MakeGenericType(propertyType).MakeArrayType(), typeof(ColumnMapping[]) });
 
                                 // Sub path is specified
                                 if (String.IsNullOrEmpty(propertyPredicate.SubPath) && "null".Equals(parm.Value))
@@ -521,9 +524,9 @@ namespace SanteDB.OrmLite
                                 }
 
                                 if (subQuery.Count(p => !p.Key.Contains(".")) == 0)
-                                    subQueryStatement.Append(genMethod.Invoke(this, new Object[] { subQuery.Distinct(), prefix, true, null, new ColumnMapping[] { ColumnMapping.Get("1") } }) as SqlStatement);
+                                    subQueryStatement.Append(genMethod.Invoke(this, new Object[] { subQuery.Distinct(), prefix, true, scopedTables, null, new ColumnMapping[] { ColumnMapping.One } }) as SqlStatement);
                                 else
-                                    subQueryStatement.Append(genMethod.Invoke(this, new Object[] { subQuery.Distinct(), prefix, false, null, new ColumnMapping[] { ColumnMapping.Get("1") } }) as SqlStatement);
+                                    subQueryStatement.Append(genMethod.Invoke(this, new Object[] { subQuery.Distinct(), prefix, false, scopedTables, null, new ColumnMapping[] { ColumnMapping.One } }) as SqlStatement);
 
                                 subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{subTableColumn.Name}");
                                 //existsClause = $"{prefix}{subTableColumn.Table.TableName}.{subTableColumn.Name}";
@@ -560,7 +563,7 @@ namespace SanteDB.OrmLite
                             else
                                 linkColumn = tableMapping.GetColumn(domainProperty);
 
-                            var fkTableDef = TableMapping.Get(linkColumn.ForeignKey.Table);
+                            var fkTableDef = parentScopedTables?.FirstOrDefault(o=>o.OrmType == linkColumn.ForeignKey.Table) ?? TableMapping.Get(linkColumn.ForeignKey.Table);
                             var fkColumnDef = fkTableDef.GetColumn(linkColumn.ForeignKey.Column);
                             var prefix = IncrementSubQueryAlias(tablePrefix);
 
@@ -571,15 +574,15 @@ namespace SanteDB.OrmLite
                             var subSkipJoins = subQuery.Count(o => !o.Key.Contains(".") && o.Key != "obsoletionTime") == 0;
                             if (String.IsNullOrEmpty(propertyPredicate.CastAs))
                             {
-                                var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { subProp.PropertyType }, new Type[] { subQuery.GetType(), typeof(string), typeof(bool), typeof(ModelSort<>).MakeGenericType(subProp.PropertyType).MakeArrayType(), typeof(ColumnMapping[]) });
-                                subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, prefix, subSkipJoins, null, new ColumnMapping[] { ColumnMapping.One } }) as SqlStatement;
+                                var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { subProp.PropertyType }, new Type[] { subQuery.GetType(), typeof(string), typeof(bool), typeof(List<TableMapping>), typeof(ModelSort<>).MakeGenericType(subProp.PropertyType).MakeArrayType(), typeof(ColumnMapping[]) });
+                                subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, prefix, subSkipJoins, scopedTables, null, new ColumnMapping[] { ColumnMapping.One } }) as SqlStatement;
                             }
                             else // we need to cast!
                             {
                                 var castAsType = new SanteDB.Core.Model.Serialization.ModelSerializationBinder().BindToType("SanteDB.Core.Model", propertyPredicate.CastAs);
 
-                                var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { castAsType }, new Type[] { subQuery.GetType(), typeof(String), typeof(bool), typeof(ModelSort<>).MakeGenericType(castAsType).MakeArrayType(), typeof(ColumnMapping[]) });
-                                subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, prefix, false, null, new ColumnMapping[] { ColumnMapping.One } }) as SqlStatement;
+                                var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { castAsType }, new Type[] { subQuery.GetType(), typeof(String), typeof(bool), typeof(List<TableMapping>), typeof(ModelSort<>).MakeGenericType(castAsType).MakeArrayType(), typeof(ColumnMapping[]) });
+                                subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, prefix, false, scopedTables, null, new ColumnMapping[] { ColumnMapping.One } }) as SqlStatement;
                             }
 
                             //cteStatements.Add(new SqlStatement(this.m_provider, $"{tablePrefix}cte{cteStatements.Count} AS (").Append(subQueryStatement).Append(")"));
