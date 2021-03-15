@@ -314,10 +314,7 @@ namespace SanteDB.OrmLite
                     }
                 } while (fkStack.Count > 0);
 
-                // Add the heavy work to the cache
-                lock (s_joinCache)
-                    if (!s_joinCache.ContainsKey($"{tablePrefix}.{typeof(TModel).Name}"))
-                        s_joinCache.Add($"{tablePrefix}.{typeof(TModel).Name}", new KeyValuePair<SqlStatement, List<TableMapping>>(selectStatement.Build(), scopedTables));
+                
                 //}
                 //else
                 //{
