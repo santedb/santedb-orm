@@ -281,12 +281,20 @@ namespace SanteDB.OrmLite
                         // is this just a sub-statement? If so we should only join tables which will provide some sort of use
                         //if(!String.IsNullOrEmpty(tablePrefix))
                         //{
-                        if (selector.Length > 0 && (selector[0] == ColumnMapping.One || !selector.Any(o => o.Table.TableName == fkTbl.TableName)))
+                        if (selector.Length > 0 && (selector[0] == ColumnMapping.One || selector.Where(o => o.Table.TableName == fkTbl.TableName).All(s=>dt.GetColumn(s.Name) != null)))
                         {
                             var sha = fkTbl.OrmType.GetCustomAttributes<SkipHintAttribute>();
                             if (sha.Any() && !query.Any(q => sha.Any(s => q.Key.StartsWith(s.QueryHint)))) // Self join on skip to speed up the queries
                             {
                                 scopedTables.Add(TableMapping.Redirect(fkTbl.OrmType, dt.OrmType));
+
+                                // Rewrite any column selectors
+                                for(int i = 0; i < selector.Length; i++)
+                                {
+                                    if (selector[i].Table.OrmType == fkTbl.OrmType)
+                                        selector[i] = dt.GetColumn(selector[i].Name);
+                                }
+
                                 //var pkMap = dt.PrimaryKey.First();
                                 //selectStatement.Append($"INNER JOIN {dt.TableName} AS {tablePrefix}{fkAtt.Table.TableName} ON ({tablePrefix}{jt.Table.TableName}.{fkAtt.Name} = {tablePrefix}{fkAtt.Table.TableName}.{fkAtt.Name} )");
                                 continue;
@@ -572,22 +580,22 @@ namespace SanteDB.OrmLite
                             if (String.IsNullOrEmpty(propertyPredicate.CastAs))
                             {
                                 var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { subProp.PropertyType }, new Type[] { subQuery.GetType(), typeof(string), typeof(bool), typeof(List<TableMapping>), typeof(ModelSort<>).MakeGenericType(subProp.PropertyType).MakeArrayType(), typeof(ColumnMapping[]) });
-                                subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, prefix, subSkipJoins, scopedTables, null, new ColumnMapping[] { ColumnMapping.One } }) as SqlStatement;
+                                subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, prefix, subSkipJoins, scopedTables, null, new ColumnMapping[] { fkColumnDef } }) as SqlStatement;
                             }
                             else // we need to cast!
                             {
                                 var castAsType = new SanteDB.Core.Model.Serialization.ModelSerializationBinder().BindToType("SanteDB.Core.Model", propertyPredicate.CastAs);
 
                                 var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { castAsType }, new Type[] { subQuery.GetType(), typeof(String), typeof(bool), typeof(List<TableMapping>), typeof(ModelSort<>).MakeGenericType(castAsType).MakeArrayType(), typeof(ColumnMapping[]) });
-                                subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, prefix, false, scopedTables, null, new ColumnMapping[] { ColumnMapping.One } }) as SqlStatement;
+                                subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, prefix, false, scopedTables, null, new ColumnMapping[] { fkColumnDef } }) as SqlStatement;
                             }
 
                             //cteStatements.Add(new SqlStatement(this.m_provider, $"{tablePrefix}cte{cteStatements.Count} AS (").Append(subQueryStatement).Append(")"));
                             //subQueryStatement.And($"{tablePrefix}{tableMapping.TableName}.{linkColumn.Name} = {sqName}{fkTableDef.TableName}.{fkColumnDef.Name} ");
 
                             // Join up to the parent table
-                            subQueryStatement.And($"{tablePrefix}{tableMapping.TableName}.{linkColumn.Name} = {prefix}{fkTableDef.TableName}.{fkColumnDef.Name}");
-                            whereClause.And($" EXISTS (").Append(subQueryStatement).Append(")");
+                           
+                            whereClause.And($"{tablePrefix}{tableMapping.TableName}.{linkColumn.Name} IN (").Append(subQueryStatement).Append(")");
 
                         }
                     }
