@@ -518,11 +518,11 @@ namespace SanteDB.OrmLite
         /// Construct a SELECT FROM statement with the specified selectors
         /// </summary>
         /// <param name="selector">The types from which to select columns</param>
-        /// <returns>The constructed sql statement</returns>
+        /// <returns>The constructed sql statementB</returns>
         public SqlStatement<T> SelectFrom(params ColumnMapping[] columns)
         {
             var tableMap = TableMapping.Get(typeof(T));
-            return this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {String.Join(",", columns.Select(o => $"{o.Table.TableName}.{o.Name}"))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
+            return this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {String.Join(",", columns.Select(o => o.Table == null ? o.Name : $"{o.Table.TableName}.{o.Name}"))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
         }
 
         /// <summary>
