@@ -31,7 +31,7 @@ namespace SanteDB.OrmLite
     /// Represents a result set from enumerable data
     /// </summary>
     /// <typeparam name="TData">The type of record this result set holds</typeparam>
-    public class OrmResultSet<TData> : IEnumerable<TData> , IOrmResultSet
+    public class OrmResultSet<TData> : IEnumerable<TData>, IOrmResultSet
     {
 
         /// <summary>
@@ -160,26 +160,30 @@ namespace SanteDB.OrmLite
         public OrmResultSet<T> Keys<T>(bool qualifyKeyTableName = true)
         {
 
-            var innerQuery = this.Statement.Build();
-            var tm = TableMapping.Get(typeof(TData));
-            if (tm.TableName.StartsWith("CompositeResult"))
+            if (typeof(T) == typeof(TData))
+                return new OrmResultSet<T>(this.Context, this.Statement);
+            else
             {
-                tm = TableMapping.Get(typeof(TData).GetGenericArguments().Last());
+                var innerQuery = this.Statement.Build();
+                var tm = TableMapping.Get(typeof(TData));
+                if (tm.TableName.StartsWith("CompositeResult"))
+                {
+                    tm = TableMapping.Get(typeof(TData).GetGenericArguments().Last());
+                }
+                if (tm.PrimaryKey.Count() != 1)
+                    throw new InvalidOperationException("Cannot execute KEY query on object with no keys");
+
+                // HACK: Swap out SELECT * if query starts with it
+                if (innerQuery.SQL.StartsWith("SELECT * "))
+                {
+                    if (qualifyKeyTableName)
+                        innerQuery = this.Context.CreateSqlStatement($"SELECT {tm.TableName}.{tm.PrimaryKey.First().Name} {innerQuery.SQL.Substring(9)}", innerQuery.Arguments.ToArray());
+                    else
+                        innerQuery = this.Context.CreateSqlStatement($"SELECT {tm.PrimaryKey.First().Name} {innerQuery.SQL.Substring(9)}", innerQuery.Arguments.ToArray());
+                }
+
+                return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (").Append(innerQuery).Append(") AS I"));
             }
-            if (tm.PrimaryKey.Count() != 1)
-                throw new InvalidOperationException("Cannot execute KEY query on object with no keys");
-
-            // HACK: Swap out SELECT * if query starts with it
-            if (innerQuery.SQL.StartsWith("SELECT * "))
-            {
-                if (qualifyKeyTableName)
-                    innerQuery = this.Context.CreateSqlStatement($"SELECT {tm.TableName}.{tm.PrimaryKey.First().Name} {innerQuery.SQL.Substring(9)}", innerQuery.Arguments.ToArray());
-                else
-                    innerQuery = this.Context.CreateSqlStatement($"SELECT {tm.PrimaryKey.First().Name} {innerQuery.SQL.Substring(9)}", innerQuery.Arguments.ToArray());
-            }
-
-            return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (").Append(innerQuery).Append(") AS I"));
-
         }
 
         /// <summary>
@@ -289,5 +293,21 @@ namespace SanteDB.OrmLite
             return new OrmResultSet<TData>(this.Context, sql);
         }
 
+        /// <summary>
+        /// Union of other result set with this
+        /// </summary>
+        public IOrmResultSet Union(IOrmResultSet other)
+        {
+            return this.Union((OrmResultSet<TData>)other);
+        }
+
+        /// <summary>
+        /// Intersect the other result set
+        /// </summary>
+        public IOrmResultSet Intersect(IOrmResultSet other)
+        {
+            return this.Intersect((OrmResultSet<TData>)other);
+
+        }
     }
 }

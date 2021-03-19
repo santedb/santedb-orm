@@ -232,7 +232,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 throw new ArgumentOutOfRangeException(nameof(sql), $"Parameter mismatch query expected {pno} but {parms.Length} supplied");
 
 
-            IDbCommand cmd = context.GetPreparedCommand(sql);
+
+            IDbCommand cmd = null;
+            if(sql.StartsWith("WITH", StringComparison.OrdinalIgnoreCase) ||
+                sql.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
+                cmd = context.GetPreparedCommand(sql);
             if (cmd == null)
             {
                 cmd = context.Connection.CreateCommand();

@@ -76,12 +76,23 @@ namespace SanteDB.OrmLite.Migration
             foreach (var dsql in stmts)
                 using (var cmd = conn.Connection.CreateCommand())
                 {
-                    if (String.IsNullOrEmpty(dsql.Trim()))
-                        continue;
-                    cmd.CommandText = dsql;
-                    cmd.CommandType = CommandType.Text;
-                    m_traceSource.TraceVerbose("EXEC: {0}", dsql);
-                    cmd.ExecuteScalar();
+                    try
+                    {
+                        if (String.IsNullOrEmpty(dsql.Trim()))
+                            continue;
+                        cmd.CommandText = dsql;
+                        cmd.CommandType = CommandType.Text;
+                        m_traceSource.TraceVerbose("EXEC: {0}", dsql);
+
+                        cmd.ExecuteScalar();
+                    }
+                    catch(Exception e)
+                    {
+#if DEBUG
+                        m_traceSource.TraceError("SQL Statement Failed: {0} - {1}", cmd.CommandText, e.Message);
+#endif
+                        throw;
+                    }
                 }
 
 
@@ -104,7 +115,7 @@ namespace SanteDB.OrmLite.Migration
                 {
                     cmd.CommandText = preConditionSql;
                     cmd.CommandType = System.Data.CommandType.Text;
-                    if (!(bool)cmd.ExecuteScalar()) // can't install
+                    if ((bool?)cmd.ExecuteScalar() != true) // can't install
                         throw new ConstraintException($"Pre-check for {migration.Id} failed");
 
                 }
@@ -113,7 +124,7 @@ namespace SanteDB.OrmLite.Migration
                 {
                     cmd.CommandText = checkSql;
                     cmd.CommandType = System.Data.CommandType.Text;
-                    return (bool)cmd.ExecuteScalar();
+                    return (bool?)cmd.ExecuteScalar() == true;
                 }
 
             return true;
