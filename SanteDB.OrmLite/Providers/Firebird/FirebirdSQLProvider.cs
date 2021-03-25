@@ -505,5 +505,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             return new SqlStatement(this, $"ALTER SEQUENCE {sequenceName} RESTART WITH {(int)sequenceValue}");
         }
+
     }
 }

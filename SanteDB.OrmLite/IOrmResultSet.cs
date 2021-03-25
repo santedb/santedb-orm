@@ -33,6 +33,11 @@ namespace SanteDB.OrmLite
     {
 
         /// <summary>
+        /// Gets the SQL statement that this result set is based on
+        /// </summary>
+        SqlStatement Statement { get; }
+
+        /// <summary>
         /// Counts the number of records
         /// </summary>
         int Count();
@@ -56,5 +61,21 @@ namespace SanteDB.OrmLite
         /// Convert this result set to an SQL statement
         /// </summary>
         SqlStatement ToSqlStatement();
+
+        /// <summary>
+        /// Union keys
+        /// </summary>
+        IOrmResultSet Union(IOrmResultSet other);
+        
+        /// <summary>
+        /// Intersect keys
+        /// </summary>
+        IOrmResultSet Intersect(IOrmResultSet other);
+
+        /// <summary>
+        /// Select only keys
+        /// </summary>
+        OrmResultSet<TKey> Keys<TKey>(bool qualifyTables = true);
+
     }
 }

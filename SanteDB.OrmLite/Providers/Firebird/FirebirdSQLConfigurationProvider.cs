@@ -60,7 +60,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// </summary>
         public override Dictionary<string, ConfigurationOptionType> Options => new Dictionary<string, ConfigurationOptionType>()
         {
-            { "user id", ConfigurationOptionType.String },
+            { "user id", ConfigurationOptionType.User },
             { "password", ConfigurationOptionType.Password },
             { "initial catalog", ConfigurationOptionType.DatabaseName }
         };

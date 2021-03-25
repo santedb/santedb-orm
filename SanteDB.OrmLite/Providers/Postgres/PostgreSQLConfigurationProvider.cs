@@ -56,7 +56,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public override Dictionary<string, ConfigurationOptionType> Options => new Dictionary<string, ConfigurationOptionType>(){
             { "host", ConfigurationOptionType.String },
             { "port", ConfigurationOptionType.Numeric },
-            { "user id", ConfigurationOptionType.String },
+            { "user id", ConfigurationOptionType.User },
             { "password", ConfigurationOptionType.Password },
             { "database", ConfigurationOptionType.DatabaseName },
             { "pooling", ConfigurationOptionType.Boolean },
@@ -109,7 +109,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public override IEnumerable<string> GetDatabases(ConnectionString connectionString)
         {
-            using (var conn = this.GetProvider(connectionString).GetReadonlyConnection())
+            var cstr = connectionString.Clone();
+            cstr.SetComponent("database", "postgres");
+            using (var conn = this.GetProvider(cstr).GetReadonlyConnection())
             {
                 try
                 {

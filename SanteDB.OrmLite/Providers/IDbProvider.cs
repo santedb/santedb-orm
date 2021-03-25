@@ -140,5 +140,6 @@ namespace SanteDB.OrmLite.Providers
         /// Gets the reset sequence command
         /// </summary>
         SqlStatement GetResetSequence(string sequenceName, object sequenceValue);
+
     }
 }
