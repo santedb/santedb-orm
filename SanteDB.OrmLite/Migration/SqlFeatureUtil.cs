@@ -83,7 +83,7 @@ namespace SanteDB.OrmLite.Migration
             var dbNameSetting = configProvider.Options.First(o => o.Value == Core.Configuration.ConfigurationOptionType.DatabaseName).Key;
             var dbUserSetting = configProvider.Options.First(o => o.Value == Core.Configuration.ConfigurationOptionType.User).Key;
             var dbName = connectionString.GetComponent(dbNameSetting);
-            if (!configProvider.GetDatabases(connectionString).Any(d => d == dbName))
+            if (!configProvider.GetDatabases(connectionString).Any(d => d.Equals(dbName, StringComparison.OrdinalIgnoreCase)))
             {
                 try
                 {
