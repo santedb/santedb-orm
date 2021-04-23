@@ -19,6 +19,7 @@
  */
 using SanteDB.Core.Model.Constants;
 using SanteDB.OrmLite.Attributes;
+using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
@@ -45,6 +46,17 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
             {
                 base.ParentKey = value;
             }
+        }
+
+        /// <summary>
+        /// Gets or sets the gender concept
+        /// </summary>
+        /// <value>The gender concept.</value>
+        [Column("gndr_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
+        public Guid GenderConceptKey
+        {
+            get;
+            set;
         }
 
         /// <summary>

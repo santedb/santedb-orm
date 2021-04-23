@@ -131,7 +131,23 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// </summary>
         public override IEnumerable<string> GetDatabases(ConnectionString connectionString)
         {
-            return Directory.GetFiles(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "*.fdb").Select(o => Path.GetFileName(o));
+            var dbPath = connectionString.GetComponent("initial catalog");
+            if (String.IsNullOrEmpty(dbPath))
+            {
+                return Directory.GetFiles(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "*.fdb").Select(o => Path.GetFileName(o));
+            }
+            else
+            {
+                dbPath = dbPath.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString());
+                if (Path.IsPathRooted(dbPath))
+                {
+                    return Directory.GetFiles(Path.GetDirectoryName(dbPath), "*.fdb").Select(o => Path.GetFileName(o));
+                }
+                else
+                {
+                    return Directory.GetFiles(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location), "*.fdb").Select(o => Path.GetFileName(o));
+                }
+            }
         }
 
         /// <summary>
