@@ -868,7 +868,16 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IEnumerable<TModel> InsertOrUpdate<TModel>(IEnumerable<TModel> source)
         {
-            return source.Select(o => this.Exists(o) ? this.Update(o) : this.Insert(o)).ToList();
+            return source.Select(this.InsertOrUpdate).ToList();
+        }
+
+        /// <summary>
+        /// Insert or update the specifed object
+        /// </summary>
+        public TModel InsertOrUpdate<TModel>(TModel source
+            )
+        {
+            return this.Exists(source) ? this.Update(source) : this.Insert(source);
         }
 
         /// <summary>
