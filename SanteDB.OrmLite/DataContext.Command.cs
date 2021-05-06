@@ -395,7 +395,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// First or default returns only the first object or null if not found
         /// </summary>
-        public TModel FirstOrDefault<TModel>(String spName, params object[] arguments)
+        public TModel ExecuteProcedure<TModel>(String spName, params object[] arguments)
         {
 #if DEBUG
             var sw = new Stopwatch();
