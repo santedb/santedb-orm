@@ -34,7 +34,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
         /// Gets or sets the service schedule information
         /// </summary>
         [Column("schdl")]
-        public Guid ServiceSchedule { get; set; }
+        public String ServiceSchedule { get; set; }
 
         /// <summary>
         /// Gets or sets the service concept
