@@ -897,6 +897,14 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Bulk update data
+        /// </summary>
+        public IEnumerable<TModel> Update<TModel>(IEnumerable<TModel> source, Func<TModel,TModel> changor)
+        {
+            return source.Select(o => this.Update(changor(o))).ToList();
+        }
+
+        /// <summary>
         /// Insert the specified object
         /// </summary>
         public TModel Insert<TModel>(TModel value)
