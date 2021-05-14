@@ -660,7 +660,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Represents the count function
         /// </summary>
-        internal bool Any(SqlStatement querySpec)
+        public bool Any(SqlStatement querySpec)
         {
 #if DEBUG
             var sw = new Stopwatch();
