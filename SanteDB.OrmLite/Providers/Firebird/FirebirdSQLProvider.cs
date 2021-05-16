@@ -133,6 +133,8 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     retVal = Guid.Parse(String.Join("", Encoding.Default.GetBytes(value.ToString()).Select(o => (o).ToString("x2")).ToArray()));
                 else if (toType.IsAssignableFrom(value.GetType()))
                     return value;
+                else if (value is DateTime dt && toType.StripNullable().Equals(typeof(DateTimeOffset)))
+                    return (DateTimeOffset)dt;
                 else if (!MapUtil.TryConvert(value, toType, out retVal))
                     throw new ArgumentOutOfRangeException(nameof(value), $"Cannot convert {value?.GetType().Name} to {toType.Name}");
             }
@@ -207,6 +209,8 @@ namespace SanteDB.OrmLite.Providers.Firebird
                         parm.Value = DBNull.Value;
                     else if (value?.GetType().IsEnum == true)
                         parm.Value = (int)value;
+                    else if (parm.DbType == DbType.DateTime && value is DateTimeOffset dto)
+                        parm.Value = dto.DateTime;
                     else
                         parm.Value = itm;
 
@@ -273,6 +277,8 @@ namespace SanteDB.OrmLite.Providers.Firebird
             else if (type.StripNullable() == typeof(Decimal)) return System.Data.DbType.Decimal;
             else if (type.StripNullable() == typeof(Guid)) return DbType.String;
             else if (type.IsEnum) return DbType.Int32;
+            else if (type == typeof(DBNull))
+                return DbType.Object;
             else
                 throw new ArgumentOutOfRangeException(nameof(type), "Can't map parameter type");
         }

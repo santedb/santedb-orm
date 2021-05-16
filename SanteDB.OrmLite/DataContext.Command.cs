@@ -1213,7 +1213,7 @@ namespace SanteDB.OrmLite
                         !itm.SourceSpecified(value))
                         continue;
                     nUpdatedColumns++;
-                    query.Append($"{itm.Name} = ? ", itmValue);
+                    query.Append($"{itm.Name} = ? ", itmValue ?? DBNull.Value);
                     query.Append(",");
                     if (itm.IsPrimaryKey)
                         whereClause.And($"{itm.Name} = ?", itmValue);

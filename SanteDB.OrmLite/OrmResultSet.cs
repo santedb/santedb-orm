@@ -97,7 +97,7 @@ namespace SanteDB.OrmLite
             return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy<TData>(keySelector, Core.Model.Map.SortOrderType.OrderBy));
         }
 
-        
+
         /// <summary>
         /// Instructs the reader to order by specified records
         /// </summary>
