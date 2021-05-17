@@ -916,7 +916,9 @@ namespace SanteDB.OrmLite
                 {
                     var val = col.SourceProperty.GetValue(value);
                     if (val == null ||
-                        !col.IsNonNull && (
+                        !col.IsNonNull && 
+                        col.SourceProperty.PropertyType.StripNullable() == col.SourceProperty.PropertyType &&
+                        (
                         val.Equals(default(Int32)) ||
                         val.Equals(default(Int64)) ||
                         val.Equals(default(Guid)) ||
@@ -1193,7 +1195,9 @@ namespace SanteDB.OrmLite
                     var itmValue = itm.SourceProperty.GetValue(value);
 
                     if (itmValue == null ||
-                        !itm.IsNonNull && (
+                        !itm.IsNonNull &&
+                        itm.SourceProperty.PropertyType.StripNullable() == itm.SourceProperty.PropertyType &&
+                        (
                         itmValue.Equals(default(Guid)) && !tableMap.OrmType.IsConstructedGenericType ||
                         itmValue.Equals(default(DateTime)) ||
                         itmValue.Equals(default(DateTimeOffset)) ||
