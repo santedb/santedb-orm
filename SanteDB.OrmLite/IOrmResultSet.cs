@@ -20,6 +20,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -63,6 +64,23 @@ namespace SanteDB.OrmLite
         SqlStatement ToSqlStatement();
 
         /// <summary>
+        /// Get first or default item in collection
+        /// </summary>
+        Object FirstOrDefault();
+
+        /// <summary>
+        /// Order in ascending order accoridng to expression
+        /// </summary>
+        IOrmResultSet OrderBy(Expression orderExpression);
+
+        /// <summary>
+        /// Order by descending according to expression
+        /// </summary>
+        /// <param name="orderExpression"></param>
+        /// <returns></returns>
+        IOrmResultSet OrderByDescending(Expression orderExpression);
+
+        /// <summary>
         /// Union keys
         /// </summary>
         IOrmResultSet Union(IOrmResultSet other);
@@ -77,5 +95,9 @@ namespace SanteDB.OrmLite
         /// </summary>
         OrmResultSet<TKey> Keys<TKey>(bool qualifyTables = true);
 
+        /// <summary>
+        /// True if there are any matching
+        /// </summary>
+        bool Any();
     }
 }

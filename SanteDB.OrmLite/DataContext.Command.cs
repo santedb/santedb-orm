@@ -194,6 +194,7 @@ namespace SanteDB.OrmLite
 #endif
         }
 
+
 #if DBPERF
         private static object s_lockObject = new object();
         /// <summary>

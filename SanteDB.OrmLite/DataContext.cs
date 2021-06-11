@@ -50,9 +50,6 @@ namespace SanteDB.OrmLite
         // Data dictionary
         private ConcurrentDictionary<String, Object> m_dataDictionary = new ConcurrentDictionary<string, object>();
 
-        // Items to be added to cache after an action
-        private ConcurrentDictionary<Guid, IdentifiedData> m_cacheCommit = new ConcurrentDictionary<Guid, IdentifiedData>();
-
         // Trace source
         private Tracer m_tracer = new Tracer(Constants.TracerName);
 
@@ -79,17 +76,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         internal IDbProvider Provider => this.m_provider;
 
-        /// <summary>
-        /// Cache on commit
-        /// </summary>
-        public IEnumerable<IdentifiedData> CacheOnCommit
-        {
-            get
-            {
-                return this.m_cacheCommit.Values;
-            }
-        }
-
+       
         /// <summary>
         /// True if the context should prepare statements
         /// </summary>
@@ -156,6 +143,20 @@ namespace SanteDB.OrmLite
         public String GetDataType(SchemaPropertyType type)
         {
             return this.m_provider.MapDatatype(type);
+        }
+
+
+        /// <summary>
+        /// Close the connection however don't dispose
+        /// </summary>
+        public void Close()
+        {
+            if(this.m_transaction != null)
+            {
+                this.m_transaction.Rollback();
+                this.m_transaction.Dispose();
+            }
+            this.m_connection.Close();
         }
 
         /// <summary>
@@ -263,46 +264,12 @@ namespace SanteDB.OrmLite
                 finally { this.m_lastCommand?.Dispose(); this.m_lastCommand = null;  }
             }
 
-            this.m_cacheCommit?.Clear();
-            this.m_cacheCommit = null;
             this.m_transaction?.Dispose();
             this.m_transaction = null;
             this.m_connection?.Dispose();
             this.m_connection = null;
             this.m_dataDictionary?.Clear();
             this.m_dataDictionary = null;
-        }
-
-        /// <summary>
-        /// Add cache commit
-        /// </summary>
-        public void AddCacheCommit(IdentifiedData data)
-        {
-            try
-            {
-                IdentifiedData existing = null;
-                if (data.Key.HasValue && !this.m_cacheCommit.TryGetValue(data.Key.Value, out existing))
-                {
-                    this.m_cacheCommit.TryAdd(data.Key.Value, data);
-                }
-                else if (data.Key.HasValue && data.LoadState > (existing?.LoadState ?? 0))
-                    this.m_cacheCommit[data.Key.Value] = data;
-            }
-            catch (Exception e)
-            {
-                this.m_tracer.TraceEvent(EventLevel.Warning, "Object {0} won't be added to cache: {1}", data, e);
-            }
-        }
-
-
-        /// <summary>
-        /// Add cache commit
-        /// </summary>
-        public IdentifiedData GetCacheCommit(Guid key)
-        {
-            IdentifiedData retVal = null;
-            this.m_cacheCommit.TryGetValue(key, out retVal);
-            return retVal;
         }
 
         /// <summary>

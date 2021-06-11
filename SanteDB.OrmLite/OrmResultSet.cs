@@ -309,5 +309,20 @@ namespace SanteDB.OrmLite
             return this.Intersect((OrmResultSet<TData>)other);
 
         }
+
+        /// <summary>
+        ///Get the first or default of the object in the result set 
+        /// </summary>
+        object IOrmResultSet.FirstOrDefault() => this.FirstOrDefault();
+
+        /// <summary>
+        /// Order by the provided expression
+        /// </summary>
+        public IOrmResultSet OrderBy(Expression orderExpression) => this.OrderBy(orderExpression);
+
+        /// <summary>
+        /// Order by descending
+        /// </summary>
+        public IOrmResultSet OrderByDescending(Expression orderExpression) => this.OrderByDescending(orderExpression);
     }
 }
