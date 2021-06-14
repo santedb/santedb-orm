@@ -660,7 +660,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Represents the count function
         /// </summary>
-        internal bool Any(SqlStatement querySpec)
+        public bool Any(SqlStatement querySpec)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -894,6 +894,14 @@ namespace SanteDB.OrmLite
         public IEnumerable<TModel> Update<TModel>(IEnumerable<TModel> source)
         {
             return source.Select(o => this.Update(o)).ToList();
+        }
+
+        /// <summary>
+        /// Bulk update data
+        /// </summary>
+        public IEnumerable<TModel> Update<TModel>(IEnumerable<TModel> source, Func<TModel,TModel> changor)
+        {
+            return source.Select(o => this.Update(changor(o))).ToList();
         }
 
         /// <summary>
@@ -1205,7 +1213,7 @@ namespace SanteDB.OrmLite
                         !itm.SourceSpecified(value))
                         continue;
                     nUpdatedColumns++;
-                    query.Append($"{itm.Name} = ? ", itmValue);
+                    query.Append($"{itm.Name} = ? ", itmValue ?? DBNull.Value);
                     query.Append(",");
                     if (itm.IsPrimaryKey)
                         whereClause.And($"{itm.Name} = ?", itmValue);
