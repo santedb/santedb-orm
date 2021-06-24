@@ -162,7 +162,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IEnumerable<TModel> Query<TModel>(String spName, params object[] arguments)
         {
-#if DEBUG 
+#if PERFMON 
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -184,7 +184,7 @@ namespace SanteDB.OrmLite
                             dbc.Dispose();
                     }
                 }
-#if DEBUG 
+#if PERFMON 
             }
             finally
             {
@@ -312,7 +312,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void ResetSequence(string sequenceName, object sequenceValue)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -339,7 +339,7 @@ namespace SanteDB.OrmLite
                             dbc.Dispose();
                     }
                 }
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -354,7 +354,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public Object FirstOrDefault(Type returnType, SqlStatement stmt)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -383,7 +383,7 @@ namespace SanteDB.OrmLite
                             dbc.Dispose();
                     }
                 }
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -398,7 +398,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TModel ExecuteProcedure<TModel>(String spName, params object[] arguments)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -423,7 +423,7 @@ namespace SanteDB.OrmLite
                             dbc.Dispose();
                     }
                 }
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -438,7 +438,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TModel FirstOrDefault<TModel>(Expression<Func<TModel, bool>> querySpec)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -468,7 +468,7 @@ namespace SanteDB.OrmLite
                             dbc.Dispose();
                     }
                 }
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -483,7 +483,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TModel FirstOrDefault<TModel>(SqlStatement stmt)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -512,7 +512,7 @@ namespace SanteDB.OrmLite
                     }
                 }
 
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -528,7 +528,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TModel SingleOrDefault<TModel>(Expression<Func<TModel, bool>> querySpec)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -564,7 +564,7 @@ namespace SanteDB.OrmLite
                     }
                 }
 
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -579,7 +579,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TReturn ExecuteScalar<TReturn>(SqlStatement sqlStatement)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -607,7 +607,7 @@ namespace SanteDB.OrmLite
                     }
                 }
 
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -622,7 +622,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public bool Any<TModel>(Expression<Func<TModel, bool>> querySpec)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -648,7 +648,7 @@ namespace SanteDB.OrmLite
                     }
                 }
 
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -663,7 +663,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public bool Any(SqlStatement querySpec)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -690,7 +690,7 @@ namespace SanteDB.OrmLite
                 }
 
 
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -705,7 +705,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public long Count<TModel>(Expression<Func<TModel, bool>> querySpec)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -731,7 +731,7 @@ namespace SanteDB.OrmLite
                     }
                 }
 
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -746,7 +746,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public int Count(SqlStatement querySpec)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -772,7 +772,7 @@ namespace SanteDB.OrmLite
                     }
                 }
 
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -829,7 +829,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IEnumerable<TModel> ExecQuery<TModel>(SqlStatement query)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -854,7 +854,7 @@ namespace SanteDB.OrmLite
                     }
                 }
 
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -910,7 +910,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TModel Insert<TModel>(TModel value)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -1051,7 +1051,7 @@ namespace SanteDB.OrmLite
                 }
 
                 return value;
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -1067,7 +1067,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Delete<TModel>(SqlStatement keyFilter)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -1089,7 +1089,7 @@ namespace SanteDB.OrmLite
                     }
                 }
 
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -1104,7 +1104,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Delete<TModel>(Expression<Func<TModel, bool>> where)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -1125,7 +1125,7 @@ namespace SanteDB.OrmLite
                     }
                 }
 
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -1140,7 +1140,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Delete<TModel>(TModel obj)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -1170,7 +1170,7 @@ namespace SanteDB.OrmLite
                     }
                 }
 
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -1186,7 +1186,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TModel Update<TModel>(TModel value)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -1246,7 +1246,7 @@ namespace SanteDB.OrmLite
                 }
 
                 return value;
-#if DEBUG
+#if PERFMON
             }
             finally
             {
@@ -1261,7 +1261,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void ExecuteNonQuery(SqlStatement stmt)
         {
-#if DEBUG
+#if PERFMON
             var sw = new Stopwatch();
             sw.Start();
             try
@@ -1281,7 +1281,7 @@ namespace SanteDB.OrmLite
                     }
                 }
 
-#if DEBUG
+#if PERFMON
             }
             finally
             {
