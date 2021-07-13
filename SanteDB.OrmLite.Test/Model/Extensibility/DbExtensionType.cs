@@ -54,7 +54,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
         /// <summary>
         /// Whether the extension should be executed
         /// </summary>
-        [Column("is_active")]
+        [Column("is_active"), Obsolete]
         public bool IsActive { get; set; }
 
         /// <summary>

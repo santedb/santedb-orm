@@ -22,6 +22,7 @@
  */
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
+using SanteDB.Core.Interfaces;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Warehouse;
@@ -465,11 +466,8 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             if (s_filterFunctions == null)
             {
-                s_filterFunctions = AppDomain.CurrentDomain.GetAssemblies()
-                        .Where(a=>!a.IsDynamic)
-                        .SelectMany(a => a.ExportedTypes)
-                        .Where(t => typeof(IDbFilterFunction).IsAssignableFrom(t) && !t.IsAbstract)
-                        .Select(t => Activator.CreateInstance(t) as IDbFilterFunction)
+                s_filterFunctions = ApplicationServiceContext.Current.GetService<IServiceManager>()
+                        .CreateInjectedOfAll<IDbFilterFunction>()
                         .Where(o => o.Provider == "FirebirdSQL")
                         .ToDictionary(o => o.Name, o => o);
             }
