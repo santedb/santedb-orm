@@ -123,8 +123,8 @@ namespace SanteDB.OrmLite
             }
 
             // We want to open the specified connection
-            var connectionString = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<DataConfigurationSection>().ConnectionString.FirstOrDefault(o => o.Name == queryDefinition.DataSources.First().ConnectionString);
-            var provider = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().GetProvider(connectionString.Provider);
+            var connectionString = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetConnectionString(queryDefinition.DataSources.First().ConnectionString);
+            var provider =  ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().GetProvider(connectionString.Provider);
             provider.ConnectionString = connectionString.Value;
             provider.ReadonlyConnectionString = connectionString.Value;
 
