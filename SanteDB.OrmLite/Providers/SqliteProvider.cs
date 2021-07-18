@@ -19,7 +19,6 @@
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
-using SanteDB.Core.Model.Warehouse;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -299,36 +298,6 @@ namespace SanteDB.OrmLite.Providers
                     return " UPPER ";
                 default:
                     throw new NotImplementedException();
-            }
-        }
-
-        /// <summary>
-        /// Map datatype
-        /// </summary>
-        public string MapDatatype(SchemaPropertyType type)
-        {
-            switch (type)
-            {
-                case SchemaPropertyType.Binary:
-                    return "blob";
-                case SchemaPropertyType.Boolean:
-                    return "boolean";
-                case SchemaPropertyType.Date:
-                case SchemaPropertyType.TimeStamp:
-                case SchemaPropertyType.DateTime:
-                    return "bigint";
-                case SchemaPropertyType.Decimal:
-                    return "decimal";
-                case SchemaPropertyType.Float:
-                    return "float";
-                case SchemaPropertyType.Integer:
-                    return "integer";
-                case SchemaPropertyType.String:
-                    return "varchar(128)";
-                case SchemaPropertyType.Uuid:
-                    return "blob(16)";
-                default:
-                    return null;
             }
         }
 

@@ -16,7 +16,6 @@
  * User: fyfej
  * Date: 2021-2-9
  */
-using SanteDB.Core.Model.Warehouse;
 using System;
 using System.Data;
 
@@ -119,10 +118,6 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         Object ConvertValue(Object value, Type toType);
 
-        /// <summary>
-        /// Map datatype
-        /// </summary>
-        string MapDatatype(SchemaPropertyType type);
 
         /// <summary>
         /// Map a type to parameter type

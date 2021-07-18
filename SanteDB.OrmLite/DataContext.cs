@@ -19,7 +19,6 @@
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
-using SanteDB.Core.Model.Warehouse;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Concurrent;
@@ -60,11 +59,6 @@ namespace SanteDB.OrmLite
         /// Connection
         /// </summary>
         public IDbConnection Connection { get { return this.m_connection; } }
-
-        /// <summary>
-        /// Load state
-        /// </summary>
-        public LoadState LoadState { get; set; }
 
         /// <summary>
         /// Data dictionary
@@ -138,15 +132,6 @@ namespace SanteDB.OrmLite
 
 
         /// <summary>
-        /// Get the datatype
-        /// </summary>
-        public String GetDataType(SchemaPropertyType type)
-        {
-            return this.m_provider.MapDatatype(type);
-        }
-
-
-        /// <summary>
         /// Close the connection however don't dispose
         /// </summary>
         public void Close()
@@ -216,7 +201,6 @@ namespace SanteDB.OrmLite
             var retVal = this.m_provider.CloneConnection(this);
             retVal.Open();
             retVal.m_dataDictionary = this.m_dataDictionary; // share data
-            retVal.LoadState = this.LoadState;
             //retVal.PrepareStatements = this.PrepareStatements;
             return retVal;
         }

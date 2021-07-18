@@ -25,7 +25,6 @@ using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Interfaces;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
-using SanteDB.Core.Model.Warehouse;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
 using System;
@@ -410,39 +409,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
         public object Lock(IDbConnection connection)
         {
             return new object();
-        }
-
-        /// <summary>
-        /// Maps the specified data type
-        /// </summary>
-        /// <param name="type"></param>
-        /// <returns></returns>
-        public string MapDatatype(SchemaPropertyType type)
-        {
-            switch (type)
-            {
-                case SchemaPropertyType.Binary:
-                    return "BLOB";
-                case SchemaPropertyType.Boolean:
-                    return "BOOLEAN";
-                case SchemaPropertyType.Date:
-                    return "DATE";
-                case SchemaPropertyType.TimeStamp:
-                case SchemaPropertyType.DateTime:
-                    return "TIMESTAMP";
-                case SchemaPropertyType.Decimal:
-                    return "DECIMAL";
-                case SchemaPropertyType.Float:
-                    return "FLOAT";
-                case SchemaPropertyType.Integer:
-                    return "BIGINT";
-                case SchemaPropertyType.String:
-                    return "VARCHAR(256)";
-                case SchemaPropertyType.Uuid:
-                    return "UUID";
-                default:
-                    throw new NotSupportedException($"Schema type {type} not supported by FirebirdSQL provider");
-            }
         }
 
         /// <summary>
