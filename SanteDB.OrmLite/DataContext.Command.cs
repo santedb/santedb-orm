@@ -866,7 +866,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Bulk insert data
         /// </summary>
-        public IEnumerable<TModel> InsertOrUpdate<TModel>(IEnumerable<TModel> source)
+        public IEnumerable<TModel> InsertOrUpdateAll<TModel>(IEnumerable<TModel> source)
         {
             return source.Select(this.InsertOrUpdate).ToList();
         }
@@ -874,8 +874,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Insert or update the specifed object
         /// </summary>
-        public TModel InsertOrUpdate<TModel>(TModel source
-            )
+        public TModel InsertOrUpdate<TModel>(TModel source)
         {
             return this.Exists(source) ? this.Update(source) : this.Insert(source);
         }
@@ -883,7 +882,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Bulk insert data
         /// </summary>
-        public IEnumerable<TModel> Insert<TModel>(IEnumerable<TModel> source)
+        public IEnumerable<TModel> InsertAll<TModel>(IEnumerable<TModel> source)
         {
             return source.Select(o => this.Insert(o)).ToList();
         }
@@ -891,7 +890,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Bulk update data
         /// </summary>
-        public IEnumerable<TModel> Update<TModel>(IEnumerable<TModel> source)
+        public IEnumerable<TModel> UpdateAll<TModel>(IEnumerable<TModel> source)
         {
             return source.Select(o => this.Update(o)).ToList();
         }
