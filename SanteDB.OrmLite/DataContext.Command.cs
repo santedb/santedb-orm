@@ -1150,11 +1150,10 @@ namespace SanteDB.OrmLite
 #endif
                 var tableMap = TableMapping.Get(typeof(TModel));
                 SqlStatement whereClause = this.CreateSqlStatement();
-                foreach (var itm in tableMap.Columns)
+                foreach (var itm in tableMap.PrimaryKey)
                 {
                     var itmValue = itm.SourceProperty.GetValue(obj);
-                    if (itm.IsPrimaryKey)
-                        whereClause.And($"{itm.Name} = ?", itmValue);
+                    whereClause.And($"{itm.Name} = ?", itmValue);
                 }
 
                 var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where(whereClause);
