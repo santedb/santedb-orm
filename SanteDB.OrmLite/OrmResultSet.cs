@@ -309,5 +309,6 @@ namespace SanteDB.OrmLite
             return this.Intersect((OrmResultSet<TData>)other);
 
         }
+
     }
 }
