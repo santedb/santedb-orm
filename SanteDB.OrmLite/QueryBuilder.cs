@@ -595,7 +595,7 @@ namespace SanteDB.OrmLite
 
                             // Join up to the parent table
                            
-                            whereClause.And($"{tablePrefix}{tableMapping.TableName}.{linkColumn.Name} IN (").Append(subQueryStatement).Append(")");
+                            whereClause.And($" {tablePrefix}{tableMapping.TableName}.{linkColumn.Name} IN (").Append(subQueryStatement).Append(")");
 
                         }
                     }
