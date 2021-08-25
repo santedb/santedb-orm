@@ -16,6 +16,8 @@
  * User: fyfej
  * Date: 2021-2-9
  */
+using SanteDB.Core.Model;
+using SanteDB.OrmLite.Resources;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -318,11 +320,23 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Order by the provided expression
         /// </summary>
-        public IOrmResultSet OrderBy(Expression orderExpression) => this.OrderBy(orderExpression);
+        public IOrmResultSet OrderBy(Expression orderExpression)
+        {
+            if (orderExpression is Expression<Func<TData, dynamic>> expr)
+                return this.OrderBy(expr);
+            else
+                throw new InvalidOperationException(ErrorMessages.ERR_INVALID_EXPRESSION_TYPE.Format(orderExpression.GetType(), typeof(Expression<Func<TData, Boolean>>)));
+        }
 
         /// <summary>
         /// Order by descending
         /// </summary>
-        public IOrmResultSet OrderByDescending(Expression orderExpression) => this.OrderByDescending(orderExpression);
+        public IOrmResultSet OrderByDescending(Expression orderExpression)
+        {
+            if (orderExpression is Expression<Func<TData, dynamic>> expr)
+                return this.OrderByDescending(expr);
+            else
+                throw new InvalidOperationException(ErrorMessages.ERR_INVALID_EXPRESSION_TYPE.Format(orderExpression.GetType(), typeof(Expression<Func<TData, Boolean>>)));
+        }
     }
 }
