@@ -250,13 +250,15 @@ namespace SanteDB.OrmLite
             else if (BaseTypes.Contains(typeof(TModel)))
             {
                 var obj = rdr[0];
-                if(obj == DBNull.Value)
+                if (obj == DBNull.Value)
                     return default(TModel);
                 else if (typeof(TModel).IsAssignableFrom(obj.GetType()))
                     return (TModel)obj;
-                else 
+                else
                     return (TModel)this.m_provider.ConvertValue(obj, typeof(TModel));
             }
+            else if (typeof(Object) == typeof(TModel)) // Any old object
+                return (TModel)this.m_provider.ConvertValue(rdr[0], typeof(TModel));
             else if (typeof(ExpandoObject).IsAssignableFrom(typeof(TModel)))
                 return this.MapExpando<TModel>(rdr);
             else

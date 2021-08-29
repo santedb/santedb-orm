@@ -47,13 +47,18 @@ namespace SanteDB.OrmLite
         public DataContext Context { get; }
 
         /// <summary>
+        /// Element type
+        /// </summary>
+        public Type ElementType => typeof(TData);
+
+        /// <summary>
         /// Create a new result set based on the context and statement
         /// </summary>
         /// <param name="stmt">The SQL Statement</param>
         /// <param name="context">The data context on which data should be executed</param>
         internal OrmResultSet(DataContext context, SqlStatement stmt)
         {
-            this.Statement = stmt;
+            this.Statement = stmt.Build();
             this.Context = context;
         }
 
@@ -184,7 +189,7 @@ namespace SanteDB.OrmLite
                         innerQuery = this.Context.CreateSqlStatement($"SELECT {tm.PrimaryKey.First().Name} {innerQuery.SQL.Substring(9)}", innerQuery.Arguments.ToArray());
                 }
 
-                return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (").Append(innerQuery).Append(") AS I"));
+                return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (").Append(innerQuery.Build()).Append(") AS I"));
             }
         }
 
@@ -204,7 +209,7 @@ namespace SanteDB.OrmLite
         public OrmResultSet<T> Select<T>(Expression<Func<TData, T>> column)
         {
             var mapping = TableMapping.Get(typeof(TData)).GetColumn(this.GetMember(column.Body));
-            return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT I.{mapping.Name} FROM (").Append(this.Statement).Append(") AS I"));
+            return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT I.{mapping.Name} FROM (").Append(this.Statement.Build()).Append(") AS I"));
         }
 
         /// <summary>
@@ -213,7 +218,7 @@ namespace SanteDB.OrmLite
         public T Max<T>(Expression<Func<TData, T>> column)
         {
             var mapping = TableMapping.Get(typeof(TData)).GetColumn(this.GetMember(column.Body));
-            return this.Context.ExecuteScalar<T>(this.Context.CreateSqlStatement($"SELECT MAX({mapping.Name}) FROM (").Append(this.Statement).Append(") AS I"));
+            return this.Context.ExecuteScalar<T>(this.Context.CreateSqlStatement($"SELECT MAX({mapping.Name}) FROM (").Append(this.Statement.Build()).Append(") AS I"));
         }
 
         /// <summary>
@@ -222,7 +227,7 @@ namespace SanteDB.OrmLite
         public T Min<T>(Expression<Func<TData, T>> column)
         {
             var mapping = TableMapping.Get(typeof(TData)).GetColumn(this.GetMember(column.Body));
-            return this.Context.ExecuteScalar<T>(this.Context.CreateSqlStatement($"SELECT MIN({mapping.Name}) FROM (").Append(this.Statement).Append(") AS I"));
+            return this.Context.ExecuteScalar<T>(this.Context.CreateSqlStatement($"SELECT MIN({mapping.Name}) FROM (").Append(this.Statement.Build()).Append(") AS I"));
         }
 
         /// <summary>
@@ -231,7 +236,7 @@ namespace SanteDB.OrmLite
         public OrmResultSet<dynamic> Select(params Expression<Func<TData, dynamic>>[] columns)
         {
             var mapping = TableMapping.Get(typeof(TData));
-            return new OrmResultSet<dynamic>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", columns.Select(o => mapping.GetColumn(this.GetMember(o.Body))).Select(o => o.Name))} FROM (").Append(this.Statement).Append(") AS I"));
+            return new OrmResultSet<dynamic>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", columns.Select(o => mapping.GetColumn(this.GetMember(o.Body))).Select(o => o.Name))} FROM (").Append(this.Statement.Build()).Append(") AS I"));
         }
 
         /// <summary>
@@ -250,7 +255,7 @@ namespace SanteDB.OrmLite
                 innerQuery = this.Context.CreateSqlStatement($"SELECT {tm.TableName}.{tm.PrimaryKey.First().Name} {innerQuery.SQL.Substring(9)}", innerQuery.Arguments.ToArray());
 
 
-            return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (").Append(innerQuery).Append(") AS I"));
+            return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (").Append(innerQuery.Build()).Append(") AS I"));
         }
 
         /// <summary>
@@ -338,5 +343,24 @@ namespace SanteDB.OrmLite
             else
                 throw new InvalidOperationException(ErrorMessages.ERR_INVALID_EXPRESSION_TYPE.Format(orderExpression.GetType(), typeof(Expression<Func<TData, Boolean>>)));
         }
+
+        /// <summary>
+        /// A non-genericized select statement
+        /// </summary>
+        public OrmResultSet<TElement> Select<TElement>(String field)
+        {
+            var parm = Expression.Parameter(typeof(TData));
+            var filterExpression = Expression.Lambda<Func<TData, TElement>>(
+                Expression.Convert(Expression.MakeMemberAccess(parm, typeof(TData).GetProperty(field)), typeof(TElement)),
+                parm
+                );
+            return this.Select<TElement>(filterExpression);
+        }
+
+        /// <summary>
+        /// Distinct objects only
+        /// </summary>
+        IOrmResultSet IOrmResultSet.Distinct() => this.Distinct();
     }
+
 }

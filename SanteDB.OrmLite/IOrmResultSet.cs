@@ -39,9 +39,19 @@ namespace SanteDB.OrmLite
         SqlStatement Statement { get; }
 
         /// <summary>
+        /// Gets the type of data in the property
+        /// </summary>
+        Type ElementType { get; }
+
+        /// <summary>
         /// Counts the number of records
         /// </summary>
         int Count();
+
+        /// <summary>
+        /// Return only distinct objects
+        /// </summary>
+        IOrmResultSet Distinct();
 
         /// <summary>
         /// Skip N results
@@ -99,5 +109,11 @@ namespace SanteDB.OrmLite
         /// True if there are any matching
         /// </summary>
         bool Any();
+
+        /// <summary>
+        /// Select the 
+        /// </summary>
+        /// <param name="property">The fields to be selected</param>
+        OrmResultSet<TElement> Select<TElement>(string property);
     }
 }
