@@ -150,11 +150,13 @@ namespace SanteDB.OrmLite.Providers.Postgres
                         return new DataContext(this, conn, true);
                     }
                     else
+                    {
                         this.m_readonlyIpAddresses = Dns.GetHostAddresses(host.ToString());
+                        this.m_tracer.TraceVerbose("Resolved {0} to {1}", host, String.Join(",", this.m_readonlyIpAddresses.Select(o=>o.ToString())));
+                    }
 
                     dbst.Remove("host");
                     dbst.Remove("server");
-                    conn.ConnectionString = dbst.ConnectionString;
                     this.m_tracer.TraceInfo("Readonly host {0} resolves to pool of IP addresses [{1}]", host, String.Join(",", this.m_readonlyIpAddresses.Select(o => o.ToString())));
                 }
 
@@ -162,7 +164,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 if (this.m_readonlyIpAddresses?.Length > 0)
                 {
                     this.m_tracer.TraceEvent(EventLevel.Verbose, "Assign readonly IP address from resolved pool to {0}", dbst.ConnectionString);
-                    dbst["server"] = this.m_readonlyIpAddresses[this.m_lastRrHost++ % this.m_readonlyIpAddresses.Length].ToString();
+                    dbst["host"] = this.m_readonlyIpAddresses[this.m_lastRrHost++ % this.m_readonlyIpAddresses.Length].ToString();
                     if (this.m_lastRrHost > this.m_readonlyIpAddresses.Length) this.m_lastRrHost = 0;
                     conn.ConnectionString = dbst.ConnectionString;
                 }
