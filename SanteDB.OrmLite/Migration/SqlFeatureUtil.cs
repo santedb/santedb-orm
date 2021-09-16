@@ -147,10 +147,17 @@ namespace SanteDB.OrmLite.Migration
                     }
                     catch (Exception e)
                     {
+                        if (!cmd.CommandText.Contains("OPTIONAL"))
+                        {
 #if DEBUG
-                        m_traceSource.TraceError("SQL Statement Failed: {0} - {1}", cmd.CommandText, e.Message);
+                            m_traceSource.TraceError("SQL Statement Failed: {0} - {1}", cmd.CommandText, e.Message);
 #endif
-                        throw;
+                            throw;
+                        }
+                        else
+                        {
+                            m_traceSource.TraceWarning("Optional SQL Statement Failed: {0}", cmd.CommandText);
+                        }
                     }
                 }
 
