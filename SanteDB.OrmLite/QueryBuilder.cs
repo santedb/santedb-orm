@@ -201,6 +201,19 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Create a query 
         /// </summary>
+        public SqlStatement CreateWhere<TModel>(Expression<Func<TModel, bool>> predicate)
+        {
+            var nvc = QueryExpressionBuilder.BuildQuery(predicate, true);
+            var tableType = m_mapper.MapModelType(typeof(TModel));
+            var tableMap = TableMapping.Get(tableType);
+            List<TableMapping> scopedTables = new List<TableMapping>() { tableMap };
+
+            return CreateWhereCondition<TModel>(new SqlStatement(m_provider), nvc, String.Empty, scopedTables, null, out IList<SqlStatement> _);
+        }
+
+        /// <summary>
+        /// Create a query 
+        /// </summary>
         public SqlStatement CreateQuery<TModel>(Expression<Func<TModel, bool>> predicate, ModelSort<TModel>[] orderBy, params ColumnMapping[] selector)
         {
             var nvc = QueryExpressionBuilder.BuildQuery(predicate, true);
@@ -379,13 +392,57 @@ namespace SanteDB.OrmLite
                 selectStatement = new SqlStatement(this.m_provider, $"SELECT {columnList} ").Append(selectStatement);
             }
 
+           
+            var whereClause = this.CreateWhereCondition<TModel>(selectStatement, query, tablePrefix, scopedTables, parentScopedTables, out IList<SqlStatement> cteStatements);
+            // Return statement
+            SqlStatement retVal = new SqlStatement(this.m_provider);
+            if (cteStatements.Count > 0)
+            {
+                retVal.Append("WITH ");
+                foreach (var c in cteStatements)
+                {
+                    retVal.Append(c);
+                    if (c != cteStatements.Last())
+                        retVal.Append(",");
+                }
+            }
+            retVal.Append(selectStatement.Where(whereClause));
+
+            // TODO: Order by?
+            if (orderBy != null && orderBy.Length > 0)
+            {
+                retVal.Append("ORDER BY");
+                foreach (var ob in orderBy)
+                {
+                    // Query property path 
+                    var orderStatement = this.CreateOrderBy(typeof(TModel), tablePrefix, scopedTables, ob.SortProperty.Body, ob.SortOrder);
+                    retVal.Append(orderStatement).Append(",");
+                }
+                retVal.RemoveLast();
+            }
+            return retVal;
+        }
+
+        /// <summary>
+        /// Create a where condition based on the specified parameters
+        /// </summary>
+        /// <typeparam name="TModel">The type of object to create the where condition on</typeparam>
+        /// <param name="selectStatement">The current select statment</param>
+        /// <param name="query">The query to create where condition for</param>
+        /// <param name="tablePrefix">The prefix of the tables (if applicable)</param>
+        /// <param name="scopedTables">The scoped tables</param>
+        /// <param name="parentScopedTables">Scoped tables from the parent</param>
+        /// <param name="cteStatements">CTE which need to be appended</param>
+        private SqlStatement CreateWhereCondition<TModel>(SqlStatement selectStatement, IEnumerable<KeyValuePair<String, object>> query, string tablePrefix, IEnumerable<TableMapping> scopedTables, IEnumerable<TableMapping> parentScopedTables, out IList<SqlStatement> cteStatements)
+        {
+
             // We want to process each query and build WHERE clauses - these where clauses are based off of the JSON / XML names
             // on the model, so we have to use those for the time being before translating to SQL
             List<KeyValuePair<String, Object>> workingParameters = new List<KeyValuePair<string, object>>(query);
 
             // Where clause
             SqlStatement whereClause = new SqlStatement(this.m_provider);
-            List<SqlStatement> cteStatements = new List<SqlStatement>();
+            cteStatements = new List<SqlStatement>();
 
             // Construct
             while (workingParameters.Count > 0)
@@ -607,33 +664,8 @@ namespace SanteDB.OrmLite
 
             }
 
-            // Return statement
-            SqlStatement retVal = new SqlStatement(this.m_provider);
-            if (cteStatements.Count > 0)
-            {
-                retVal.Append("WITH ");
-                foreach (var c in cteStatements)
-                {
-                    retVal.Append(c);
-                    if (c != cteStatements.Last())
-                        retVal.Append(",");
-                }
-            }
-            retVal.Append(selectStatement.Where(whereClause));
+            return whereClause;
 
-            // TODO: Order by?
-            if (orderBy != null && orderBy.Length > 0)
-            {
-                retVal.Append("ORDER BY");
-                foreach (var ob in orderBy)
-                {
-                    // Query property path 
-                    var orderStatement = this.CreateOrderBy(typeof(TModel), tablePrefix, scopedTables, ob.SortProperty.Body, ob.SortOrder);
-                    retVal.Append(orderStatement).Append(",");
-                }
-                retVal.RemoveLast();
-            }
-            return retVal;
         }
 
         /// <summary>
@@ -643,7 +675,7 @@ namespace SanteDB.OrmLite
         /// <param name="tablePrefix">The prefix that the table has</param>
         /// <param name="scopedTables">The tables which are scoped</param>
         /// <param name="sortExpression">The sorting expression</param>
-        private SqlStatement CreateOrderBy(Type tmodel, string tablePrefix, List<TableMapping> scopedTables, Expression sortExpression, SortOrderType order)
+        private SqlStatement CreateOrderBy(Type tmodel, string tablePrefix, IEnumerable<TableMapping> scopedTables, Expression sortExpression, SortOrderType order)
         {
             switch (sortExpression.NodeType)
             {
@@ -689,7 +721,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Create a where condition
         /// </summary>
-        public SqlStatement CreateWhereCondition(Type tmodel, String propertyPath, Object value, String tablePrefix, List<TableMapping> scopedTables)
+        public SqlStatement CreateWhereCondition(Type tmodel, String propertyPath, Object value, String tablePrefix, IEnumerable<TableMapping> scopedTables)
         {
 
             // Map the type

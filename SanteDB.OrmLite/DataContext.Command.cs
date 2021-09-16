@@ -903,7 +903,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Bulk update data
         /// </summary>
-        public IEnumerable<TModel> Update<TModel>(IEnumerable<TModel> source, Func<TModel,TModel> changor)
+        public IEnumerable<TModel> UpdateAll<TModel>(IEnumerable<TModel> source, Func<TModel,TModel> changor)
         {
             return source.Select(o => this.Update(changor(o))).ToList();
         }
@@ -1252,6 +1252,56 @@ namespace SanteDB.OrmLite
                 }
 
                 return value;
+#if PERFMON
+            }
+            finally
+            {
+                sw.Stop();
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "UPDATE executed in {0} ms", sw.ElapsedMilliseconds);
+            }
+#endif
+        }
+
+
+        /// <summary>
+        /// Updates the specified object
+        /// </summary>
+        public void UpdateAll<TModel>(Expression<Func<TModel, bool>> whereExpression, params Expression<Func<TModel, dynamic>>[] updateFuncs)
+        {
+#if PERFMON
+            var sw = new Stopwatch();
+            sw.Start();
+            try
+            {
+#endif
+            // Build the command
+            var tableMap = TableMapping.Get(typeof(TModel));
+            var updateStatement = this.CreateSqlStatement<TModel>().UpdateSet() as SqlStatement;
+            var whereClause = this.CreateSqlStatement().Where(whereExpression);
+            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
+            foreach (var updateFunc in updateFuncs)
+            {
+                queryBuilder.Visit(updateFunc);
+                queryBuilder.SqlStatement.Append(",");
+            }
+            queryBuilder.SqlStatement.RemoveLast();
+            updateStatement = updateStatement.Append(queryBuilder.SqlStatement.Build()).Append(whereClause.Build());
+            
+            // Now update
+            lock (this.m_lockObject)
+            {
+                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, updateStatement);
+                try
+                {
+                    dbc.ExecuteNonQuery();
+                }
+                finally
+                {
+                    if (!this.IsPreparedCommand(dbc))
+                        dbc.Dispose();
+                }
+            }
+
 #if PERFMON
             }
             finally
