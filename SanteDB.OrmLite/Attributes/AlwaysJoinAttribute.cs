@@ -28,7 +28,7 @@ namespace SanteDB.OrmLite.Attributes
     [AttributeUsage(AttributeTargets.Property, Inherited = true)]
     public class AlwaysJoinAttribute : Attribute
     {
-        
+
 
     }
 }

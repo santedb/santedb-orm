@@ -34,7 +34,6 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
-using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.IO;
 using System.Linq;
@@ -182,7 +181,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 .Replace(" ILIKE ", " LIKE ");
             sql = this.m_uuidRegex
                 .Replace(sql, o => $"char_to_uuid({o.Groups[1].Value})")
-                .Replace("char_to_uuid(char_to_uuid(","(char_to_uuid("); //HACK:
+                .Replace("char_to_uuid(char_to_uuid(", "(char_to_uuid("); //HACK:
 
             if (pno != parms.Length && type == CommandType.Text)
                 throw new ArgumentOutOfRangeException(nameof(sql), $"Parameter mismatch query expected {pno} but {parms.Length} supplied");
@@ -354,7 +353,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             if (this.m_provider == null) // HACK for Mono
             {
-                var provType = ApplicationServiceContext.Current?.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type 
+                var provType = ApplicationServiceContext.Current?.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type
                     ?? Type.GetType("FirebirdSql.Data.FirebirdClient.FirebirdClientFactory, FirebirdSql.Data.FirebirdClient");
                 if (provType == null)
                     throw new InvalidOperationException("Cannot find FirebirdSQL provider");

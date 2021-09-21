@@ -19,11 +19,7 @@
  * Date: 2021-8-5
  */
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Xml;
 
 namespace SanteDB.OrmLite.Providers.Firebird
@@ -135,7 +131,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
 
             if (TimeSpan.TryParse(value, out TimeSpan timespan))
             {
-                if(parms.Length == 1)
+                if (parms.Length == 1)
                     return current.Append($"ABS(DATEDIFF(millisecond, {filterColumn}, cast(? as TIMESTAMP))) {op} {timespan.TotalSeconds}", QueryBuilder.CreateParameterValue(parms[0], operandType));
                 else
                     return current.Append($"ABS(DATEDIFF(millisecond, {filterColumn}, CURRENT_TIMESTAMP))) {op} {timespan.TotalSeconds}");

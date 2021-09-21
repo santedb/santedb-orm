@@ -23,13 +23,10 @@ using SanteDB.Core.Configuration;
 using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Migration;
-using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SanteDB.OrmLite.Providers
 {
@@ -70,7 +67,8 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Get the option groups
         /// </summary>
-        public virtual Dictionary<String, String[]> OptionGroups {
+        public virtual Dictionary<String, String[]> OptionGroups
+        {
             get
             {
                 return new Dictionary<string, string[]>() { { "Connection", this.Options.Keys.ToArray() } };
@@ -116,13 +114,13 @@ namespace SanteDB.OrmLite.Providers
             // Get all embedded data features
             var provider = this.GetProvider(connectionString);
 
-            using(var conn = provider.GetReadonlyConnection())
+            using (var conn = provider.GetReadonlyConnection())
                 return SqlFeatureUtil.GetFeatures(this.Invariant).Where(f =>
                 {
                     try
                     {
                         var checkSql = f.GetCheckSql();
-                        if (!String.IsNullOrEmpty(checkSql)) 
+                        if (!String.IsNullOrEmpty(checkSql))
                             using (var cmd = conn.Connection.CreateCommand())
                             {
                                 cmd.CommandText = checkSql;
@@ -131,7 +129,8 @@ namespace SanteDB.OrmLite.Providers
                             }
                         return false;
                     }
-                    catch (Exception e){
+                    catch (Exception e)
+                    {
                         Trace.TraceError("Error executing pre-check {0}: {1}", f.Name, e);
                         return false;
                     }
@@ -152,7 +151,7 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         public virtual Dictionary<string, object> ParseConnectionString(ConnectionString connectionString)
         {
-            var retVal = this.Options.Keys.ToDictionary(o=>o, p=>(Object)null);
+            var retVal = this.Options.Keys.ToDictionary(o => o, p => (Object)null);
             foreach (var itm in retVal)
                 retVal[itm.Key] = connectionString.GetComponent(itm.Key);
             return retVal;

@@ -22,13 +22,7 @@ using SanteDB.Core.Configuration;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
 using System;
-using System.Collections.Generic;
-using System.Configuration;
 using System.Data;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SanteDB.OrmLite.Migration
 {

@@ -35,7 +35,7 @@ namespace SanteDB.OrmLite.Attributes
         {
             this.Name = name;
         }
-        
+
         /// <summary>
         /// Gets or sets the name of the attribute
         /// </summary>

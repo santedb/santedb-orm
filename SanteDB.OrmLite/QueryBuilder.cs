@@ -33,7 +33,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Xml.Serialization;
 
 namespace SanteDB.OrmLite
 {
@@ -283,7 +282,7 @@ namespace SanteDB.OrmLite
                         // is this just a sub-statement? If so we should only join tables which will provide some sort of use
                         //if(!String.IsNullOrEmpty(tablePrefix))
                         //{
-                        if (selector.Length > 0 && (selector[0] == ColumnMapping.One || selector.Where(o => o.Table.TableName == fkTbl.TableName).All(s=>dt.GetColumn(s.Name) != null)))
+                        if (selector.Length > 0 && (selector[0] == ColumnMapping.One || selector.Where(o => o.Table.TableName == fkTbl.TableName).All(s => dt.GetColumn(s.Name) != null)))
                         {
                             var sha = fkTbl.OrmType.GetCustomAttributes<SkipHintAttribute>();
                             if (sha.Any() && !query.Any(q => sha.Any(s => q.Key.StartsWith(s.QueryHint)))) // Self join on skip to speed up the queries
@@ -291,7 +290,7 @@ namespace SanteDB.OrmLite
                                 scopedTables.Add(TableMapping.Redirect(fkTbl.OrmType, dt.OrmType));
 
                                 // Rewrite any column selectors
-                                for(int i = 0; i < selector.Length; i++)
+                                for (int i = 0; i < selector.Length; i++)
                                 {
                                     if (selector[i].Table.OrmType == fkTbl.OrmType)
                                         selector[i] = dt.GetColumn(selector[i].Name);
@@ -324,7 +323,7 @@ namespace SanteDB.OrmLite
                     }
                 } while (fkStack.Count > 0);
 
-                
+
                 //}
                 //else
                 //{
@@ -570,7 +569,7 @@ namespace SanteDB.OrmLite
                             else
                                 linkColumn = tableMapping.GetColumn(domainProperty);
 
-                            var fkTableDef = parentScopedTables?.FirstOrDefault(o=>o.OrmType == linkColumn.ForeignKey.Table) ?? TableMapping.Get(linkColumn.ForeignKey.Table);
+                            var fkTableDef = parentScopedTables?.FirstOrDefault(o => o.OrmType == linkColumn.ForeignKey.Table) ?? TableMapping.Get(linkColumn.ForeignKey.Table);
                             var fkColumnDef = fkTableDef.GetColumn(linkColumn.ForeignKey.Column);
                             var prefix = IncrementSubQueryAlias(tablePrefix);
 
@@ -596,7 +595,7 @@ namespace SanteDB.OrmLite
                             //subQueryStatement.And($"{tablePrefix}{tableMapping.TableName}.{linkColumn.Name} = {sqName}{fkTableDef.TableName}.{fkColumnDef.Name} ");
 
                             // Join up to the parent table
-                           
+
                             whereClause.And($" {tablePrefix}{tableMapping.TableName}.{linkColumn.Name} IN (").Append(subQueryStatement).Append(")");
 
                         }

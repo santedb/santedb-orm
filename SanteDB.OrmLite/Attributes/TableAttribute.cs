@@ -26,7 +26,7 @@ namespace SanteDB.OrmLite.Attributes
     /// Represents a table mapping attribute
     /// </summary>
     [AttributeUsage(AttributeTargets.Class)]
-    public class TableAttribute: Attribute
+    public class TableAttribute : Attribute
     {
         /// <summary>
         /// Constructor with name

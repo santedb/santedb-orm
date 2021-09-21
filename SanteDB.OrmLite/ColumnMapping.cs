@@ -125,8 +125,8 @@ namespace SanteDB.OrmLite
         {
 
             ColumnMapping retVal = null;
-            if(!s_columnCache.TryGetValue(pi, out retVal)) 
-                lock(s_columnCache)
+            if (!s_columnCache.TryGetValue(pi, out retVal))
+                lock (s_columnCache)
                 {
                     retVal = new ColumnMapping(pi, ownerTable);
                     if (!s_columnCache.ContainsKey(pi))

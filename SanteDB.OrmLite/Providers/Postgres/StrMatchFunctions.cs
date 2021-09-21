@@ -19,11 +19,7 @@
  * Date: 2021-8-5
  */
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.RegularExpressions;
-using SanteDB.Core;
-using SanteDB.Core.Services;
 
 namespace SanteDB.OrmLite.Providers.Postgres
 {

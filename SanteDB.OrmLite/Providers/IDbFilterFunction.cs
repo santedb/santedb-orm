@@ -26,7 +26,7 @@ namespace SanteDB.OrmLite.Providers
     /// <summary>
     /// Represents a filter function for database
     /// </summary>
-    public interface IDbFilterFunction 
+    public interface IDbFilterFunction
     {
 
         /// <summary>

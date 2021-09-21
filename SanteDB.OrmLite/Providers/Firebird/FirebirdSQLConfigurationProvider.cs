@@ -18,17 +18,14 @@
  * User: fyfej
  * Date: 2021-8-5
  */
+using SanteDB.Core;
+using SanteDB.Core.Configuration;
+using SanteDB.Core.Configuration.Data;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
-using SanteDB.Core;
-using SanteDB.Core.Configuration;
-using SanteDB.Core.Configuration.Data;
-using SanteDB.OrmLite.Providers;
 
 namespace SanteDB.OrmLite.Providers.Firebird
 {
@@ -51,7 +48,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// Get the available platforms
         /// </summary>
         public override OperatingSystemID Platform => OperatingSystemID.Win32;
-        
+
         /// <summary>
         /// Get the database provider
         /// </summary>
@@ -80,7 +77,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// </summary>
         public override bool TestConnectionString(ConnectionString connectionString)
         {
-            if(!String.IsNullOrEmpty(connectionString.GetComponent("initial catalog")) &&
+            if (!String.IsNullOrEmpty(connectionString.GetComponent("initial catalog")) &&
                 !String.IsNullOrEmpty(connectionString.GetComponent("user id")))
                 return base.TestConnectionString(connectionString);
             return false;
@@ -115,8 +112,8 @@ namespace SanteDB.OrmLite.Providers.Firebird
             var fbConnectionType = Type.GetType("FirebirdSql.Data.FirebirdClient.FbConnection, FirebirdSql.Data.FirebirdClient");
             if (fbConnectionType == null)
                 throw new InvalidOperationException("Cannot find FirebirdSQL provider");
-            
-            var createDbMethod = fbConnectionType.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).SingleOrDefault(o=>o.Name == "CreateDatabase" && o.GetParameters().Length == 2);
+
+            var createDbMethod = fbConnectionType.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).SingleOrDefault(o => o.Name == "CreateDatabase" && o.GetParameters().Length == 2);
             if (createDbMethod == null)
                 throw new InvalidOperationException("Cannot find FirebirdSQL CreateDatabase method. Perhaps this is an invalid version of ADO.NET provider");
             var dbPath = Path.ChangeExtension(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), databaseName), "fdb");

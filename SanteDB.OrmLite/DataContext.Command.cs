@@ -62,7 +62,7 @@ namespace SanteDB.OrmLite
                 }
                 catch
                 {
-                   throw new MissingFieldException(tableMapping.TableName, itm.Name);
+                    throw new MissingFieldException(tableMapping.TableName, itm.Name);
                 }
             }
             return result;
@@ -175,7 +175,6 @@ namespace SanteDB.OrmLite
                     var dbc = this.m_lastCommand = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments);
                     try
                     {
-                        int tr = 0;
                         using (var rdr = dbc.ExecuteReader())
                             while (rdr.Read())
                                 yield return this.MapObject<TModel>(rdr);
@@ -251,11 +250,11 @@ namespace SanteDB.OrmLite
             else if (BaseTypes.Contains(typeof(TModel)))
             {
                 var obj = rdr[0];
-                if(obj == DBNull.Value)
+                if (obj == DBNull.Value)
                     return default(TModel);
                 else if (typeof(TModel).IsAssignableFrom(obj.GetType()))
                     return (TModel)obj;
-                else 
+                else
                     return (TModel)this.m_provider.ConvertValue(obj, typeof(TModel));
             }
             else if (typeof(ExpandoObject).IsAssignableFrom(typeof(TModel)))
@@ -294,12 +293,12 @@ namespace SanteDB.OrmLite
                 try
                 {
                     object value = this.m_provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
-                    if(!itm.IsSecret)
+                    if (!itm.IsSecret)
                         itm.SourceProperty.SetValue(result, value);
                 }
                 catch (Exception e)
                 {
-                    this.m_tracer.TraceEvent(EventLevel.Error,  "Error mapping: {0} : {1}", itm.Name, e.ToString());
+                    this.m_tracer.TraceEvent(EventLevel.Error, "Error mapping: {0} : {1}", itm.Name, e.ToString());
                     throw new MissingFieldException(tableMapping.TableName, itm.Name);
                 }
             }
@@ -900,7 +899,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Bulk update data
         /// </summary>
-        public IEnumerable<TModel> Update<TModel>(IEnumerable<TModel> source, Func<TModel,TModel> changor)
+        public IEnumerable<TModel> Update<TModel>(IEnumerable<TModel> source, Func<TModel, TModel> changor)
         {
             return source.Select(o => this.Update(changor(o))).ToList();
         }
@@ -925,7 +924,7 @@ namespace SanteDB.OrmLite
                 {
                     var val = col.SourceProperty.GetValue(value);
                     if (val == null ||
-                        !col.IsNonNull && 
+                        !col.IsNonNull &&
                         col.SourceProperty.PropertyType.StripNullable() == col.SourceProperty.PropertyType &&
                         (
                         val.Equals(default(Int32)) ||
@@ -948,7 +947,7 @@ namespace SanteDB.OrmLite
                         else
                             continue;
                     }
-                    
+
 
                     columnNames.Append($"{col.Name}");
 

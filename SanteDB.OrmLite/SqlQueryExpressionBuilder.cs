@@ -374,9 +374,9 @@ namespace SanteDB.OrmLite
         {
             if (e.NodeType == ExpressionType.TypeAs || e.NodeType == ExpressionType.Convert)
                 return this.ExtractConstantExpression((e as UnaryExpression).Operand);
-            else if(e.NodeType == ExpressionType.MemberAccess && e is MemberExpression memExpr)
+            else if (e.NodeType == ExpressionType.MemberAccess && e is MemberExpression memExpr)
             {
-                if(memExpr.Expression == null) // Constant
+                if (memExpr.Expression == null) // Constant
                 {
                     if (memExpr.Member is FieldInfo fi)
                         return Expression.Constant(fi.GetValue(null));
@@ -388,7 +388,7 @@ namespace SanteDB.OrmLite
                 var baseExpr = this.ExtractConstantExpression(memExpr.Expression);
                 if (memExpr.Member is PropertyInfo propInfo)
                     return Expression.Constant(propInfo.GetValue(baseExpr.Value));
-                else if(memExpr.Member is FieldInfo fieldInfo)
+                else if (memExpr.Member is FieldInfo fieldInfo)
                     return Expression.Constant(fieldInfo.GetValue(baseExpr.Value));
 
             }
@@ -412,9 +412,9 @@ namespace SanteDB.OrmLite
                     this.Visit(node.Expression);
                     this.m_sqlStatement.Append(" IS NOT NULL ");
                     break;
-                
+
                 default:
-                   
+
                     if (node.Expression != null)
                     {
                         if (node.Expression.Type.IsGenericType &&

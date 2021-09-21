@@ -30,7 +30,7 @@ namespace SanteDB.OrmLite.Providers
     public interface IDbProvider
     {
 
-        
+
         /// <summary>
         /// Gets the features of the database back-end
         /// </summary>
@@ -39,7 +39,7 @@ namespace SanteDB.OrmLite.Providers
         /// Trace SQL commands
         /// </summary>
         bool TraceSql { get; set; }
-        
+
         /// <summary>
         /// Readonly (mirror) connection string
         /// </summary>
@@ -109,7 +109,7 @@ namespace SanteDB.OrmLite.Providers
         /// Appends a RETURNING statement
         /// </summary>
         SqlStatement Returning(SqlStatement sqlStatement, params ColumnMapping[] returnColumns);
-        
+
 
         /// <summary>
         /// Get a lock for the database

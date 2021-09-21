@@ -19,11 +19,7 @@
  * Date: 2021-8-5
  */
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Xml;
 
 namespace SanteDB.OrmLite.Providers.Postgres
@@ -138,7 +134,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
             if (TimeSpan.TryParse(value, out TimeSpan timespan))
             {
-                if(parms.Length == 1)
+                if (parms.Length == 1)
                     return current.Append($"GREATEST({filterColumn}::TIMESTAMP - ?::TIMESTAMP, ?::TIMESTAMP - {filterColumn}::TIMESTAMP) {op} '{timespan.TotalSeconds} secs'::INTERVAL", QueryBuilder.CreateParameterValue(parms[0], operandType));
                 else
                     return current.Append($"GREATEST({filterColumn}::TIMESTAMP - CURRENT_TIMESTAMP, CURRENT_TIMESTAMP - {filterColumn}::TIMESTAMP) {op} '{timespan.TotalSeconds} secs'::INTERVAL");
