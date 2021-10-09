@@ -20,12 +20,8 @@
  */
 using SanteDB.Core.Configuration.Data;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Xml;
 
 namespace SanteDB.OrmLite.Migration
@@ -79,7 +75,7 @@ namespace SanteDB.OrmLite.Migration
             using (var sr = new StreamReader(source))
                 retVal.m_deploySql = sr.ReadToEnd();
 
-            var xmlSql = m_metaRegx.Match(retVal.m_deploySql.Replace("\r", "").Replace("\n",""));
+            var xmlSql = m_metaRegx.Match(retVal.m_deploySql.Replace("\r", "").Replace("\n", ""));
             if (xmlSql.Success)
             {
                 var xmlText = xmlSql.Groups[1].Value.Replace("*", "");
@@ -165,7 +161,7 @@ namespace SanteDB.OrmLite.Migration
         /// </summary>
         public string GetPreCheckSql()
         {
-                return this.m_canInstallSql;
+            return this.m_canInstallSql;
         }
 
         /// <summary>

@@ -25,7 +25,6 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
-using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.Linq;
 
@@ -154,9 +153,9 @@ namespace SanteDB.OrmLite.Providers
                 if (value is DateTime && itm != null)
                     parm.Value = this.ConvertValue(itm, typeof(Int32));
                 else if (value is DateTimeOffset && itm != null)
-                        parm.Value = this.ConvertValue(itm, typeof(Int32));
+                    parm.Value = this.ConvertValue(itm, typeof(Int32));
                 else if ((value is Guid || value is Guid?) && itm != null)
-                        parm.Value = ((Guid)itm).ToByteArray();
+                    parm.Value = ((Guid)itm).ToByteArray();
 
                 // Set value
                 if (itm == null)

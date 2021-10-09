@@ -18,11 +18,7 @@
  * User: fyfej
  * Date: 2021-8-5
  */
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SanteDB.OrmLite.Providers
 {

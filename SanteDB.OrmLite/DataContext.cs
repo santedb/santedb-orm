@@ -26,7 +26,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.Linq;
 using System.Text;
@@ -38,7 +37,7 @@ namespace SanteDB.OrmLite
     /// </summary>
     public partial class DataContext : IDisposable
     {
-       
+
         // the connection
         private IDbConnection m_connection;
 
@@ -247,7 +246,7 @@ namespace SanteDB.OrmLite
             {
                 try { if (this.m_provider.CanCancelCommands) this.m_lastCommand?.Cancel(); }
                 catch { }
-                finally { this.m_lastCommand?.Dispose(); this.m_lastCommand = null;  }
+                finally { this.m_lastCommand?.Dispose(); this.m_lastCommand = null; }
             }
 
             this.m_transaction?.Dispose();

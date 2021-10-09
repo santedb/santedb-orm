@@ -26,13 +26,13 @@ namespace SanteDB.OrmLite.Attributes
     /// Represents an attribute for marking columns as not null.
     /// </summary>
     [AttributeUsage(AttributeTargets.Property, Inherited = true)]
-	public class NotNullAttribute : Attribute
-	{
-		/// <summary>
-		/// Initializes a new instance of the <see cref="NotNullAttribute"/> class.
-		/// </summary>
-		public NotNullAttribute()
-		{
-		}
-	}
+    public class NotNullAttribute : Attribute
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="NotNullAttribute"/> class.
+        /// </summary>
+        public NotNullAttribute()
+        {
+        }
+    }
 }

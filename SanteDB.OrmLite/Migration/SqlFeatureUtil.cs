@@ -25,8 +25,6 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SanteDB.OrmLite.Migration
 {
@@ -55,12 +53,13 @@ namespace SanteDB.OrmLite.Migration
             if (m_providers == null)
                 m_providers = AppDomain.CurrentDomain.GetAssemblies()
                     .Where(a => !a.IsDynamic)
-                    .SelectMany(a => {
+                    .SelectMany(a =>
+                    {
                         try
                         {
                             return a.ExportedTypes;
                         }
-                        catch (Exception e)
+                        catch (Exception)
                         {
                             return new List<Type>();
                         }

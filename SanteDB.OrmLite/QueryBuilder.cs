@@ -33,7 +33,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Xml.Serialization;
 
 namespace SanteDB.OrmLite
 {

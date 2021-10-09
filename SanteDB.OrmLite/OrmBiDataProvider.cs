@@ -23,23 +23,17 @@ using SanteDB.BI.Model;
 using SanteDB.BI.Services;
 using SanteDB.BI.Util;
 using SanteDB.Core;
-using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Exceptions;
-using SanteDB.Core.Interfaces;
-using SanteDB.Core.Security;
 using SanteDB.Core.Security.Services;
 using SanteDB.Core.Services;
-using SanteDB.OrmLite;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace SanteDB.OrmLite
 {
@@ -126,14 +120,14 @@ namespace SanteDB.OrmLite
 
             // We want to open the specified connection
             var connectionString = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetConnectionString(queryDefinition.DataSources.First().ConnectionString);
-            var provider =  ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().GetProvider(connectionString.Provider);
+            var provider = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().GetProvider(connectionString.Provider);
             provider.ConnectionString = connectionString.Value;
             provider.ReadonlyConnectionString = connectionString.Value;
 
             // Query definition
             var rdbmsQueryDefinition = queryDefinition.QueryDefinitions.FirstOrDefault(o => o.Invariants.Contains(provider.Invariant));
             if (rdbmsQueryDefinition == null)
-                throw new InvalidOperationException($"Could not find a SQL definition for invariant {provider.Invariant} from {queryDefinition?.Id} (supported invariants: {String.Join(",", queryDefinition.QueryDefinitions.SelectMany(o=>o.Invariants))})");
+                throw new InvalidOperationException($"Could not find a SQL definition for invariant {provider.Invariant} from {queryDefinition?.Id} (supported invariants: {String.Join(",", queryDefinition.QueryDefinitions.SelectMany(o => o.Invariants))})");
 
             // Prepare the templated SQL
             var parmRegex = new Regex(@"\$\{([\w_][\-\d\w\._]*?)\}");
@@ -151,14 +145,15 @@ namespace SanteDB.OrmLite
             {
                 var agg = aggregation.FirstOrDefault(o => o.Invariants?.Contains(provider.Invariant) == true) ??
                     aggregation.FirstOrDefault(o => o.Invariants?.Count == 0) ??
-                    aggregation.FirstOrDefault(o=>o.Invariants == null);
+                    aggregation.FirstOrDefault(o => o.Invariants == null);
 
                 // Aggregation found
                 if (agg == null)
                     throw new InvalidOperationException($"No provided aggregation can be found for {provider.Invariant}");
 
-                var selector = agg.Columns?.Select(c => {
-                    switch (c.Aggregation) 
+                var selector = agg.Columns?.Select(c =>
+                {
+                    switch (c.Aggregation)
                     {
                         case BiAggregateFunction.Average:
                             return $"AVG({c.ColumnSelector}) AS {c.Name}";
@@ -170,7 +165,7 @@ namespace SanteDB.OrmLite
                             return $"FIRST({c.ColumnSelector}) AS {c.Name}";
                         case BiAggregateFunction.Last:
                             return $"LAST({c.ColumnSelector}) AS {c.Name}";
-                        case BiAggregateFunction.Max :
+                        case BiAggregateFunction.Max:
                             return $"MAX({c.ColumnSelector}) AS {c.Name}";
                         case BiAggregateFunction.Min:
                             return $"MIN({c.ColumnSelector}) AS {c.Name}";
@@ -235,7 +230,7 @@ namespace SanteDB.OrmLite
         {
             viewDef = BiUtils.ResolveRefs(viewDef) as BiViewDefinition;
             var retVal = this.ExecuteQuery(viewDef.Query, parameters, viewDef.AggregationDefinitions?.ToArray(), offset, count);
-            if(viewDef.Pivot != null)
+            if (viewDef.Pivot != null)
                 retVal = ApplicationServiceContext.Current.GetService<IBiPivotProvider>().Pivot(retVal, viewDef.Pivot);
             return retVal;
         }

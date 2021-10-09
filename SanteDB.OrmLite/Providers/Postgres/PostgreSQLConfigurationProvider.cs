@@ -21,13 +21,8 @@
 using SanteDB.Core;
 using SanteDB.Core.Configuration;
 using SanteDB.Core.Configuration.Data;
-using SanteDB.Core.Services;
-using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SanteDB.OrmLite.Providers.Postgres
 {
@@ -98,7 +93,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public override ConnectionString CreateConnectionString(Dictionary<string, object> options)
         {
-            if(!options.ContainsKey("port") || String.IsNullOrEmpty(options["port"].ToString()))
+            if (!options.ContainsKey("port") || String.IsNullOrEmpty(options["port"].ToString()))
             {
                 options.Remove("port");
                 options.Add("port", 5432);
@@ -151,7 +146,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             connectionString = connectionString.Clone();
             connectionString.SetComponent("database", "postgres");
             var provider = this.GetProvider(connectionString);
-            using(var conn = provider.GetWriteConnection())
+            using (var conn = provider.GetWriteConnection())
             {
                 try
                 {
@@ -166,7 +161,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
                         $"CREATE OR REPLACE LANGUAGE plpgsql;"
                     };
 
-                    foreach (var cmd in cmds) {
+                    foreach (var cmd in cmds)
+                    {
                         using (var c = conn.Connection.CreateCommand())
                         {
                             c.CommandText = cmd;
@@ -177,7 +173,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
                     connectionString.SetComponent("database", databaseName);
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     throw new InvalidOperationException($"Could not create database: {e.Message}", e);
                 }

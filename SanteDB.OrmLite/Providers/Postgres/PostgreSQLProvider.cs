@@ -29,7 +29,6 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
-using System.Diagnostics;
 using System.Diagnostics.Tracing;
 using System.Linq;
 using System.Net;
@@ -151,7 +150,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     else
                     {
                         this.m_readonlyIpAddresses = Dns.GetHostAddresses(host.ToString());
-                        this.m_tracer.TraceVerbose("Resolved {0} to {1}", host, String.Join(",", this.m_readonlyIpAddresses.Select(o=>o.ToString())));
+                        this.m_tracer.TraceVerbose("Resolved {0} to {1}", host, String.Join(",", this.m_readonlyIpAddresses.Select(o => o.ToString())));
                     }
 
                     dbst.Remove("host");
@@ -238,7 +237,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
 
             IDbCommand cmd = null;
-            if(sql.StartsWith("WITH", StringComparison.OrdinalIgnoreCase) ||
+            if (sql.StartsWith("WITH", StringComparison.OrdinalIgnoreCase) ||
                 sql.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
                 cmd = context.GetPreparedCommand(sql);
             if (cmd == null)

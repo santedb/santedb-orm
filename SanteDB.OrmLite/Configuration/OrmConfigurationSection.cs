@@ -23,8 +23,6 @@ using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Xml.Serialization;
 
 namespace SanteDB.OrmLite.Configuration
@@ -52,7 +50,7 @@ namespace SanteDB.OrmLite.Configuration
         {
             get; set;
         }
-        
+
         /// <summary>
         /// Ado providers
         /// </summary>

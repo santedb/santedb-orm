@@ -22,11 +22,7 @@ using SanteDB.Core;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Providers;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Xml.Serialization;
 
 namespace SanteDB.OrmLite.Configuration
