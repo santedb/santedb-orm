@@ -1,9 +1,15 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using SanteDB.Core.Model.Constants;
+using SanteDB.Core.Model.Entities;
 using SanteDB.OrmLite.Providers.Firebird;
+using SanteDB.Persistence.Data.ADO.Data.Model.DataType;
+using SanteDB.Persistence.Data.ADO.Data.Model.Entities;
+using SanteDB.Persistence.Data.ADO.Data.Model.Roles;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 
 namespace SanteDB.OrmLite.Tests
@@ -35,6 +41,7 @@ namespace SanteDB.OrmLite.Tests
               "DataDirectory",
               Path.Combine(TestContext.CurrentContext.TestDirectory, string.Empty));
         }
+
 
         /// <summary>
         /// Tests that the query builder can create an IN[] clause
