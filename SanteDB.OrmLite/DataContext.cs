@@ -2,22 +2,23 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
+
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
@@ -38,7 +39,6 @@ namespace SanteDB.OrmLite
     /// </summary>
     public partial class DataContext : IDisposable
     {
-
         // the connection
         private IDbConnection m_connection;
 
@@ -109,7 +109,6 @@ namespace SanteDB.OrmLite
             return new QueryBuilder(map, this.m_provider);
         }
 
-
         /// <summary>
         /// Creates a new data context
         /// </summary>
@@ -150,7 +149,6 @@ namespace SanteDB.OrmLite
             return this.m_transaction;
         }
 
-
         /// <summary>
         /// Get the datatype
         /// </summary>
@@ -174,28 +172,6 @@ namespace SanteDB.OrmLite
             }
             else if (this.m_connection.State != ConnectionState.Open)
                 this.m_connection.Open();
-
-            // Can set timeouts
-            if (this.m_provider.Features.HasFlag(SqlEngineFeatures.SetTimeout))
-                try
-                {
-                    using (var cmd = this.m_connection.CreateCommand())
-                    {
-                        cmd.CommandType = CommandType.Text;
-                        cmd.CommandText = "SET statement_timeout to 60000";
-                        cmd.ExecuteNonQuery();
-                    }
-                }
-                catch (Exception e)
-                {
-                    this.m_tracer.TraceWarning("Error setting timeout: {0}", e);
-                }
-                finally // Sometimes the psql server will cack the connection 
-                {
-                    if (this.m_connection.State != ConnectionState.Open)
-                        this.m_connection.Open();
-                }
-
         }
 
         /// <summary>
@@ -248,7 +224,6 @@ namespace SanteDB.OrmLite
             if (this.m_preparedCommands != null)
                 foreach (var itm in this.m_preparedCommands.Values)
                 {
-
                     try
                     {
                         itm.Cancel();
@@ -294,7 +269,6 @@ namespace SanteDB.OrmLite
                 this.m_tracer.TraceEvent(EventLevel.Warning, "Object {0} won't be added to cache: {1}", data, e);
             }
         }
-
 
         /// <summary>
         /// Add cache commit
@@ -356,6 +330,5 @@ namespace SanteDB.OrmLite
             }
             return retVal.ToString();
         }
-
     }
 }
