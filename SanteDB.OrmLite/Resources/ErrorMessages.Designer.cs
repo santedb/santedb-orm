@@ -61,11 +61,74 @@ namespace SanteDB.OrmLite.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Result set already has Where Clause.
+        /// </summary>
+        internal static string ERR_ALREADY_HAS_WHERE {
+            get {
+                return ResourceManager.GetString("ERR_ALREADY_HAS_WHERE", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Argument is not of a compatible type.
+        /// </summary>
+        internal static string ERR_ARGUMENT_INCOMPATIBLE_TYPE {
+            get {
+                return ResourceManager.GetString("ERR_ARGUMENT_INCOMPATIBLE_TYPE", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Missing Required Argument.
+        /// </summary>
+        internal static string ERR_ARGUMENT_NULL {
+            get {
+                return ResourceManager.GetString("ERR_ARGUMENT_NULL", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The expression type {0} is not valid, expected {1}.
         /// </summary>
         internal static string ERR_INVALID_EXPRESSION_TYPE {
             get {
                 return ResourceManager.GetString("ERR_INVALID_EXPRESSION_TYPE", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Object is not in a state which permits this operation.
+        /// </summary>
+        internal static string ERR_INVALID_STATE {
+            get {
+                return ResourceManager.GetString("ERR_INVALID_STATE", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Service {0} is missing from application context.
+        /// </summary>
+        internal static string ERR_MISSING_SERVICE {
+            get {
+                return ResourceManager.GetString("ERR_MISSING_SERVICE", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sequence has more than one element.
+        /// </summary>
+        internal static string ERR_SEQUENCE_MORE_THAN_ONE {
+            get {
+                return ResourceManager.GetString("ERR_SEQUENCE_MORE_THAN_ONE", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sequence does not contain any elements.
+        /// </summary>
+        internal static string ERR_SEQUENCE_NO_ELEMENTS {
+            get {
+                return ResourceManager.GetString("ERR_SEQUENCE_NO_ELEMENTS", resourceCulture);
             }
         }
     }

@@ -117,7 +117,28 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="ERR_ALREADY_HAS_WHERE" xml:space="preserve">
+    <value>Result set already has Where Clause</value>
+  </data>
+  <data name="ERR_ARGUMENT_INCOMPATIBLE_TYPE" xml:space="preserve">
+    <value>Argument is not of a compatible type</value>
+  </data>
+  <data name="ERR_ARGUMENT_NULL" xml:space="preserve">
+    <value>Missing Required Argument</value>
+  </data>
   <data name="ERR_INVALID_EXPRESSION_TYPE" xml:space="preserve">
     <value>The expression type {0} is not valid, expected {1}</value>
+  </data>
+  <data name="ERR_INVALID_STATE" xml:space="preserve">
+    <value>Object is not in a state which permits this operation</value>
+  </data>
+  <data name="ERR_MISSING_SERVICE" xml:space="preserve">
+    <value>Service {0} is missing from application context</value>
+  </data>
+  <data name="ERR_SEQUENCE_MORE_THAN_ONE" xml:space="preserve">
+    <value>Sequence has more than one element</value>
+  </data>
+  <data name="ERR_SEQUENCE_NO_ELEMENTS" xml:space="preserve">
+    <value>Sequence does not contain any elements</value>
   </data>
 </root>
