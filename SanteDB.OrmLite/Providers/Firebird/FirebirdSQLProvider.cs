@@ -2,19 +2,19 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
@@ -22,6 +22,7 @@
 /*
  * This product includes software developed by Borland Software Corp.
  */
+
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Interfaces;
@@ -46,9 +47,8 @@ namespace SanteDB.OrmLite.Providers.Firebird
     /// </summary>
     public class FirebirdSQLProvider : IDbMonitorProvider
     {
-
         // Trace source
-        private Tracer m_tracer = new Tracer(Constants.TracerName + ".FirebirdSQL");
+        private readonly Tracer m_tracer = new Tracer(Constants.TracerName + ".FirebirdSQL");
 
         // DB provider factory
         private DbProviderFactory m_provider = null;
@@ -73,7 +73,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         public bool CanCancelCommands => false;
 
         /// <summary>
-        /// Gets the features that this provider 
+        /// Gets the features that this provider
         /// </summary>
         public SqlEngineFeatures Features
         {
@@ -172,7 +172,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// </summary>
         private IDbCommand CreateCommandInternal(DataContext context, CommandType type, String sql, params object[] parms)
         {
-
             var pno = 0;
 
             sql = this.m_parmRegex
@@ -184,7 +183,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
 
             if (pno != parms.Length && type == CommandType.Text)
                 throw new ArgumentOutOfRangeException(nameof(sql), $"Parameter mismatch query expected {pno} but {parms.Length} supplied");
-
 
             IDbCommand cmd = context.GetPreparedCommand(sql);
             if (cmd == null)
@@ -229,7 +227,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
 
                     if (this.TraceSql)
                         this.m_tracer.TraceEvent(EventLevel.Verbose, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
-
 
                     cmd.Parameters.Add(parm);
                 }
@@ -294,7 +291,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
         public IDbCommand CreateCommand(DataContext context, string sql, params object[] parms)
         {
             return this.CreateCommandInternal(context, CommandType.Text, sql, parms);
-
         }
 
         /// <summary>
@@ -309,21 +305,26 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 case SqlKeyword.ILike:
                 case SqlKeyword.Like:
                     return " LIKE ";
+
                 case SqlKeyword.Lower:
                     return " LOWER ";
+
                 case SqlKeyword.Upper:
                     return " UPPER ";
+
                 case SqlKeyword.False:
                     return " FALSE ";
+
                 case SqlKeyword.True:
                     return " TRUE ";
+
                 default:
                     throw new ArgumentOutOfRangeException(nameof(keywordType));
             }
         }
 
         /// <summary>
-        /// Create a stored procedure execution 
+        /// Create a stored procedure execution
         /// </summary>
         /// <param name="context">The context of the command</param>
         /// <param name="spName">The stored procedure name</param>
@@ -358,7 +359,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     throw new InvalidOperationException("Cannot find FirebirdSQL provider");
                 this.m_provider = provType.GetField("Instance").GetValue(null) as DbProviderFactory;
             }
-
 
             if (this.m_provider == null)
                 throw new InvalidOperationException("Missing FirebirdSQL provider");
@@ -423,7 +423,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
             if (returnColumns.Length == 0)
                 return sqlStatement;
             return sqlStatement.Append($" RETURNING {String.Join(",", returnColumns.Select(o => o.Name))}");
-
         }
 
         /// <summary>
@@ -476,6 +475,5 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             return new SqlStatement(this, $"ALTER SEQUENCE {sequenceName} RESTART WITH {(int)sequenceValue}");
         }
-
     }
 }

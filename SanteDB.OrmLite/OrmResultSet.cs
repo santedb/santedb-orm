@@ -2,24 +2,25 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
+
+using SanteDB.Core.i18n;
 using SanteDB.Core.Model;
-using SanteDB.OrmLite.Resources;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -35,7 +36,6 @@ namespace SanteDB.OrmLite
     /// <typeparam name="TData">The type of record this result set holds</typeparam>
     public class OrmResultSet<TData> : IEnumerable<TData>, IOrmResultSet
     {
-
         /// <summary>
         /// Gets the SQL statement that this result set is based on
         /// </summary>
@@ -104,7 +104,6 @@ namespace SanteDB.OrmLite
             return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy<TData>(keySelector, Core.Model.Map.SortOrderType.OrderBy));
         }
 
-
         /// <summary>
         /// Instructs the reader to order by specified records
         /// </summary>
@@ -166,7 +165,6 @@ namespace SanteDB.OrmLite
         /// </summary>
         public OrmResultSet<T> Keys<T>(bool qualifyKeyTableName = true)
         {
-
             if (typeof(T) == typeof(TData))
                 return new OrmResultSet<T>(this.Context, this.Statement);
             else
@@ -254,7 +252,6 @@ namespace SanteDB.OrmLite
             if (innerQuery.SQL.StartsWith("SELECT * "))
                 innerQuery = this.Context.CreateSqlStatement($"SELECT {tm.TableName}.{tm.PrimaryKey.First().Name} {innerQuery.SQL.Substring(9)}", innerQuery.Arguments.ToArray());
 
-
             return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (").Append(innerQuery.Build()).Append(") AS I"));
         }
 
@@ -291,7 +288,7 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Intersect the data 
+        /// Intersect the data
         /// </summary>
         public OrmResultSet<TData> Union(OrmResultSet<TData> other)
         {
@@ -314,11 +311,10 @@ namespace SanteDB.OrmLite
         public IOrmResultSet Intersect(IOrmResultSet other)
         {
             return this.Intersect((OrmResultSet<TData>)other);
-
         }
 
         /// <summary>
-        ///Get the first or default of the object in the result set 
+        ///Get the first or default of the object in the result set
         /// </summary>
         object IOrmResultSet.FirstOrDefault() => this.FirstOrDefault();
 
@@ -330,7 +326,7 @@ namespace SanteDB.OrmLite
             if (orderExpression is Expression<Func<TData, dynamic>> expr)
                 return this.OrderBy(expr);
             else
-                throw new InvalidOperationException(ErrorMessages.ERR_INVALID_EXPRESSION_TYPE.Format(orderExpression.GetType(), typeof(Expression<Func<TData, Boolean>>)));
+                throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, orderExpression.GetType(), typeof(Expression<Func<TData, Boolean>>)));
         }
 
         /// <summary>
@@ -341,7 +337,7 @@ namespace SanteDB.OrmLite
             if (orderExpression is Expression<Func<TData, dynamic>> expr)
                 return this.OrderByDescending(expr);
             else
-                throw new InvalidOperationException(ErrorMessages.ERR_INVALID_EXPRESSION_TYPE.Format(orderExpression.GetType(), typeof(Expression<Func<TData, Boolean>>)));
+                throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, orderExpression.GetType(), typeof(Expression<Func<TData, Boolean>>)));
         }
 
         /// <summary>
@@ -362,5 +358,4 @@ namespace SanteDB.OrmLite
         /// </summary>
         IOrmResultSet IOrmResultSet.Distinct() => this.Distinct();
     }
-
 }

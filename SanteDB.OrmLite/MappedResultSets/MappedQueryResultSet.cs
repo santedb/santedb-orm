@@ -3,7 +3,7 @@ using SanteDB.Core.Model;
 using SanteDB.Core.Model.Query;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite;
-using SanteDB.OrmLite.Resources;
+using SanteDB.Core.i18n;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -23,19 +23,19 @@ namespace SanteDB.OrmLite.MappedResultSets
         where TData : IdentifiedData
     {
         // The data context
-        private DataContext m_context;
+        private readonly DataContext m_context;
 
         // The query provider
-        private IMappedQueryProvider<TData> m_provider;
+        private readonly IMappedQueryProvider<TData> m_provider;
 
         // The result set that this wraps
         private IOrmResultSet m_resultSet;
 
         // Tracer
-        private Tracer m_tracer = Tracer.GetTracer(typeof(MappedQueryResultSet<TData>));
+        private readonly Tracer m_tracer = Tracer.GetTracer(typeof(MappedQueryResultSet<TData>));
 
         // The key name to use for stateful storage
-        private string m_keyName;
+        private readonly string m_keyName;
 
         /// <summary>
         /// Creates a new persistence collection
@@ -73,7 +73,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         {
             if (this.m_resultSet != null)
             {
-                throw new InvalidOperationException(ErrorMessages.ERR_ALREADY_HAS_WHERE);
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Where)));
             }
             else
             {
@@ -166,7 +166,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             var retVal = this.FirstOrDefault();
             if (retVal == null)
             {
-                throw new InvalidOperationException(ErrorMessages.ERR_SEQUENCE_NO_ELEMENTS);
+                throw new InvalidOperationException(ErrorMessages.SEQUENCE_NO_ELEMENTS);
             }
             return retVal;
         }
@@ -208,7 +208,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             var retVal = this.SingleOrDefault();
             if (retVal == null)
             {
-                throw new InvalidOperationException(ErrorMessages.ERR_SEQUENCE_NO_ELEMENTS);
+                throw new InvalidOperationException(ErrorMessages.SEQUENCE_NO_ELEMENTS);
             }
             return retVal;
         }
@@ -237,7 +237,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 }
                 else
                 {
-                    throw new InvalidOperationException(ErrorMessages.ERR_SEQUENCE_MORE_THAN_ONE);
+                    throw new InvalidOperationException(ErrorMessages.SEQUENCE_MORE_THAN_ONE);
                 }
             }
             finally
@@ -263,12 +263,12 @@ namespace SanteDB.OrmLite.MappedResultSets
                 }
                 else
                 {
-                    throw new InvalidOperationException(ErrorMessages.ERR_INVALID_STATE);
+                    throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Union)));
                 }
             }
             else
             {
-                throw new ArgumentException(ErrorMessages.ERR_ARGUMENT_INCOMPATIBLE_TYPE);
+                throw new ArgumentOutOfRangeException(String.Format(ErrorMessages.ARGUMENT_INVALID_TYPE, typeof(MappedQueryResultSet<>), other.GetType()));
             }
         }
 
@@ -323,7 +323,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             {
                 if (this.m_provider.QueryPersistence == null)
                 {
-                    throw new InvalidOperationException(ErrorMessages.ERR_MISSING_SERVICE.Format(nameof(IQueryPersistenceService)));
+                    throw new InvalidOperationException(String.Format(ErrorMessages.DEPENDENT_PROPERTY_NULL, nameof(IMappedQueryProvider<TData>.QueryPersistence)));
                 }
 
                 // Is the query already registered? If so, load
@@ -433,7 +433,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             }
             else
             {
-                throw new ArgumentException(nameof(query), ErrorMessages.ERR_ARGUMENT_INCOMPATIBLE_TYPE.Format(typeof(Expression<Func<TData, bool>>)));
+                throw new ArgumentOutOfRangeException(nameof(query), String.Format(ErrorMessages.ARGUMENT_INVALID_TYPE, typeof(Expression<Func<TData, bool>>), query.GetType()));
             }
         }
 

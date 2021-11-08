@@ -44,7 +44,7 @@ namespace SanteDB.OrmLite
     public class OrmBiDataProvider : IBiDataSource
     {
         // Tracer
-        private Tracer m_tracer = Tracer.GetTracer(typeof(OrmBiDataProvider));
+        private readonly Tracer m_tracer = Tracer.GetTracer(typeof(OrmBiDataProvider));
 
         /// <summary>
         /// Executes the query

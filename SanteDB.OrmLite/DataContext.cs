@@ -51,7 +51,7 @@ namespace SanteDB.OrmLite
         private ConcurrentDictionary<String, Object> m_dataDictionary = new ConcurrentDictionary<string, object>();
 
         // Trace source
-        private Tracer m_tracer = new Tracer(Constants.TracerName);
+        private readonly Tracer m_tracer = new Tracer(Constants.TracerName);
 
         // Commands prepared on this connection
         private ConcurrentDictionary<String, IDbCommand> m_preparedCommands = new ConcurrentDictionary<string, IDbCommand>();
@@ -59,12 +59,14 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Connection
         /// </summary>
-        public IDbConnection Connection { get { return this.m_connection; } }
+        public IDbConnection Connection
+        { get { return this.m_connection; } }
 
         /// <summary>
         /// Data dictionary
         /// </summary>
-        public IDictionary<String, Object> Data { get { return this.m_dataDictionary; } }
+        public IDictionary<String, Object> Data
+        { get { return this.m_dataDictionary; } }
 
         /// <summary>
         /// Internal utility method to get provider
@@ -79,7 +81,8 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Current Transaction
         /// </summary>
-        public IDbTransaction Transaction { get { return this.m_transaction; } }
+        public IDbTransaction Transaction
+        { get { return this.m_transaction; } }
 
         /// <summary>
         /// Query builder

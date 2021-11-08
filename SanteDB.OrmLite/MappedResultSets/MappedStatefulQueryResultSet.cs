@@ -7,7 +7,8 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 using SanteDB.Core.Model;
-using SanteDB.OrmLite.Resources;
+using SanteDB.Core.Services;
+using SanteDB.Core.i18n;
 
 namespace SanteDB.OrmLite.MappedResultSets
 {
@@ -20,10 +21,10 @@ namespace SanteDB.OrmLite.MappedResultSets
         private IEnumerable<Guid> m_lastFetched;
 
         // The data context
-        private DataContext m_context;
+        private readonly DataContext m_context;
 
         // The query provider
-        private IMappedQueryProvider<TData> m_provider;
+        private readonly IMappedQueryProvider<TData> m_provider;
 
         // The query identifier
         private Guid m_queryId;
@@ -104,7 +105,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             var retVal = this.FirstOrDefault();
             if (retVal == null)
             {
-                throw new InvalidOperationException(ErrorMessages.ERR_SEQUENCE_NO_ELEMENTS);
+                throw new InvalidOperationException(ErrorMessages.SEQUENCE_NO_ELEMENTS);
             }
             return retVal;
         }
@@ -188,7 +189,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             var retVal = this.SingleOrDefault();
             if (retVal == null)
             {
-                throw new InvalidOperationException(ErrorMessages.ERR_SEQUENCE_NO_ELEMENTS);
+                throw new InvalidOperationException(ErrorMessages.SEQUENCE_NO_ELEMENTS);
             }
             return retVal;
         }
@@ -280,7 +281,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             }
             else
             {
-                throw new ArgumentException(nameof(query), ErrorMessages.ERR_ARGUMENT_INCOMPATIBLE_TYPE.Format(typeof(Expression<Func<TData, bool>>)));
+                throw new ArgumentException(nameof(query), String.Format(ErrorMessages.ARGUMENT_INVALID_TYPE, typeof(Expression<Func<TData, bool>>), query.GetType()));
             }
         }
 
