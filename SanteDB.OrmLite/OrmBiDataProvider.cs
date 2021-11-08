@@ -2,22 +2,23 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
+
 using SanteDB.BI;
 using SanteDB.BI.Model;
 using SanteDB.BI.Services;
@@ -88,6 +89,7 @@ namespace SanteDB.OrmLite
                             else
                                 parameters[kv.Key] = Boolean.Parse(kv.Value.ToString());
                             break;
+
                         case BiDataType.Date:
                         case BiDataType.DateTime:
                             if (string.IsNullOrEmpty(kv.Value?.ToString()))
@@ -95,24 +97,28 @@ namespace SanteDB.OrmLite
                             else
                                 parameters[kv.Key] = DateTime.Parse(kv.Value.ToString());
                             break;
+
                         case BiDataType.Integer:
                             if (string.IsNullOrEmpty(kv.Value?.ToString()))
                                 parameters[kv.Key] = DBNull.Value;
                             else
                                 parameters[kv.Key] = Int32.Parse(kv.Value.ToString());
                             break;
+
                         case BiDataType.String:
                             if (string.IsNullOrEmpty(kv.Value?.ToString()))
                                 parameters[kv.Key] = DBNull.Value;
                             else
                                 parameters[kv.Key] = kv.Value.ToString();
                             break;
+
                         case BiDataType.Uuid:
                             if (string.IsNullOrEmpty(kv.Value?.ToString()))
                                 parameters[kv.Key] = DBNull.Value;
                             else
                                 parameters[kv.Key] = Guid.Parse(kv.Value.ToString());
                             break;
+
                         default:
                             throw new InvalidOperationException($"Cannot determine how to parse {parmDef.Type}");
                     }
@@ -157,22 +163,31 @@ namespace SanteDB.OrmLite
                     {
                         case BiAggregateFunction.Average:
                             return $"AVG({c.ColumnSelector}) AS {c.Name}";
+
                         case BiAggregateFunction.Count:
                             return $"COUNT({c.ColumnSelector}) AS {c.Name}";
+
                         case BiAggregateFunction.CountDistinct:
                             return $"COUNT(DISTINCT {c.ColumnSelector}) AS {c.Name}";
+
                         case BiAggregateFunction.First:
                             return $"FIRST({c.ColumnSelector}) AS {c.Name}";
+
                         case BiAggregateFunction.Last:
                             return $"LAST({c.ColumnSelector}) AS {c.Name}";
+
                         case BiAggregateFunction.Max:
                             return $"MAX({c.ColumnSelector}) AS {c.Name}";
+
                         case BiAggregateFunction.Min:
                             return $"MIN({c.ColumnSelector}) AS {c.Name}";
+
                         case BiAggregateFunction.Sum:
                             return $"SUM({c.ColumnSelector}) AS {c.Name}";
+
                         case BiAggregateFunction.Value:
                             return $"{c.ColumnSelector} AS {c.Name}";
+
                         default:
                             throw new InvalidOperationException("Cannot apply aggregation function");
                     }
@@ -222,7 +237,6 @@ namespace SanteDB.OrmLite
                 return this.ExecuteQuery(query, parameters, aggregation, offset, count);
         }
 
-
         /// <summary>
         /// Executes the specified view
         /// </summary>
@@ -234,7 +248,5 @@ namespace SanteDB.OrmLite
                 retVal = ApplicationServiceContext.Current.GetService<IBiPivotProvider>().Pivot(retVal, viewDef.Pivot);
             return retVal;
         }
-
-
     }
 }
