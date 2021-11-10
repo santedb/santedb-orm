@@ -19,6 +19,7 @@
  * Date: 2021-8-5
  */
 
+using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
 using SanteDB.OrmLite.Providers;
 using System;
@@ -72,7 +73,8 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Gets the constructed or set SQL
         /// </summary>
-        public string SQL { get { return this.m_sql; } }
+        public string SQL
+        { get { return this.m_sql; } }
 
         /// <summary>
         /// Creates a new empty SQL statement
@@ -217,8 +219,8 @@ namespace SanteDB.OrmLite
             var leftMap = TableMapping.Get(typeof(TLeft));
             var rightMap = TableMapping.Get(typeof(TRight));
             var joinStatement = this.Append($"{joinType} JOIN {rightMap.TableName} ON");
-            var rhsPk = rightMap.GetColumn(this.GetMember(rightColumn.Body));
-            var lhsPk = leftMap.GetColumn(this.GetMember(leftColumn.Body));
+            var rhsPk = rightMap.GetColumn(rightColumn.GetMember());
+            var lhsPk = leftMap.GetColumn(leftColumn.GetMember());
             return joinStatement.Append($"({lhsPk.Table.TableName}.{lhsPk.Name} = {rhsPk.Table.TableName}.{rhsPk.Name}) ");
         }
 
@@ -250,16 +252,6 @@ namespace SanteDB.OrmLite
             }
             joinStatement.Append($"({lhsPk.Table.TableName}.{lhsPk.Name} = {rhsPk.Table.TableName}.{rhsPk.Name}) ");
             return joinStatement;
-        }
-
-        /// <summary>
-        /// Get member information from lambda
-        /// </summary>
-        protected MemberInfo GetMember(Expression expression)
-        {
-            if (expression is MemberExpression) return (expression as MemberExpression).Member;
-            else if (expression is UnaryExpression) return this.GetMember((expression as UnaryExpression).Operand);
-            else throw new InvalidOperationException($"{expression} not supported, please use a member access expression");
         }
 
         /// <summary>
@@ -353,7 +345,7 @@ namespace SanteDB.OrmLite
                         break;
                 }
             }
-            var orderCol = orderMap.GetColumn(this.GetMember(fldRef));
+            var orderCol = orderMap.GetColumn(fldRef.GetMember());
 
             // Is there already an orderby in the previous statement?
             bool hasOrder = false;
@@ -425,7 +417,8 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Gets the table type
         /// </summary>
-        public Type TableType { get { return typeof(T); } }
+        public Type TableType
+        { get { return typeof(T); } }
 
         /// <summary>
         /// Creates a new empty SQL statement
@@ -463,8 +456,8 @@ namespace SanteDB.OrmLite
             var leftMap = TableMapping.Get(typeof(T));
             var rightMap = TableMapping.Get(typeof(TRight));
             var joinStatement = this.Append($"INNER JOIN {rightMap.TableName} ON ");
-            var rhsPk = rightMap.GetColumn(this.GetMember(rightColumn.Body));
-            var lhsPk = leftMap.GetColumn(this.GetMember(leftColumn.Body));
+            var rhsPk = rightMap.GetColumn(rightColumn.Body.GetMember());
+            var lhsPk = leftMap.GetColumn(leftColumn.Body.GetMember());
             var retVal = new SqlStatement<T>(this.m_provider);
             retVal.Append(joinStatement).Append($"({lhsPk.Table.TableName}.{lhsPk.Name} = {rhsPk.Table.TableName}.{rhsPk.Name}) ");
             return retVal;

@@ -47,6 +47,6 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// </summary>
         /// <param name="sortExpression">The sort expression to map</param>
         /// <returns>The mapped sort expression</returns>
-        Expression MapSortExpression(Expression<Func<TModel, dynamic>> sortExpression);
+        Expression MapPropertyExpression<TReturn>(Expression<Func<TModel, TReturn>> sortExpression);
     }
 }

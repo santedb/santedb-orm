@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
+using System.Reflection;
 
 namespace SanteDB.OrmLite.MappedResultSets
 {
@@ -19,20 +20,20 @@ namespace SanteDB.OrmLite.MappedResultSets
     /// </summary>
     /// <remarks>This query set wraps the returns of Query methods and allows for
     /// delay loading of the resulting data from the underlying data provider</remarks>
-    public class MappedQueryResultSet<TData> : IQueryResultSet<TData>, IDisposable
-        where TData : IdentifiedData
+    public class MappedQueryResultSet<TElement> : IQueryResultSet<TElement>, IDisposable
+        where TElement : IdentifiedData
     {
         // The data context
         private readonly DataContext m_context;
 
         // The query provider
-        private readonly IMappedQueryProvider<TData> m_provider;
+        private readonly IMappedQueryProvider<TElement> m_provider;
 
         // The result set that this wraps
         private IOrmResultSet m_resultSet;
 
         // Tracer
-        private readonly Tracer m_tracer = Tracer.GetTracer(typeof(MappedQueryResultSet<TData>));
+        private readonly Tracer m_tracer = Tracer.GetTracer(typeof(MappedQueryResultSet<TElement>));
 
         // The key name to use for stateful storage
         private readonly string m_keyName;
@@ -40,7 +41,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Creates a new persistence collection
         /// </summary>
-        public MappedQueryResultSet(IMappedQueryProvider<TData> dataProvider)
+        public MappedQueryResultSet(IMappedQueryProvider<TElement> dataProvider)
         {
             this.m_provider = dataProvider;
             this.m_context = dataProvider.Provider.GetReadonlyConnection();
@@ -49,7 +50,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Creates a new persistence collection
         /// </summary>
-        public MappedQueryResultSet(IMappedQueryProvider<TData> dataProvider, String stateKeyName)
+        public MappedQueryResultSet(IMappedQueryProvider<TElement> dataProvider, String stateKeyName)
         {
             this.m_provider = dataProvider;
             this.m_context = dataProvider.Provider.GetReadonlyConnection();
@@ -59,7 +60,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Create a wrapper persistence collection
         /// </summary>
-        private MappedQueryResultSet(MappedQueryResultSet<TData> copyFrom, IOrmResultSet resultSet) : this(copyFrom.m_provider)
+        private MappedQueryResultSet(MappedQueryResultSet<TElement> copyFrom, IOrmResultSet resultSet) : this(copyFrom.m_provider)
         {
             this.m_resultSet = resultSet;
             this.m_context = copyFrom.m_context;
@@ -69,7 +70,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Where clause for filtering on provider
         /// </summary>
-        public IQueryResultSet<TData> Where(Expression<Func<TData, bool>> query)
+        public IQueryResultSet<TElement> Where(Expression<Func<TElement, bool>> query)
         {
             if (this.m_resultSet != null)
             {
@@ -77,57 +78,57 @@ namespace SanteDB.OrmLite.MappedResultSets
             }
             else
             {
-                return new MappedQueryResultSet<TData>(this, this.m_provider.ExecuteQueryOrm(this.m_context, query));
+                return new MappedQueryResultSet<TElement>(this, this.m_provider.ExecuteQueryOrm(this.m_context, query));
             }
         }
 
         /// <summary>
         /// Union the results in this query set with those in another
         /// </summary>
-        public IQueryResultSet<TData> Union(Expression<Func<TData, bool>> query)
+        public IQueryResultSet<TElement> Union(Expression<Func<TElement, bool>> query)
         {
             if (this.m_resultSet == null) // this is the first
             {
-                return new MappedQueryResultSet<TData>(this, this.m_provider.ExecuteQueryOrm(this.m_context, query));
+                return new MappedQueryResultSet<TElement>(this, this.m_provider.ExecuteQueryOrm(this.m_context, query));
             }
             else
             {
-                return new MappedQueryResultSet<TData>(this, this.m_resultSet.Union(this.m_provider.ExecuteQueryOrm(this.m_context, query)));
+                return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Union(this.m_provider.ExecuteQueryOrm(this.m_context, query)));
             }
         }
 
         /// <summary>
         /// Intersect with another dataset
         /// </summary>
-        public IQueryResultSet<TData> Intersect(Expression<Func<TData, bool>> query)
+        public IQueryResultSet<TElement> Intersect(Expression<Func<TElement, bool>> query)
         {
             if (this.m_resultSet == null) // this is the first
             {
-                return new MappedQueryResultSet<TData>(this, this.m_provider.ExecuteQueryOrm(this.m_context, query));
+                return new MappedQueryResultSet<TElement>(this, this.m_provider.ExecuteQueryOrm(this.m_context, query));
             }
             else
             {
-                return new MappedQueryResultSet<TData>(this, this.m_resultSet.Intersect(this.m_provider.ExecuteQueryOrm(this.m_context, query)));
+                return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Intersect(this.m_provider.ExecuteQueryOrm(this.m_context, query)));
             }
         }
 
         /// <summary>
         /// Skip the specified number of elements
         /// </summary>
-        public IQueryResultSet<TData> Skip(int count)
+        public IQueryResultSet<TElement> Skip(int count)
         {
             if (this.m_resultSet == null) // this is the first
             {
                 this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
             }
 
-            return new MappedQueryResultSet<TData>(this, this.m_resultSet.Skip(count));
+            return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Skip(count));
         }
 
         /// <summary>
         /// Flattens the object into an enumerator
         /// </summary>
-        public IEnumerator<TData> GetEnumerator()
+        public IEnumerator<TElement> GetEnumerator()
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -161,7 +162,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// Get the first instance of results
         /// </summary>
         /// <returns></returns>
-        public TData First()
+        public TElement First()
         {
             var retVal = this.FirstOrDefault();
             if (retVal == null)
@@ -174,7 +175,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Get the first or default of the result
         /// </summary>
-        public TData FirstOrDefault()
+        public TElement FirstOrDefault()
         {
             if (this.m_resultSet == null)
             {
@@ -203,7 +204,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Get only one object
         /// </summary>
-        public TData Single()
+        public TElement Single()
         {
             var retVal = this.SingleOrDefault();
             if (retVal == null)
@@ -216,7 +217,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Get only one of the objects
         /// </summary>
-        public TData SingleOrDefault()
+        public TElement SingleOrDefault()
         {
             if (this.m_resultSet == null)
             {
@@ -253,13 +254,13 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Union this dataset with another
         /// </summary>
-        public IQueryResultSet<TData> Union(IQueryResultSet<TData> other)
+        public IQueryResultSet<TElement> Union(IQueryResultSet<TElement> other)
         {
-            if (other is MappedQueryResultSet<TData> otherStrong)
+            if (other is MappedQueryResultSet<TElement> otherStrong)
             {
                 if (this.m_resultSet != null && otherStrong.m_resultSet != null)
                 {
-                    return new MappedQueryResultSet<TData>(this, this.m_resultSet.Union(otherStrong.m_resultSet));
+                    return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Union(otherStrong.m_resultSet));
                 }
                 else
                 {
@@ -275,45 +276,45 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Takes the number of objects from the result set
         /// </summary>
-        public IQueryResultSet<TData> Take(int count)
+        public IQueryResultSet<TElement> Take(int count)
         {
             if (this.m_resultSet == null)
             {
                 this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
             }
-            return new MappedQueryResultSet<TData>(this, this.m_resultSet.Take(count));
+            return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Take(count));
         }
 
         /// <summary>
         /// Append the order by statements onto the specifed result set
         /// </summary>
-        public IQueryResultSet<TData> OrderBy(Expression<Func<TData, dynamic>> sortExpression)
+        public IQueryResultSet<TElement> OrderBy(Expression<Func<TElement, dynamic>> sortExpression)
         {
             if (this.m_resultSet == null) // this is the first
             {
                 this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
             }
 
-            return new MappedQueryResultSet<TData>(this, this.m_resultSet.OrderBy(this.m_provider.MapSortExpression(sortExpression)));
+            return new MappedQueryResultSet<TElement>(this, this.m_resultSet.OrderBy(this.m_provider.MapPropertyExpression(sortExpression)));
         }
 
         /// <summary>
         /// Order result set by descending order
         /// </summary>
-        public IQueryResultSet<TData> OrderByDescending(Expression<Func<TData, dynamic>> sortExpression)
+        public IQueryResultSet<TElement> OrderByDescending(Expression<Func<TElement, dynamic>> sortExpression)
         {
             if (this.m_resultSet == null) // this is the first
             {
                 this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
             }
 
-            return new MappedQueryResultSet<TData>(this, this.m_resultSet.OrderByDescending(this.m_provider.MapSortExpression(sortExpression)));
+            return new MappedQueryResultSet<TElement>(this, this.m_resultSet.OrderByDescending(this.m_provider.MapPropertyExpression(sortExpression)));
         }
 
         /// <summary>
         /// Creates a query set or loads the specified query set
         /// </summary>
-        public IQueryResultSet<TData> AsStateful(Guid stateId)
+        public IQueryResultSet<TElement> AsStateful(Guid stateId)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -323,13 +324,13 @@ namespace SanteDB.OrmLite.MappedResultSets
             {
                 if (this.m_provider.QueryPersistence == null)
                 {
-                    throw new InvalidOperationException(String.Format(ErrorMessages.DEPENDENT_PROPERTY_NULL, nameof(IMappedQueryProvider<TData>.QueryPersistence)));
+                    throw new InvalidOperationException(String.Format(ErrorMessages.DEPENDENT_PROPERTY_NULL, nameof(IMappedQueryProvider<TElement>.QueryPersistence)));
                 }
 
                 // Is the query already registered? If so, load
                 if (this.m_provider.QueryPersistence.IsRegistered(stateId))
                 {
-                    return new MappedStatefulQueryResultSet<TData>(this.m_provider, stateId);
+                    return new MappedStatefulQueryResultSet<TElement>(this.m_provider, stateId);
                 }
                 else
                 {
@@ -338,6 +339,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                     Guid[] keySet = null;
                     if (!String.IsNullOrEmpty(this.m_keyName))
                     {
+                        // TODO: In Firebird this seems to lose ordering?
                         keySet = this.m_resultSet.Select<Guid>(this.m_keyName).Distinct().ToArray();
                     }
                     else
@@ -345,7 +347,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                         keySet = this.m_resultSet.Keys<Guid>().OfType<Guid>().ToArray();
                     }
                     this.m_provider.QueryPersistence.RegisterQuerySet(stateId, keySet, this.m_resultSet.Statement, keySet.Length);
-                    return new MappedStatefulQueryResultSet<TData>(this.m_provider, stateId);
+                    return new MappedStatefulQueryResultSet<TElement>(this.m_provider, stateId);
                 }
             }
             finally
@@ -409,7 +411,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Intersect with another result set
         /// </summary>
-        public IQueryResultSet<TData> Intersect(IQueryResultSet<TData> other)
+        public IQueryResultSet<TElement> Intersect(IQueryResultSet<TElement> other)
         {
             throw new NotImplementedException();
         }
@@ -427,13 +429,13 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// </summary>
         public IQueryResultSet Where(Expression query)
         {
-            if (query is Expression<Func<TData, bool>> eq)
+            if (query is Expression<Func<TElement, bool>> eq)
             {
                 return this.Where(eq);
             }
             else
             {
-                throw new ArgumentOutOfRangeException(nameof(query), String.Format(ErrorMessages.ARGUMENT_INVALID_TYPE, typeof(Expression<Func<TData, bool>>), query.GetType()));
+                throw new ArgumentOutOfRangeException(nameof(query), String.Format(ErrorMessages.ARGUMENT_INVALID_TYPE, typeof(Expression<Func<TElement, bool>>), query.GetType()));
             }
         }
 
@@ -471,5 +473,43 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// Represent as a stateful object
         /// </summary>
         IQueryResultSet IQueryResultSet.AsStateful(Guid stateId) => this.AsStateful(stateId);
+
+        /// <summary>
+        /// Select the specified objects from the database
+        /// </summary>
+        public IEnumerable<TReturn> Select<TReturn>(Expression<Func<TElement, TReturn>> selector)
+        {
+            if (this.m_resultSet == null) // this is the first
+            {
+                this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
+            }
+
+            var member = this.m_provider.MapPropertyExpression(selector).GetMember();
+            try
+            {
+                this.m_context.Open();
+                foreach (var element in this.m_resultSet.Select<TReturn>(member.Name))
+                {
+                    yield return element;
+                }
+            }
+            finally
+            {
+                this.m_context.Close();
+            }
+        }
+
+        /// <summary>
+        /// Select the specifed objects with a C# expression
+        /// </summary>
+        /// <remarks>This flattens or executes the query</remarks>
+        public IEnumerable<TReturn> Select<TReturn>(Func<TElement, TReturn> selector)
+        {
+            // Flatten
+            foreach (var element in this)
+            {
+                yield return (TReturn)selector(element);
+            }
+        }
     }
 }

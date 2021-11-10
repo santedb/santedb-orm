@@ -319,5 +319,28 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// Represent as a stateful object
         /// </summary>
         IQueryResultSet IQueryResultSet.AsStateful(Guid stateId) => this.AsStateful(stateId);
+
+        /// <summary>
+        /// Select
+        /// </summary>
+        public IEnumerable<TReturn> Select<TReturn>(Expression<Func<TData, TReturn>> selector)
+        {
+            var compiled = selector.Compile();
+            foreach (var i in this)
+            {
+                yield return compiled(i);
+            }
+        }
+
+        /// <summary>
+        /// Select the object according to a C# enumerator
+        /// </summary>
+        public IEnumerable<TReturn> Select<TReturn>(Func<TData, TReturn> selector)
+        {
+            foreach (var element in this)
+            {
+                yield return (TReturn)selector(element); ;
+            }
+        }
     }
 }

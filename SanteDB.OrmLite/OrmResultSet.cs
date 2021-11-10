@@ -192,22 +192,12 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Get member information from lambda
-        /// </summary>
-        protected MemberInfo GetMember(Expression expression)
-        {
-            if (expression is MemberExpression) return (expression as MemberExpression).Member;
-            else if (expression is UnaryExpression) return this.GetMember((expression as UnaryExpression).Operand);
-            else throw new InvalidOperationException($"{expression} not supported, please use a member access expression");
-        }
-
-        /// <summary>
         /// Select the specified column
         /// </summary>
         public OrmResultSet<T> Select<T>(Expression<Func<TData, T>> column)
         {
-            var mapping = TableMapping.Get(typeof(TData)).GetColumn(this.GetMember(column.Body));
-            return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT I.{mapping.Name} FROM (").Append(this.Statement.Build()).Append(") AS I"));
+            var mapping = TableMapping.Get(typeof(TData)).GetColumn(column.Body.GetMember());
+            return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT I.{mapping.Name} V FROM (").Append(this.Statement.Build()).Append(") AS I"));
         }
 
         /// <summary>
@@ -215,7 +205,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public T Max<T>(Expression<Func<TData, T>> column)
         {
-            var mapping = TableMapping.Get(typeof(TData)).GetColumn(this.GetMember(column.Body));
+            var mapping = TableMapping.Get(typeof(TData)).GetColumn(column.Body.GetMember());
             return this.Context.ExecuteScalar<T>(this.Context.CreateSqlStatement($"SELECT MAX({mapping.Name}) FROM (").Append(this.Statement.Build()).Append(") AS I"));
         }
 
@@ -224,7 +214,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public T Min<T>(Expression<Func<TData, T>> column)
         {
-            var mapping = TableMapping.Get(typeof(TData)).GetColumn(this.GetMember(column.Body));
+            var mapping = TableMapping.Get(typeof(TData)).GetColumn(column.Body.GetMember());
             return this.Context.ExecuteScalar<T>(this.Context.CreateSqlStatement($"SELECT MIN({mapping.Name}) FROM (").Append(this.Statement.Build()).Append(") AS I"));
         }
 
@@ -234,7 +224,7 @@ namespace SanteDB.OrmLite
         public OrmResultSet<dynamic> Select(params Expression<Func<TData, dynamic>>[] columns)
         {
             var mapping = TableMapping.Get(typeof(TData));
-            return new OrmResultSet<dynamic>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", columns.Select(o => mapping.GetColumn(this.GetMember(o.Body))).Select(o => o.Name))} FROM (").Append(this.Statement.Build()).Append(") AS I"));
+            return new OrmResultSet<dynamic>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", columns.Select(o => mapping.GetColumn(o.Body.GetMember())).Select(o => o.Name))} FROM (").Append(this.Statement.Build()).Append(") AS I"));
         }
 
         /// <summary>
