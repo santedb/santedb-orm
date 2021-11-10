@@ -2,22 +2,23 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
+
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections;
@@ -27,7 +28,6 @@ using System.Reflection;
 
 namespace SanteDB.OrmLite
 {
-
     /// <summary>
     /// String etensions
     /// </summary>
@@ -40,8 +40,8 @@ namespace SanteDB.OrmLite
         {
             return me;
         }
-
     }
+
     /// <summary>
     /// Postgresql query expression builder
     /// </summary>
@@ -54,7 +54,8 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Gets the constructed SQL statement
         /// </summary>
-        public SqlStatement SqlStatement { get { return this.m_sqlStatement.Build(); } }
+        public SqlStatement SqlStatement
+        { get { return this.m_sqlStatement.Build(); } }
 
         /// <summary>
         /// Creates a new postgresql query expression builder
@@ -95,14 +96,19 @@ namespace SanteDB.OrmLite
                 case ExpressionType.OrElse:
                 case ExpressionType.Coalesce:
                     return this.VisitBinary((BinaryExpression)node);
+
                 case ExpressionType.MemberAccess:
                     return this.VisitMemberAccess((MemberExpression)node);
+
                 case ExpressionType.Parameter:
                     return this.VisitParameter((ParameterExpression)node);
+
                 case ExpressionType.Call:
                     return this.VisitMethodCall((MethodCallExpression)node);
+
                 case ExpressionType.Constant:
                     return this.VisitConstant((ConstantExpression)node);
+
                 case ExpressionType.Convert:
                 case ExpressionType.Not:
                 case ExpressionType.Negate:
@@ -133,15 +139,19 @@ namespace SanteDB.OrmLite
                 case ExpressionType.Negate:
                     this.m_sqlStatement.Append(" -");
                     break;
+
                 case ExpressionType.Not:
                     this.m_sqlStatement.Append(" NOT (");
                     this.Visit(node.Operand);
                     this.m_sqlStatement.Append(")");
                     return node;
+
                 case ExpressionType.Convert:
                     break;
+
                 case ExpressionType.TypeAs:
                     break;
+
                 default:
                     return null;
             }
@@ -156,7 +166,9 @@ namespace SanteDB.OrmLite
         protected override Expression VisitBinary(BinaryExpression node)
         {
             if (node.NodeType == ExpressionType.Coalesce)
+            {
                 this.m_sqlStatement.Append(" COALESCE");
+            }
 
             this.m_sqlStatement.Append("(");
             this.Visit(node.Left);
@@ -192,23 +204,29 @@ namespace SanteDB.OrmLite
                 case ExpressionType.GreaterThan:
                     this.m_sqlStatement.Append(" > ");
                     break;
+
                 case ExpressionType.GreaterThanOrEqual:
                     this.m_sqlStatement.Append(" >= ");
                     break;
+
                 case ExpressionType.LessThan:
                     this.m_sqlStatement.Append(" < ");
                     break;
+
                 case ExpressionType.LessThanOrEqual:
                     this.m_sqlStatement.Append(" <= ");
                     break;
+
                 case ExpressionType.And:
                 case ExpressionType.AndAlso:
                     this.m_sqlStatement.Append(" AND ");
                     break;
+
                 case ExpressionType.Or:
                 case ExpressionType.OrElse:
                     this.m_sqlStatement.Append(" OR ");
                     break;
+
                 case ExpressionType.Coalesce:
                     this.m_sqlStatement.Append(",");
                     break;
@@ -220,7 +238,6 @@ namespace SanteDB.OrmLite
             this.m_sqlStatement.Append(")");
             return node;
         }
-
 
         /// <summary>
         /// Visit a parameter reference
@@ -239,7 +256,6 @@ namespace SanteDB.OrmLite
         /// <returns></returns>
         protected override Expression VisitMethodCall(MethodCallExpression node)
         {
-
             // Method names
             switch (node.Method.Name)
             {
@@ -249,16 +265,18 @@ namespace SanteDB.OrmLite
                     this.Visit(node.Arguments[0]);
                     this.m_sqlStatement.Append(" || '%' ");
                     break;
+
                 case "EndsWith":
                     this.Visit(node.Object);
                     this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.ILike));
                     this.m_sqlStatement.Append(" '%' || ");
                     this.Visit(node.Arguments[0]);
                     break;
+
                 case "Contains":
 
                     // Determine the defining type
-                    if (node.Method.DeclaringType == typeof(Enumerable)) // is a LINQ CONTAINS() 
+                    if (node.Method.DeclaringType == typeof(Enumerable)) // is a LINQ CONTAINS()
                     {
                         Expression enumerable = node.Arguments[0],
                             contained = node.Arguments[1];
@@ -296,6 +314,7 @@ namespace SanteDB.OrmLite
                         this.m_sqlStatement.Append(" || '%' ");
                     }
                     break;
+
                 case "ToLower":
                 case "ToLowerInvariant":
                     this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.Lower));
@@ -303,6 +322,7 @@ namespace SanteDB.OrmLite
                     this.Visit(node.Object);
                     this.m_sqlStatement.Append(") ");
                     break;
+
                 case "ToUpper":
                 case "ToUpperInvariant":
                     this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.Upper));
@@ -310,17 +330,21 @@ namespace SanteDB.OrmLite
                     this.Visit(node.Object);
                     this.m_sqlStatement.Append(") ");
                     break;
+
                 case "NewGuid":
                     this.m_sqlStatement.Append("uuid_generate_v4() ");
                     break;
+
                 case "IgnoreCase":
                     this.Visit(node.Arguments[0]);
                     this.m_sqlStatement.Append("::citext ");
                     break;
+
                 case "HasValue":
                     this.Visit(node.Object);
                     this.m_sqlStatement.Append(" IS NOT NULL ");
                     break;
+
                 default:
                     throw new NotSupportedException(node.Method.Name);
             }
@@ -343,8 +367,10 @@ namespace SanteDB.OrmLite
                 {
                     case ExpressionType.TypeAs:
                         return this.GetConstantValue(un.Operand);
+
                     case ExpressionType.Convert:
                         return this.GetConstantValue(un.Operand);
+
                     default:
                         throw new InvalidOperationException($"Expression {expression} not supported for constant extraction");
                 }
@@ -362,7 +388,6 @@ namespace SanteDB.OrmLite
             }
             else
                 throw new InvalidOperationException($"Expression {expression} not supported for constant extraction");
-
         }
 
         /// <summary>
@@ -390,7 +415,15 @@ namespace SanteDB.OrmLite
                     return Expression.Constant(propInfo.GetValue(baseExpr.Value));
                 else if (memExpr.Member is FieldInfo fieldInfo)
                     return Expression.Constant(fieldInfo.GetValue(baseExpr.Value));
-
+            }
+            else if (e.NodeType == ExpressionType.Coalesce && e is BinaryExpression be) // a ?? b
+            {
+                var constantA = this.ExtractConstantExpression(be.Left);
+                var constantB = this.ExtractConstantExpression(be.Right);
+                if (constantA.Value != null)
+                    return constantA;
+                else
+                    return constantB;
             }
             return e as ConstantExpression;
         }
@@ -405,9 +438,11 @@ namespace SanteDB.OrmLite
                 case "Now":
                     this.m_sqlStatement.Append(" CURRENT_TIMESTAMP ");
                     break;
+
                 case "NewGuid":
                     this.m_sqlStatement.Append(" ? ", Guid.NewGuid());
                     break;
+
                 case "HasValue":
                     this.Visit(node.Expression);
                     this.m_sqlStatement.Append(" IS NOT NULL ");
@@ -435,6 +470,7 @@ namespace SanteDB.OrmLite
                                     this.Visit(expr);
                                     this.m_sqlStatement.Append($".{columnMap.Name}");
                                     break;
+
                                 case ExpressionType.Constant:
                                 case ExpressionType.TypeAs:
                                 case ExpressionType.MemberAccess:
@@ -450,6 +486,8 @@ namespace SanteDB.OrmLite
                                                 this.m_sqlStatement.Append(" IS NOT NULL ");
                                             else if (stmt == "=")
                                                 this.m_sqlStatement.Append(" IS NULL ");
+                                            else if (stmt == "(")
+                                                this.m_sqlStatement.Append("(NULL", value);
                                             else
                                                 throw new InvalidOperationException($"Cannot determine how to convert {node} in SQL");
                                         }
@@ -491,5 +529,4 @@ namespace SanteDB.OrmLite
             return node;
         }
     }
-
 }

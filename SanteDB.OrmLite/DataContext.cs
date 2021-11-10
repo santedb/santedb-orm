@@ -63,7 +63,7 @@ namespace SanteDB.OrmLite
         { get { return this.m_connection; } }
 
         /// <summary>
-        /// Data dictionary
+        /// Temporary lookup values used during this context's use
         /// </summary>
         public IDictionary<String, Object> Data
         { get { return this.m_dataDictionary; } }

@@ -2,24 +2,26 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
+
 using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Diagnostics;
+using SanteDB.Core.Exceptions;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
@@ -33,7 +35,6 @@ namespace SanteDB.OrmLite.Migration
     /// </summary>
     public static class SqlFeatureUtil
     {
-
         // Features
         private static IEnumerable<IDataFeature> m_features = null;
 
@@ -49,7 +50,6 @@ namespace SanteDB.OrmLite.Migration
         /// </summary>
         private static IEnumerable<IDataConfigurationProvider> GetConfigurationProviders()
         {
-
             if (m_providers == null)
                 m_providers = AppDomain.CurrentDomain.GetAssemblies()
                     .Where(a => !a.IsDynamic)
@@ -72,11 +72,10 @@ namespace SanteDB.OrmLite.Migration
         }
 
         /// <summary>
-        /// Upgrade the schema 
+        /// Upgrade the schema
         /// </summary>
         public static void UpgradeSchema(this IDbProvider provider, string scopeOfContext)
         {
-
             // First, does the database exist?
             m_traceSource.TraceInfo("Ensure context {0} is updated...", scopeOfContext);
             var configProvider = GetConfigurationProviders().FirstOrDefault(o => o.DbProviderType == provider.GetType());
@@ -127,7 +126,6 @@ namespace SanteDB.OrmLite.Migration
         /// </summary>
         public static bool Install(this DataContext conn, SqlFeature migration)
         {
-
             conn.Open();
 
             var stmts = migration.GetDeploySql().Split(new string[] { "--#!" }, StringSplitOptions.RemoveEmptyEntries);
@@ -151,7 +149,7 @@ namespace SanteDB.OrmLite.Migration
 #if DEBUG
                             m_traceSource.TraceError("SQL Statement Failed: {0} - {1}", cmd.CommandText, e.Message);
 #endif
-                            throw;
+                            throw new DataPersistenceException($"SQL statement failed {dsql}", e);
                         }
                         else
                         {
@@ -159,7 +157,6 @@ namespace SanteDB.OrmLite.Migration
                         }
                     }
                 }
-
 
             return true;
         }
@@ -174,7 +171,6 @@ namespace SanteDB.OrmLite.Migration
             string checkSql = migration.GetCheckSql(),
                         preConditionSql = migration.GetPreCheckSql();
 
-
             if (!String.IsNullOrEmpty(preConditionSql))
                 using (var cmd = conn.Connection.CreateCommand())
                 {
@@ -182,7 +178,6 @@ namespace SanteDB.OrmLite.Migration
                     cmd.CommandType = System.Data.CommandType.Text;
                     if ((bool?)cmd.ExecuteScalar() != true) // can't install
                         throw new ConstraintException($"Pre-check for {migration.Id} failed");
-
                 }
             if (!String.IsNullOrEmpty(checkSql))
                 using (var cmd = conn.Connection.CreateCommand())
@@ -219,7 +214,5 @@ namespace SanteDB.OrmLite.Migration
                     })).OfType<IDataFeature>().ToList();
             return m_features.Where(o => o.InvariantName == invariantName);
         }
-
-
     }
 }
