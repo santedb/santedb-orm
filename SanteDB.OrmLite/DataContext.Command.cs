@@ -76,6 +76,7 @@ namespace SanteDB.OrmLite
     {
         public TData1 Object1
         { get { return (TData1)this.Values[0]; } }
+
         public TData2 Object2
         { get { return (TData2)this.Values[1]; } }
 
@@ -165,28 +166,28 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IEnumerable<TModel> Query<TModel>(String spName, params object[] arguments)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments);
-                try
+                lock (this.m_lockObject)
                 {
-                    using (var rdr = dbc.ExecuteReader())
-                        while (rdr.Read())
-                            yield return this.MapObject<TModel>(rdr);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments);
+                    try
+                    {
+                        using (var rdr = dbc.ExecuteReader())
+                            while (rdr.Read())
+                                yield return this.MapObject<TModel>(rdr);
+                    }
+                    finally
+                    {
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-                finally
-                {
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
-                }
-            }
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -314,34 +315,34 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void ResetSequence(string sequenceName, object sequenceValue)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, this.m_provider.GetResetSequence(sequenceName, sequenceValue));
-                try
+                lock (this.m_lockObject)
                 {
-                    dbc.ExecuteNonQuery();
-                }
-                catch (TimeoutException)
-                {
-                    try { dbc.Cancel(); } catch { }
-                    throw;
-                }
-                finally
-                {
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, this.m_provider.GetResetSequence(sequenceName, sequenceValue));
+                    try
+                    {
+                        dbc.ExecuteNonQuery();
+                    }
+                    catch (TimeoutException)
+                    {
+                        try { dbc.Cancel(); } catch { }
+                        throw;
+                    }
+                    finally
+                    {
 #if DBPERF
                         this.PerformanceMonitor(stmt, sw);
 #endif
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-            }
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -356,35 +357,35 @@ namespace SanteDB.OrmLite
         /// </summary>
         public Object FirstOrDefault(Type returnType, SqlStatement stmt)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt.Limit(1));
-                try
+                lock (this.m_lockObject)
                 {
-                    using (var rdr = dbc.ExecuteReader())
-                        return this.ReaderToResult(returnType, rdr);
-                }
-                catch (TimeoutException)
-                {
-                    try { dbc.Cancel(); } catch { }
-                    throw;
-                }
-                finally
-                {
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt.Limit(1));
+                    try
+                    {
+                        using (var rdr = dbc.ExecuteReader())
+                            return this.ReaderToResult(returnType, rdr);
+                    }
+                    catch (TimeoutException)
+                    {
+                        try { dbc.Cancel(); } catch { }
+                        throw;
+                    }
+                    finally
+                    {
 #if DBPERF
                         this.PerformanceMonitor(stmt, sw);
 #endif
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-            }
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -399,32 +400,32 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TModel ExecuteProcedure<TModel>(String spName, params object[] arguments)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments);
-                try
+                lock (this.m_lockObject)
                 {
-                    using (var rdr = dbc.ExecuteReader())
-                        return this.ReaderToResult<TModel>(rdr);
+                    var dbc = this.m_lastCommand = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments);
+                    try
+                    {
+                        using (var rdr = dbc.ExecuteReader())
+                            return this.ReaderToResult<TModel>(rdr);
+                    }
+                    catch (TimeoutException)
+                    {
+                        try { dbc.Cancel(); } catch { }
+                        throw;
+                    }
+                    finally
+                    {
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-                catch (TimeoutException)
-                {
-                    try { dbc.Cancel(); } catch { }
-                    throw;
-                }
-                finally
-                {
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
-                }
-            }
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -439,36 +440,36 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TModel FirstOrDefault<TModel>(Expression<Func<TModel, bool>> querySpec)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            var stmt = this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec).Limit(1);
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                try
+                var stmt = this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec).Limit(1);
+                lock (this.m_lockObject)
                 {
-                    using (var rdr = dbc.ExecuteReader())
-                        return this.ReaderToResult<TModel>(rdr);
-                }
-                catch (TimeoutException)
-                {
-                    try { dbc.Cancel(); } catch { }
-                    throw;
-                }
-                finally
-                {
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
+                    try
+                    {
+                        using (var rdr = dbc.ExecuteReader())
+                            return this.ReaderToResult<TModel>(rdr);
+                    }
+                    catch (TimeoutException)
+                    {
+                        try { dbc.Cancel(); } catch { }
+                        throw;
+                    }
+                    finally
+                    {
 #if DBPERF
                         this.PerformanceMonitor(stmt, sw);
 #endif
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-            }
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -483,36 +484,36 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TModel FirstOrDefault<TModel>(SqlStatement stmt)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt.Build().Limit(1));
-                try
+                lock (this.m_lockObject)
                 {
-                    using (var rdr = dbc.ExecuteReader())
-                        return this.ReaderToResult<TModel>(rdr);
-                }
-                catch (TimeoutException)
-                {
-                    try { dbc.Cancel(); } catch { }
-                    throw;
-                }
-                finally
-                {
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt.Build().Limit(1));
+                    try
+                    {
+                        using (var rdr = dbc.ExecuteReader())
+                            return this.ReaderToResult<TModel>(rdr);
+                    }
+                    catch (TimeoutException)
+                    {
+                        try { dbc.Cancel(); } catch { }
+                        throw;
+                    }
+                    finally
+                    {
 #if DBPERF
                         this.PerformanceMonitor(stmt, sw);
 #endif
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-            }
 
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -527,42 +528,42 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TModel SingleOrDefault<TModel>(Expression<Func<TModel, bool>> querySpec)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            var stmt = this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec).Limit(2);
+                var stmt = this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec).Limit(2);
 
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                try
+                lock (this.m_lockObject)
                 {
-                    using (var rdr = dbc.ExecuteReader())
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
+                    try
                     {
-                        var retVal = this.ReaderToResult<TModel>(rdr);
-                        if (!rdr.Read()) return retVal;
-                        else throw new InvalidOperationException("Sequence contains more than one element");
+                        using (var rdr = dbc.ExecuteReader())
+                        {
+                            var retVal = this.ReaderToResult<TModel>(rdr);
+                            if (!rdr.Read()) return retVal;
+                            else throw new InvalidOperationException("Sequence contains more than one element");
+                        }
                     }
-                }
-                catch (TimeoutException)
-                {
-                    try { dbc.Cancel(); } catch { }
-                    throw;
-                }
-                finally
-                {
+                    catch (TimeoutException)
+                    {
+                        try { dbc.Cancel(); } catch { }
+                        throw;
+                    }
+                    finally
+                    {
 #if DBPERF
                         this.PerformanceMonitor(stmt, sw);
 #endif
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-            }
 
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -577,35 +578,35 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TReturn ExecuteScalar<TReturn>(SqlStatement sqlStatement)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, sqlStatement);
-                try
+                lock (this.m_lockObject)
                 {
-                    return (TReturn)dbc.ExecuteScalar();
-                }
-                catch (TimeoutException)
-                {
-                    try { dbc.Cancel(); } catch { }
-                    throw;
-                }
-                finally
-                {
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, sqlStatement);
+                    try
+                    {
+                        return (TReturn)dbc.ExecuteScalar();
+                    }
+                    catch (TimeoutException)
+                    {
+                        try { dbc.Cancel(); } catch { }
+                        throw;
+                    }
+                    finally
+                    {
 #if DBPERF
                         this.PerformanceMonitor(stmt, sw);
 #endif
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-            }
 
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -620,33 +621,33 @@ namespace SanteDB.OrmLite
         /// </summary>
         public bool Any<TModel>(Expression<Func<TModel, bool>> querySpec)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            var stmt = this.m_provider.Exists(this.CreateSqlStatement<TModel>().SelectFrom(ColumnMapping.One).Where(querySpec));
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                try
+                var stmt = this.m_provider.Exists(this.CreateSqlStatement<TModel>().SelectFrom(ColumnMapping.One).Where(querySpec));
+                lock (this.m_lockObject)
                 {
-                    return (bool)dbc.ExecuteScalar();
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
+                    try
+                    {
+                        return (bool)dbc.ExecuteScalar();
+                    }
+                    catch (TimeoutException)
+                    {
+                        try { dbc.Cancel(); } catch { }
+                        throw;
+                    }
+                    finally
+                    {
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-                catch (TimeoutException)
-                {
-                    try { dbc.Cancel(); } catch { }
-                    throw;
-                }
-                finally
-                {
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
-                }
-            }
 
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -661,33 +662,33 @@ namespace SanteDB.OrmLite
         /// </summary>
         public bool Any(SqlStatement querySpec)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            var stmt = this.m_provider.Exists(querySpec);
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                try
+                var stmt = this.m_provider.Exists(querySpec);
+                lock (this.m_lockObject)
                 {
-                    return (bool)dbc.ExecuteScalar();
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
+                    try
+                    {
+                        return (bool)dbc.ExecuteScalar();
+                    }
+                    catch (TimeoutException)
+                    {
+                        try { dbc.Cancel(); } catch { }
+                        throw;
+                    }
+                    finally
+                    {
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-                catch (TimeoutException)
-                {
-                    try { dbc.Cancel(); } catch { }
-                    throw;
-                }
-                finally
-                {
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
-                }
-            }
 
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -702,33 +703,33 @@ namespace SanteDB.OrmLite
         /// </summary>
         public long Count<TModel>(Expression<Func<TModel, bool>> querySpec)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            var stmt = this.m_provider.Count(this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec));
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                try
+                var stmt = this.m_provider.Count(this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec));
+                lock (this.m_lockObject)
                 {
-                    return (long)dbc.ExecuteScalar();
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
+                    try
+                    {
+                        return (long)dbc.ExecuteScalar();
+                    }
+                    catch (TimeoutException)
+                    {
+                        try { dbc.Cancel(); } catch { }
+                        throw;
+                    }
+                    finally
+                    {
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-                catch (TimeoutException)
-                {
-                    try { dbc.Cancel(); } catch { }
-                    throw;
-                }
-                finally
-                {
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
-                }
-            }
 
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -743,33 +744,33 @@ namespace SanteDB.OrmLite
         /// </summary>
         public int Count(SqlStatement querySpec)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            var stmt = this.m_provider.Count(querySpec);
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                try
+                var stmt = this.m_provider.Count(querySpec);
+                lock (this.m_lockObject)
                 {
-                    return Convert.ToInt32(dbc.ExecuteScalar());
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
+                    try
+                    {
+                        return Convert.ToInt32(dbc.ExecuteScalar());
+                    }
+                    catch (TimeoutException)
+                    {
+                        try { dbc.Cancel(); } catch { }
+                        throw;
+                    }
+                    finally
+                    {
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-                catch (TimeoutException)
-                {
-                    try { dbc.Cancel(); } catch { }
-                    throw;
-                }
-                finally
-                {
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
-                }
-            }
 
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -818,32 +819,32 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IEnumerable<TModel> ExecQuery<TModel>(SqlStatement query)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
-                try
+                lock (this.m_lockObject)
                 {
-                    using (var rdr = dbc.ExecuteReader())
-                        while (rdr.Read())
-                            yield return this.MapObject<TModel>(rdr);
-                }
-                finally
-                {
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
+                    try
+                    {
+                        using (var rdr = dbc.ExecuteReader())
+                            while (rdr.Read())
+                                yield return this.MapObject<TModel>(rdr);
+                    }
+                    finally
+                    {
 #if DBPERF
                         this.PerformanceMonitor(query, sw);
 #endif
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-            }
 
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -898,127 +899,73 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TModel Insert<TModel>(TModel value)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            // First we want to map object to columns
-            var tableMap = TableMapping.Get(typeof(TModel));
+                // First we want to map object to columns
+                var tableMap = TableMapping.Get(typeof(TModel));
 
-            SqlStatement columnNames = this.CreateSqlStatement(),
-                values = this.CreateSqlStatement();
-            foreach (var col in tableMap.Columns)
-            {
-                var val = col.SourceProperty.GetValue(value);
-                if (val == null ||
-                    !col.IsNonNull &&
-                    col.SourceProperty.PropertyType.StripNullable() == col.SourceProperty.PropertyType &&
-                    (
-                    val.Equals(default(Int32)) ||
-                    val.Equals(default(Int64)) ||
-                    val.Equals(default(Guid)) ||
-                    val.Equals(default(DateTime)) ||
-                    val.Equals(default(DateTimeOffset)) ||
-                    val.Equals(default(Decimal))))
-                    val = null;
-
-                if (col.IsAutoGenerated && val == null)
+                SqlStatement columnNames = this.CreateSqlStatement(),
+                    values = this.CreateSqlStatement();
+                foreach (var col in tableMap.Columns)
                 {
-                    // Uh-oh, the column is auto-gen, the type of uuid and the engine can't do it!
-                    if (col.SourceProperty.PropertyType.StripNullable() == typeof(Guid) &&
-                        !this.m_provider.Features.HasFlag(SqlEngineFeatures.AutoGenerateGuids))
+                    var val = col.SourceProperty.GetValue(value);
+                    if (val == null ||
+                        !col.IsNonNull &&
+                        col.SourceProperty.PropertyType.StripNullable() == col.SourceProperty.PropertyType &&
+                        (
+                        val.Equals(default(Int32)) ||
+                        val.Equals(default(Int64)) ||
+                        val.Equals(default(Guid)) ||
+                        val.Equals(default(DateTime)) ||
+                        val.Equals(default(DateTimeOffset)) ||
+                        val.Equals(default(Decimal))))
+                        val = null;
+
+                    if (col.IsAutoGenerated && val == null)
                     {
-                        val = Guid.NewGuid();
-                        col.SourceProperty.SetValue(value, val);
+                        // Uh-oh, the column is auto-gen, the type of uuid and the engine can't do it!
+                        if (col.SourceProperty.PropertyType.StripNullable() == typeof(Guid) &&
+                            !this.m_provider.Features.HasFlag(SqlEngineFeatures.AutoGenerateGuids))
+                        {
+                            val = Guid.NewGuid();
+                            col.SourceProperty.SetValue(value, val);
+                        }
+                        else
+                            continue;
                     }
-                    else
-                        continue;
+
+                    columnNames.Append($"{col.Name}");
+
+                    // Append value
+                    values.Append("?", val);
+
+                    values.Append(",");
+                    columnNames.Append(",");
                 }
+                values.RemoveLast();
+                columnNames.RemoveLast();
 
-                columnNames.Append($"{col.Name}");
+                var returnKeys = tableMap.Columns.Where(o => o.IsAutoGenerated);
 
-                // Append value
-                values.Append("?", val);
+                // Return arrays
+                var stmt = this.m_provider.Returning(
+                    this.CreateSqlStatement($"INSERT INTO {tableMap.TableName} (").Append(columnNames).Append(") VALUES (").Append(values).Append(")"),
+                    returnKeys.ToArray()
+                );
 
-                values.Append(",");
-                columnNames.Append(",");
-            }
-            values.RemoveLast();
-            columnNames.RemoveLast();
-
-            var returnKeys = tableMap.Columns.Where(o => o.IsAutoGenerated);
-
-            // Return arrays
-            var stmt = this.m_provider.Returning(
-                this.CreateSqlStatement($"INSERT INTO {tableMap.TableName} (").Append(columnNames).Append(") VALUES (").Append(values).Append(")"),
-                returnKeys.ToArray()
-            );
-
-            // Execute
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                try
+                // Execute
+                lock (this.m_lockObject)
                 {
-                    // There are returned keys and we support simple mode returned inserts
-                    if (returnKeys.Any() && this.m_provider.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsReader))
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
+                    try
                     {
-                        using (var rdr = dbc.ExecuteReader())
-                            if (rdr.Read())
-                                foreach (var itm in returnKeys)
-                                {
-                                    object ov = this.m_provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
-                                    if (ov != null)
-                                        itm.SourceProperty.SetValue(value, ov);
-                                }
-                    }
-                    // There are returned keys and the provider requires an output parameter to hold the keys
-                    else if (returnKeys.Any() && this.m_provider.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsParms))
-                    {
-                        // Define output parameters
-                        foreach (var rt in returnKeys)
+                        // There are returned keys and we support simple mode returned inserts
+                        if (returnKeys.Any() && this.m_provider.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsReader))
                         {
-                            var parm = dbc.CreateParameter();
-                            parm.ParameterName = rt.Name;
-                            parm.DbType = this.m_provider.MapParameterType(rt.SourceProperty.PropertyType);
-                            parm.Direction = ParameterDirection.Output;
-                            dbc.Parameters.Add(parm);
-                        }
-
-                        dbc.ExecuteNonQuery();
-
-                        // Get the parameter values
-                        foreach (IDataParameter parm in dbc.Parameters)
-                        {
-                            if (parm.Direction != ParameterDirection.Output) continue;
-
-                            var itm = returnKeys.First(o => o.Name == parm.ParameterName);
-                            object ov = this.m_provider.ConvertValue(parm.Value, itm.SourceProperty.PropertyType);
-                            if (ov != null)
-                                itm.SourceProperty.SetValue(value, ov);
-                        }
-                    }
-                    else // Provider does not support returned keys
-                    {
-                        dbc.ExecuteNonQuery();
-
-                        // But... the query wants the keys so we have to query them back if the RETURNING clause fields aren't populated in the source object
-                        if (returnKeys.Count() > 0 &&
-                            returnKeys.Any(o => o.SourceProperty.GetValue(value) == (o.SourceProperty.PropertyType.IsValueType ? Activator.CreateInstance(o.SourceProperty.PropertyType) : null)))
-                        {
-                            if (!this.IsPreparedCommand(dbc))
-                                dbc.Dispose();
-
-                            var pkcols = tableMap.Columns.Where(o => o.IsPrimaryKey);
-                            var where = new SqlStatement<TModel>(this.m_provider);
-                            foreach (var pk in pkcols)
-                                where.And($"{pk.Name} = ?", pk.SourceProperty.GetValue(value));
-                            stmt = new SqlStatement<TModel>(this.m_provider).SelectFrom().Where(where);
-
-                            // Create command and exec
-                            dbc = this.m_provider.CreateCommand(this, stmt);
                             using (var rdr = dbc.ExecuteReader())
                                 if (rdr.Read())
                                     foreach (var itm in returnKeys)
@@ -1028,17 +975,71 @@ namespace SanteDB.OrmLite
                                             itm.SourceProperty.SetValue(value, ov);
                                     }
                         }
+                        // There are returned keys and the provider requires an output parameter to hold the keys
+                        else if (returnKeys.Any() && this.m_provider.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsParms))
+                        {
+                            // Define output parameters
+                            foreach (var rt in returnKeys)
+                            {
+                                var parm = dbc.CreateParameter();
+                                parm.ParameterName = rt.Name;
+                                parm.DbType = this.m_provider.MapParameterType(rt.SourceProperty.PropertyType);
+                                parm.Direction = ParameterDirection.Output;
+                                dbc.Parameters.Add(parm);
+                            }
+
+                            dbc.ExecuteNonQuery();
+
+                            // Get the parameter values
+                            foreach (IDataParameter parm in dbc.Parameters)
+                            {
+                                if (parm.Direction != ParameterDirection.Output) continue;
+
+                                var itm = returnKeys.First(o => o.Name == parm.ParameterName);
+                                object ov = this.m_provider.ConvertValue(parm.Value, itm.SourceProperty.PropertyType);
+                                if (ov != null)
+                                    itm.SourceProperty.SetValue(value, ov);
+                            }
+                        }
+                        else // Provider does not support returned keys
+                        {
+                            dbc.ExecuteNonQuery();
+
+                            // But... the query wants the keys so we have to query them back if the RETURNING clause fields aren't populated in the source object
+                            if (returnKeys.Count() > 0 &&
+                                returnKeys.Any(o => o.SourceProperty.GetValue(value) == (o.SourceProperty.PropertyType.IsValueType ? Activator.CreateInstance(o.SourceProperty.PropertyType) : null)))
+                            {
+                                if (!this.IsPreparedCommand(dbc))
+                                    dbc.Dispose();
+
+                                var pkcols = tableMap.Columns.Where(o => o.IsPrimaryKey);
+                                var where = new SqlStatement<TModel>(this.m_provider);
+                                foreach (var pk in pkcols)
+                                    where.And($"{pk.Name} = ?", pk.SourceProperty.GetValue(value));
+                                stmt = new SqlStatement<TModel>(this.m_provider).SelectFrom().Where(where);
+
+                                // Create command and exec
+                                dbc = this.m_provider.CreateCommand(this, stmt);
+                                using (var rdr = dbc.ExecuteReader())
+                                    if (rdr.Read())
+                                        foreach (var itm in returnKeys)
+                                        {
+                                            object ov = this.m_provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
+                                            if (ov != null)
+                                                itm.SourceProperty.SetValue(value, ov);
+                                        }
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
                     }
                 }
-                finally
-                {
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
-                }
-            }
 
-            return value;
-#if PERFMON
+                return value;
+#if DEBUG
             }
             finally
             {
@@ -1053,29 +1054,29 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Delete<TModel>(SqlStatement keyFilter)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            var keyColumnName = TableMapping.Get(typeof(TModel)).Columns.First(o => o.IsPrimaryKey);
-            var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where($"{keyColumnName.Name} IN (").Append(keyFilter).Append(")");
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
-                try
+                var keyColumnName = TableMapping.Get(typeof(TModel)).Columns.First(o => o.IsPrimaryKey);
+                var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where($"{keyColumnName.Name} IN (").Append(keyFilter).Append(")");
+                lock (this.m_lockObject)
                 {
-                    dbc.ExecuteNonQuery();
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
+                    try
+                    {
+                        dbc.ExecuteNonQuery();
+                    }
+                    finally
+                    {
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-                finally
-                {
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
-                }
-            }
 
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -1090,28 +1091,28 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Delete<TModel>(Expression<Func<TModel, bool>> where)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where(where);
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
-                try
+                var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where(where);
+                lock (this.m_lockObject)
                 {
-                    dbc.ExecuteNonQuery();
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
+                    try
+                    {
+                        dbc.ExecuteNonQuery();
+                    }
+                    finally
+                    {
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-                finally
-                {
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
-                }
-            }
 
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -1126,36 +1127,36 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Delete<TModel>(TModel obj)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            var tableMap = TableMapping.Get(typeof(TModel));
-            SqlStatement whereClause = this.CreateSqlStatement();
-            foreach (var itm in tableMap.PrimaryKey)
-            {
-                var itmValue = itm.SourceProperty.GetValue(obj);
-                whereClause.And($"{itm.Name} = ?", itmValue);
-            }
-
-            var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where(whereClause);
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
-                try
+                var tableMap = TableMapping.Get(typeof(TModel));
+                SqlStatement whereClause = this.CreateSqlStatement();
+                foreach (var itm in tableMap.PrimaryKey)
                 {
-                    dbc.ExecuteNonQuery();
+                    var itmValue = itm.SourceProperty.GetValue(obj);
+                    whereClause.And($"{itm.Name} = ?", itmValue);
                 }
-                finally
-                {
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
-                }
-            }
 
-#if PERFMON
+                var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where(whereClause);
+                lock (this.m_lockObject)
+                {
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
+                    try
+                    {
+                        dbc.ExecuteNonQuery();
+                    }
+                    finally
+                    {
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
+                }
+
+#if DEBUG
             }
             finally
             {
@@ -1170,69 +1171,69 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TModel Update<TModel>(TModel value)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            // Build the command
-            var tableMap = TableMapping.Get(typeof(TModel));
-            SqlStatement<TModel> query = this.CreateSqlStatement<TModel>().UpdateSet();
-            SqlStatement whereClause = this.CreateSqlStatement();
-            int nUpdatedColumns = 0;
-            foreach (var itm in tableMap.Columns)
-            {
-                var itmValue = itm.SourceProperty.GetValue(value);
+                // Build the command
+                var tableMap = TableMapping.Get(typeof(TModel));
+                SqlStatement<TModel> query = this.CreateSqlStatement<TModel>().UpdateSet();
+                SqlStatement whereClause = this.CreateSqlStatement();
+                int nUpdatedColumns = 0;
+                foreach (var itm in tableMap.Columns)
+                {
+                    var itmValue = itm.SourceProperty.GetValue(value);
 
-                if (itmValue == null ||
-                    !itm.IsNonNull &&
-                    itm.SourceProperty.PropertyType.StripNullable() == itm.SourceProperty.PropertyType &&
-                    (
-                    itmValue.Equals(default(Guid)) && !tableMap.OrmType.IsConstructedGenericType ||
-                    itmValue.Equals(default(DateTime)) ||
-                    itmValue.Equals(default(DateTimeOffset)) ||
-                    itmValue.Equals(default(Decimal))))
-                    itmValue = null;
+                    if (itmValue == null ||
+                        !itm.IsNonNull &&
+                        itm.SourceProperty.PropertyType.StripNullable() == itm.SourceProperty.PropertyType &&
+                        (
+                        itmValue.Equals(default(Guid)) && !tableMap.OrmType.IsConstructedGenericType ||
+                        itmValue.Equals(default(DateTime)) ||
+                        itmValue.Equals(default(DateTimeOffset)) ||
+                        itmValue.Equals(default(Decimal))))
+                        itmValue = null;
 
-                // Only update if specified
-                if (itmValue == null &&
-                    !itm.SourceSpecified(value))
-                    continue;
-                nUpdatedColumns++;
-                query.Append($"{itm.Name} = ? ", itmValue ?? DBNull.Value);
-                query.Append(",");
-                if (itm.IsPrimaryKey)
-                    whereClause.And($"{itm.Name} = ?", itmValue);
-            }
+                    // Only update if specified
+                    if (itmValue == null &&
+                        !itm.SourceSpecified(value))
+                        continue;
+                    nUpdatedColumns++;
+                    query.Append($"{itm.Name} = ? ", itmValue ?? DBNull.Value);
+                    query.Append(",");
+                    if (itm.IsPrimaryKey)
+                        whereClause.And($"{itm.Name} = ?", itmValue);
+                }
 
-            // Nothing being updated
-            if (nUpdatedColumns == 0)
-            {
-                m_tracer.TraceInfo("Nothing to update, will skip");
+                // Nothing being updated
+                if (nUpdatedColumns == 0)
+                {
+                    m_tracer.TraceInfo("Nothing to update, will skip");
+                    return value;
+                }
+
+                query.RemoveLast();
+                query.Where(whereClause);
+
+                // Now update
+                lock (this.m_lockObject)
+                {
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
+                    try
+                    {
+                        dbc.ExecuteNonQuery();
+                    }
+                    finally
+                    {
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
+                }
+
                 return value;
-            }
-
-            query.RemoveLast();
-            query.Where(whereClause);
-
-            // Now update
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
-                try
-                {
-                    dbc.ExecuteNonQuery();
-                }
-                finally
-                {
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
-                }
-            }
-
-            return value;
-#if PERFMON
+#if DEBUG
             }
             finally
             {
@@ -1247,41 +1248,41 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void UpdateAll<TModel>(Expression<Func<TModel, bool>> whereExpression, params Expression<Func<TModel, dynamic>>[] updateFuncs)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            // Build the command
-            var tableMap = TableMapping.Get(typeof(TModel));
-            var updateStatement = this.CreateSqlStatement<TModel>().UpdateSet() as SqlStatement;
-            var whereClause = this.CreateSqlStatement().Where(whereExpression);
-            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
-            foreach (var updateFunc in updateFuncs)
-            {
-                queryBuilder.Visit(updateFunc);
-                queryBuilder.SqlStatement.Append(",");
-            }
-            queryBuilder.SqlStatement.RemoveLast();
-            updateStatement = updateStatement.Append(queryBuilder.SqlStatement.Build()).Append(whereClause.Build());
-
-            // Now update
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, updateStatement);
-                try
+                // Build the command
+                var tableMap = TableMapping.Get(typeof(TModel));
+                var updateStatement = this.CreateSqlStatement<TModel>().UpdateSet() as SqlStatement;
+                var whereClause = this.CreateSqlStatement().Where(whereExpression);
+                var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
+                foreach (var updateFunc in updateFuncs)
                 {
-                    dbc.ExecuteNonQuery();
+                    queryBuilder.Visit(updateFunc);
+                    queryBuilder.SqlStatement.Append(",");
                 }
-                finally
-                {
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
-                }
-            }
+                queryBuilder.SqlStatement.RemoveLast();
+                updateStatement = updateStatement.Append(queryBuilder.SqlStatement.Build()).Append(whereClause.Build());
 
-#if PERFMON
+                // Now update
+                lock (this.m_lockObject)
+                {
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, updateStatement);
+                    try
+                    {
+                        dbc.ExecuteNonQuery();
+                    }
+                    finally
+                    {
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
+                }
+
+#if DEBUG
             }
             finally
             {
@@ -1296,27 +1297,27 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void ExecuteNonQuery(SqlStatement stmt)
         {
-#if PERFMON
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-            lock (this.m_lockObject)
-            {
-                var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                try
+                lock (this.m_lockObject)
                 {
-                    dbc.ExecuteNonQuery();
+                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
+                    try
+                    {
+                        dbc.ExecuteNonQuery();
+                    }
+                    finally
+                    {
+                        if (!this.IsPreparedCommand(dbc))
+                            dbc.Dispose();
+                    }
                 }
-                finally
-                {
-                    if (!this.IsPreparedCommand(dbc))
-                        dbc.Dispose();
-                }
-            }
 
-#if PERFMON
+#if DEBUG
             }
             finally
             {

@@ -3,8 +3,6 @@ using SanteDB.Persistence.Data.ADO.Data.Model.Acts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Entities;
 using System;
 
-
-
 namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
 {
     /// <summary>
@@ -12,7 +10,6 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
     /// </summary>
     public abstract class DbIdentifier : DbVersionedAssociation
     {
-
         /// <summary>
         /// Gets or sets the value.
         /// </summary>
@@ -38,13 +35,12 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
         /// Gets or sets the authority identifier.
         /// </summary>
         /// <value>The authority identifier.</value>
-        [Column("aut_id"), ForeignKey(typeof(DbAssigningAuthority), nameof(DbAssigningAuthority.Key)), AlwaysJoin]
+        [Column("aut_id"), ForeignKey(typeof(DbAssigningAuthority), nameof(DbAssigningAuthority.Key))]
         public Guid AuthorityKey
         {
             get;
             set;
         }
-
     }
 
     /// <summary>
@@ -53,7 +49,6 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
     [Table("ent_id_tbl")]
     public class DbEntityIdentifier : DbIdentifier
     {
-
         /// <summary>
         /// Gets or sets the key
         /// </summary>
@@ -63,7 +58,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
         /// <summary>
         /// Gets the source key
         /// </summary>
-        [Column("ent_id"), ForeignKey(typeof(DbEntity), nameof(DbEntity.Key))]
+        [Column("ent_id"), ForeignKey(typeof(DbEntityVersion), nameof(DbEntityVersion.Key))]
         public override Guid SourceKey { get; set; }
     }
 
@@ -86,4 +81,3 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
         public override Guid SourceKey { get; set; }
     }
 }
-

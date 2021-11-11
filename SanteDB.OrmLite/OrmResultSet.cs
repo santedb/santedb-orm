@@ -335,12 +335,31 @@ namespace SanteDB.OrmLite
         /// </summary>
         public OrmResultSet<TElement> Select<TElement>(String field)
         {
-            var parm = Expression.Parameter(typeof(TData));
-            var filterExpression = Expression.Lambda<Func<TData, TElement>>(
-                Expression.Convert(Expression.MakeMemberAccess(parm, typeof(TData).GetProperty(field)), typeof(TElement)),
-                parm
-                );
-            return this.Select<TElement>(filterExpression);
+            if (typeof(CompositeResult).IsAssignableFrom(typeof(TData)))
+            {
+                // Get the appropriate mapping for the TData field
+                foreach(var itm in typeof(TData).GetGenericArguments())
+                {
+                    var mapping = TableMapping.Get(itm).GetColumn(field);
+                    if(mapping != null)
+                    {
+                        return new OrmResultSet<TElement>(this.Context, this.Context.CreateSqlStatement($"SELECT I.{mapping.Name} V FROM (").Append(this.Statement.Build()).Append(") AS I"));
+                    }
+                }
+                throw new InvalidOperationException(String.Format(ErrorMessages.FIELD_NOT_FOUND, field));
+            }
+            else
+            {
+                var mapping = TableMapping.Get(typeof(TData)).GetColumn(field);
+                return new OrmResultSet<TElement>(this.Context, this.Context.CreateSqlStatement($"SELECT I.{mapping.Name} V FROM (").Append(this.Statement.Build()).Append(") AS I"));
+            }
+
+            //var parm = Expression.Parameter(typeof(TData));
+            //var filterExpression = Expression.Lambda<Func<TData, TElement>>(
+            //    Expression.Convert(Expression.MakeMemberAccess(parm, typeof(TData).GetProperty(field)), typeof(TElement)),
+            //    parm
+            //    );
+            //return this.Select<TElement>(filterExpression);
         }
 
         /// <summary>
