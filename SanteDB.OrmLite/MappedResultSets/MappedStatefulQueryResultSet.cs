@@ -247,7 +247,21 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// </summary>
         public IQueryResultSet<TData> Union(IQueryResultSet<TData> other)
         {
-            throw new NotSupportedException();
+            if (other is MappedStatefulQueryResultSet<TData> tOther)
+            {
+                // Nab the query result sets and intersect them
+                var queryUuid = Guid.NewGuid();
+                var results = this.m_provider.QueryPersistence.GetQueryResults(tOther.m_queryId, 0, tOther.m_count.Value)
+                    .Union(this.m_provider.QueryPersistence.GetQueryResults(this.m_queryId, 0, this.m_count.Value));
+                this.m_provider.QueryPersistence.RegisterQuerySet(queryUuid, results, null, results.Count());
+                this.m_provider.QueryPersistence.AbortQuerySet(this.m_queryId);
+                this.m_provider.QueryPersistence.AbortQuerySet(tOther.m_queryId);
+                return new MappedStatefulQueryResultSet<TData>(this.m_provider, this.m_queryId);
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.ARGUMENT_INCOMPATIBLE_TYPE, typeof(MappedStatefulQueryResultSet<TData>), other.GetType()));
+            }
         }
 
         /// <summary>
@@ -341,6 +355,56 @@ namespace SanteDB.OrmLite.MappedResultSets
             {
                 yield return (TReturn)selector(element); ;
             }
+        }
+
+        public IQueryResultSet OrderBy(Expression expression)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IQueryResultSet OrderByDescending(Expression expression)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Intersect this set with the other set
+        /// </summary>
+        public IQueryResultSet Intersect(IQueryResultSet other)
+        {
+            if (other is MappedStatefulQueryResultSet<TData> tother)
+            {
+                return this.Intersect(tother);
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.ARGUMENT_INCOMPATIBLE_TYPE, typeof(MappedStatefulQueryResultSet<TData>), other.GetType()));
+            }
+        }
+
+        /// <summary>
+        /// Union this set with other
+        /// </summary>
+        public IQueryResultSet Union(IQueryResultSet other)
+        {
+            if (other is MappedStatefulQueryResultSet<TData> tother)
+            {
+                return this.Union(tother);
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.ARGUMENT_INCOMPATIBLE_TYPE, typeof(MappedStatefulQueryResultSet<TData>), other.GetType()));
+            }
+        }
+
+        /// <summary>
+        /// Return only those results
+        /// </summary>
+        /// <typeparam name="TType"></typeparam>
+        /// <returns></returns>
+        public IEnumerable<TType> OfType<TType>()
+        {
+            throw new NotImplementedException();
         }
     }
 }

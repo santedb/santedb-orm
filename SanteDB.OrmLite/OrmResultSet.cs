@@ -338,10 +338,10 @@ namespace SanteDB.OrmLite
             if (typeof(CompositeResult).IsAssignableFrom(typeof(TData)))
             {
                 // Get the appropriate mapping for the TData field
-                foreach(var itm in typeof(TData).GetGenericArguments())
+                foreach (var itm in typeof(TData).GetGenericArguments())
                 {
                     var mapping = TableMapping.Get(itm).GetColumn(field);
-                    if(mapping != null)
+                    if (mapping != null)
                     {
                         return new OrmResultSet<TElement>(this.Context, this.Context.CreateSqlStatement($"SELECT I.{mapping.Name} V FROM (").Append(this.Statement.Build()).Append(") AS I"));
                     }
@@ -366,5 +366,22 @@ namespace SanteDB.OrmLite
         /// Distinct objects only
         /// </summary>
         IOrmResultSet IOrmResultSet.Distinct() => this.Distinct();
+
+        /// <summary>
+        /// Filter expression with a SELECT * FROM (XXXXXX) WHERE
+        /// </summary>
+        public IOrmResultSet Where(Expression whereExpression)
+        {
+            var stmt = this.Statement.Build();
+            if (whereExpression is Expression<Func<TData, bool>> whereExpressionStrong)
+            {
+                return new OrmResultSet<TData>(this.Context,
+                    this.Context.CreateSqlStatement("SELECT * FROM (").Append(stmt).Append(") I ").Where<TData>(whereExpressionStrong));
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, typeof(Expression<Func<TData, bool>>), whereExpression.GetType()));
+            }
+        }
     }
 }

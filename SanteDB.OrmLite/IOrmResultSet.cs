@@ -92,6 +92,11 @@ namespace SanteDB.OrmLite
         IOrmResultSet OrderByDescending(Expression orderExpression);
 
         /// <summary>
+        /// Wraps the query in this result set in another query with  a where clause matching <paramref name="whereExpression"/>
+        /// </summary>
+        IOrmResultSet Where(Expression whereExpression);
+
+        /// <summary>
         /// Union keys
         /// </summary>
         IOrmResultSet Union(IOrmResultSet other);

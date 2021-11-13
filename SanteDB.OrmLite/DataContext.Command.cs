@@ -19,6 +19,7 @@
  * Date: 2021-8-5
  */
 
+using SanteDB.Core.i18n;
 using SanteDB.Core.Model;
 using SanteDB.OrmLite.Providers;
 using System;
@@ -1246,7 +1247,19 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Updates the specified object
         /// </summary>
-        public void UpdateAll<TModel>(Expression<Func<TModel, bool>> whereExpression, params Expression<Func<TModel, dynamic>>[] updateFuncs)
+        public void UpdateAll<TModel>(Expression<Func<TModel, bool>> whereExpression, params Expression<Func<TModel, dynamic>>[] updateStatements)
+        {
+            this.UpdateAll<TModel, TModel>(whereExpression, updateStatements);
+        }
+
+        /// <summary>
+        /// Update all methods
+        /// </summary>
+        /// <typeparam name="TModel">The type of object to update</typeparam>
+        /// <typeparam name="TUpdateModel">The type that update statements should be treated as</typeparam>
+        /// <param name="whereExpression">The filter expression</param>
+        /// <param name="updateStatements">The update statements to append to the SQL clause</param>
+        public void UpdateAll<TModel, TUpdateModel>(Expression<Func<TModel, bool>> whereExpression, params Expression<Func<TUpdateModel, dynamic>>[] updateStatements)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -1254,12 +1267,18 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
+                // Is TModel assignable from TUpdateMode
+                if (typeof(TModel) != typeof(TUpdateModel) && !typeof(TUpdateModel).IsAssignableFrom(typeof(TModel)))
+                {
+                    throw new InvalidOperationException(String.Format(ErrorMessages.ARGUMENT_INCOMPATIBLE_TYPE, typeof(TUpdateModel), typeof(TModel)));
+                }
+
                 // Build the command
                 var tableMap = TableMapping.Get(typeof(TModel));
                 var updateStatement = this.CreateSqlStatement<TModel>().UpdateSet() as SqlStatement;
                 var whereClause = this.CreateSqlStatement().Where(whereExpression);
                 var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
-                foreach (var updateFunc in updateFuncs)
+                foreach (var updateFunc in updateStatements)
                 {
                     queryBuilder.Visit(updateFunc);
                     queryBuilder.SqlStatement.Append(",");

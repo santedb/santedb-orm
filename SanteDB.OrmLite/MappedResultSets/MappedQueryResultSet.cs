@@ -74,7 +74,8 @@ namespace SanteDB.OrmLite.MappedResultSets
         {
             if (this.m_resultSet != null)
             {
-                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Where)));
+                // This is in effect an intersect
+                return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Where(query));
             }
             else
             {
@@ -509,6 +510,80 @@ namespace SanteDB.OrmLite.MappedResultSets
             foreach (var element in this)
             {
                 yield return (TReturn)selector(element);
+            }
+        }
+
+        /// <summary>
+        /// Order by a generic expression
+        /// </summary>
+        public IQueryResultSet OrderBy(Expression expression)
+        {
+            if (expression is Expression<Func<TElement, dynamic>> le)
+            {
+                return this.OrderBy(le);
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, typeof(Expression<Func<TElement, dynamic>>), expression.GetType()));
+            }
+        }
+
+        /// <summary>
+        /// Order by descending order
+        /// </summary>
+        public IQueryResultSet OrderByDescending(Expression expression)
+        {
+            if (expression is Expression<Func<TElement, dynamic>> le)
+            {
+                return this.OrderBy(le);
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, typeof(Expression<Func<TElement, dynamic>>), expression.GetType()));
+            }
+        }
+
+        /// <summary>
+        /// Intersect the other result set - note this can only be of same type of set
+        /// </summary>
+        public IQueryResultSet Intersect(IQueryResultSet other)
+        {
+            if (other is MappedQueryResultSet<TElement> mq)
+            {
+                return this.Intersect(mq);
+            }
+            else
+            {
+                throw new ArgumentOutOfRangeException(nameof(other), String.Format(ErrorMessages.ARGUMENT_INVALID_TYPE, typeof(MappedQueryResultSet<TElement>), other.GetType()));
+            }
+        }
+
+        /// <summary>
+        /// Union the other result set - note this can only be of the same type of set
+        /// </summary>
+        public IQueryResultSet Union(IQueryResultSet other)
+        {
+            if (other is MappedQueryResultSet<TElement> mq)
+            {
+                return this.Union(mq);
+            }
+            else
+            {
+                throw new ArgumentOutOfRangeException(nameof(other), String.Format(ErrorMessages.ARGUMENT_INVALID_TYPE, typeof(MappedQueryResultSet<TElement>), other.GetType()));
+            }
+        }
+
+        /// <summary>
+        /// Return only those results in the result set which are of type <typeparamref name="TType"/>
+        /// </summary>
+        public IEnumerable<TType> OfType<TType>()
+        {
+            foreach (var itm in this)
+            {
+                if (itm is TType typ)
+                {
+                    yield return typ;
+                }
             }
         }
     }
