@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Configuration;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -8,6 +9,7 @@ using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 
 namespace SanteDB.OrmLite.Tests
 {
+    [ExcludeFromCodeCoverage]
     [TestFixture(Category = "ORM")]
     public class IQueryableTest
     {
