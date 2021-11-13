@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -14,6 +15,7 @@ using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 
 namespace SanteDB.OrmLite.Tests
 {
+    [ExcludeFromCodeCoverage]
     [TestFixture(Category = "ORM")]
     //[DeploymentItem(@"santedb_test.fdb")]
     //[DeploymentItem(@"fbclient.dll")]
