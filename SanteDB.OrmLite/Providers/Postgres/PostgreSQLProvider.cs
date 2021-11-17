@@ -2,22 +2,23 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
+
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Interfaces;
@@ -42,7 +43,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// </summary>
     public class PostgreSQLProvider : IDbMonitorProvider
     {
-
         // Last rr host used
         private int m_lastRrHost = 0;
 
@@ -125,7 +125,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public DataContext GetReadonlyConnection()
         {
-
             var conn = this.GetProviderFactory().CreateConnection();
 
             DbConnectionStringBuilder dbst = new DbConnectionStringBuilder();
@@ -173,7 +172,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
             else
                 conn.ConnectionString = dbst.ConnectionString;
 
-
             this.m_tracer.TraceEvent(EventLevel.Verbose, "Created readonly connection: {0}", conn.ConnectionString);
             return new DataContext(this, conn, true);
         }
@@ -199,7 +197,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
 #if DB_DEBUG
             if(System.Diagnostics.Debugger.IsAttached)
                 this.Explain(context, CommandType.Text, finStmt.SQL, finStmt.Arguments.ToArray());
-#endif 
+#endif
 
             return this.CreateCommandInternal(context, CommandType.Text, finStmt.SQL, finStmt.Arguments.ToArray());
         }
@@ -218,7 +216,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 }
         }
 
-
         // Parameter regex
         private readonly Regex m_parmRegex = new Regex(@"\?");
 
@@ -227,15 +224,12 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         private IDbCommand CreateCommandInternal(DataContext context, CommandType type, String sql, params object[] parms)
         {
-
             var pno = 0;
 
             sql = this.m_parmRegex.Replace(sql, o => $"@parm{pno++}");
 
             if (pno != parms.Length && type == CommandType.Text)
                 throw new ArgumentOutOfRangeException(nameof(sql), $"Parameter mismatch query expected {pno} but {parms.Length} supplied");
-
-
 
             IDbCommand cmd = null;
             if (sql.StartsWith("WITH", StringComparison.OrdinalIgnoreCase) ||
@@ -249,7 +243,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 cmd.CommandText = sql;
 
                 if (this.TraceSql)
+                {
                     this.m_tracer.TraceEvent(EventLevel.Verbose, "[{0}] {1}", type, sql);
+                }
 
                 pno = 0;
                 foreach (var itm in parms)
@@ -265,6 +261,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
                         parm.Value = DBNull.Value;
                     else if (value?.GetType().IsEnum == true)
                         parm.Value = (int)value;
+                    else if (value is DateTimeOffset dto)
+                    {
+                        parm.Value = dto.ToUniversalTime();
+                    }
                     else
                         parm.Value = itm;
 
@@ -275,7 +275,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     if (this.TraceSql)
                         this.m_tracer.TraceEvent(EventLevel.Verbose, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
 
-
                     cmd.Parameters.Add(parm);
                 }
 
@@ -284,7 +283,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 {
                     if (!cmd.Parameters.OfType<IDataParameter>().Any(o => o.DbType == DbType.Object) &&
                         context.Transaction == null)
+                    {
                         cmd.Prepare();
+                    }
 
                     context.AddPreparedCommand(cmd);
                 }
@@ -306,21 +307,47 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public DbType MapParameterType(Type type)
         {
-            if (type == null || type == typeof(DBNull)) return DbType.Object;
-            else if (type.StripNullable() == typeof(String)) return System.Data.DbType.String;
-            else if (type.StripNullable() == typeof(DateTime)) return System.Data.DbType.DateTime;
-            else if (type.StripNullable() == typeof(DateTimeOffset)) return DbType.DateTimeOffset;
-            else if (type.StripNullable() == typeof(Int32)) return System.Data.DbType.Int32;
-            else if (type.StripNullable() == typeof(Int64)) return System.Data.DbType.Int64;
-            else if (type.StripNullable() == typeof(Boolean)) return System.Data.DbType.Boolean;
-            else if (type.StripNullable() == typeof(byte[]))
-                return System.Data.DbType.Binary;
-            else if (type.StripNullable() == typeof(float) || type.StripNullable() == typeof(double)) return System.Data.DbType.Double;
-            else if (type.StripNullable() == typeof(Decimal)) return System.Data.DbType.Decimal;
-            else if (type.StripNullable() == typeof(Guid)) return DbType.Guid;
-            else if (type.StripNullable().IsEnum) return DbType.Int32;
-            else
-                throw new ArgumentOutOfRangeException(nameof(type), $"Can't map parameter type {type.Name}");
+            // Null check
+            if (type == null) return DbType.Object;
+
+            switch (type.StripNullable().Name)
+            {
+                case nameof(DBNull):
+                    return DbType.Object;
+
+                case nameof(String):
+                    return DbType.String;
+
+                case nameof(DateTime):
+                    return System.Data.DbType.DateTime;
+
+                case nameof(DateTimeOffset):
+                    return DbType.DateTimeOffset;
+
+                case nameof(Int32):
+                    return System.Data.DbType.Int32;
+
+                case nameof(Int64):
+                    return System.Data.DbType.Int64;
+
+                case nameof(Boolean):
+                    return System.Data.DbType.Boolean;
+
+                case nameof(Single):
+                case nameof(Double):
+                    return System.Data.DbType.Double;
+
+                case nameof(Decimal):
+                    return DbType.Decimal;
+
+                case nameof(Guid):
+                    return DbType.Guid;
+
+                default:
+                    if (type.StripNullable() == typeof(byte[])) return System.Data.DbType.Binary;
+                    else if (type.StripNullable().IsEnum) return DbType.Int32;
+                    else throw new ArgumentOutOfRangeException(nameof(type), $"Can't map parameter type {type.Name}");
+            }
         }
 
         /// <summary>
@@ -408,16 +435,22 @@ namespace SanteDB.OrmLite.Providers.Postgres
             {
                 case SqlKeyword.ILike:
                     return " ILIKE ";
+
                 case SqlKeyword.Like:
                     return " LIKE ";
+
                 case SqlKeyword.Lower:
                     return " LOWER ";
+
                 case SqlKeyword.Upper:
                     return " UPPER ";
+
                 case SqlKeyword.False:
                     return " FALSE ";
+
                 case SqlKeyword.True:
                     return " TRUE ";
+
                 default:
                     throw new NotImplementedException();
             }
@@ -432,24 +465,34 @@ namespace SanteDB.OrmLite.Providers.Postgres
             {
                 case SchemaPropertyType.Binary:
                     return "VARBINARY";
+
                 case SchemaPropertyType.Boolean:
                     return "BOOLEAN";
+
                 case SchemaPropertyType.Date:
                     return "DATE";
+
                 case SchemaPropertyType.DateTime:
                     return "TIMESTAMP";
+
                 case SchemaPropertyType.TimeStamp:
                     return "TIMESTAMPTZ";
+
                 case SchemaPropertyType.Decimal:
                     return "DECIMAL";
+
                 case SchemaPropertyType.Float:
                     return "FLOAT";
+
                 case SchemaPropertyType.Integer:
                     return "INTEGER";
+
                 case SchemaPropertyType.String:
                     return "VARCHAR(128)";
+
                 case SchemaPropertyType.Uuid:
                     return "UUID";
+
                 default:
                     return null;
             }
@@ -497,7 +540,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
             }
         }
 
-
         /// <summary>
         /// Get reset sequence command
         /// </summary>
@@ -505,6 +547,5 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             return new SqlStatement(this, $"SELECT setval('{sequenceName}', {sequenceValue})");
         }
-
     }
 }
