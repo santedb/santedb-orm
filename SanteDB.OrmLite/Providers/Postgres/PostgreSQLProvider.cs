@@ -456,48 +456,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
         }
 
         /// <summary>
-        /// Map datatype
-        /// </summary>
-        public string MapDatatype(SchemaPropertyType type)
-        {
-            switch (type)
-            {
-                case SchemaPropertyType.Binary:
-                    return "VARBINARY";
-
-                case SchemaPropertyType.Boolean:
-                    return "BOOLEAN";
-
-                case SchemaPropertyType.Date:
-                    return "DATE";
-
-                case SchemaPropertyType.DateTime:
-                    return "TIMESTAMP";
-
-                case SchemaPropertyType.TimeStamp:
-                    return "TIMESTAMPTZ";
-
-                case SchemaPropertyType.Decimal:
-                    return "DECIMAL";
-
-                case SchemaPropertyType.Float:
-                    return "FLOAT";
-
-                case SchemaPropertyType.Integer:
-                    return "INTEGER";
-
-                case SchemaPropertyType.String:
-                    return "VARCHAR(128)";
-
-                case SchemaPropertyType.Uuid:
-                    return "UUID";
-
-                default:
-                    return null;
-            }
-        }
-
-        /// <summary>
         /// Gets the filter function
         /// </summary>
         public IDbFilterFunction GetFilterFunction(string name)
