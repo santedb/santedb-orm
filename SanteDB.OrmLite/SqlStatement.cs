@@ -72,7 +72,8 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Gets the constructed or set SQL
         /// </summary>
-        public string SQL { get { return this.m_sql; } }
+        public string SQL
+        { get { return this.m_sql; } }
 
         /// <summary>
         /// Creates a new empty SQL statement
@@ -257,7 +258,17 @@ namespace SanteDB.OrmLite
         /// </summary>
         protected MemberInfo GetMember(Expression expression)
         {
-            if (expression is MemberExpression) return (expression as MemberExpression).Member;
+            if (expression is MemberExpression mex)
+            {
+                if (mex.Member.Name == "Value" && mex.Expression.Type.IsGenericType && mex.Expression.Type.GetGenericTypeDefinition() == typeof(Nullable<>))
+                {
+                    return GetMember(mex.Expression);
+                }
+                else
+                {
+                    return mex.Member;
+                }
+            }
             else if (expression is UnaryExpression) return this.GetMember((expression as UnaryExpression).Operand);
             else throw new InvalidOperationException($"{expression} not supported, please use a member access expression");
         }
@@ -425,7 +436,8 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Gets the table type
         /// </summary>
-        public Type TableType { get { return typeof(T); } }
+        public Type TableType
+        { get { return typeof(T); } }
 
         /// <summary>
         /// Creates a new empty SQL statement
