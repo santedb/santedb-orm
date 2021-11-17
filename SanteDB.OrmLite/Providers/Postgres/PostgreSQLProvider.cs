@@ -242,7 +242,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 cmd.CommandText = sql;
 
                 if (this.TraceSql)
+                {
                     this.m_tracer.TraceEvent(EventLevel.Verbose, "[{0}] {1}", type, sql);
+                }
 
                 pno = 0;
                 foreach (var itm in parms)
@@ -258,6 +260,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
                         parm.Value = DBNull.Value;
                     else if (value?.GetType().IsEnum == true)
                         parm.Value = (int)value;
+                    else if (value is DateTimeOffset dto)
+                    {
+                        parm.Value = dto.ToUniversalTime();
+                    }
                     else
                         parm.Value = itm;
 
@@ -276,7 +282,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 {
                     if (!cmd.Parameters.OfType<IDataParameter>().Any(o => o.DbType == DbType.Object) &&
                         context.Transaction == null)
+                    {
                         cmd.Prepare();
+                    }
 
                     context.AddPreparedCommand(cmd);
                 }
@@ -298,21 +306,47 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public DbType MapParameterType(Type type)
         {
-            if (type == null || type == typeof(DBNull)) return DbType.Object;
-            else if (type.StripNullable() == typeof(String)) return System.Data.DbType.String;
-            else if (type.StripNullable() == typeof(DateTime)) return System.Data.DbType.DateTime;
-            else if (type.StripNullable() == typeof(DateTimeOffset)) return DbType.DateTimeOffset;
-            else if (type.StripNullable() == typeof(Int32)) return System.Data.DbType.Int32;
-            else if (type.StripNullable() == typeof(Int64)) return System.Data.DbType.Int64;
-            else if (type.StripNullable() == typeof(Boolean)) return System.Data.DbType.Boolean;
-            else if (type.StripNullable() == typeof(byte[]))
-                return System.Data.DbType.Binary;
-            else if (type.StripNullable() == typeof(float) || type.StripNullable() == typeof(double)) return System.Data.DbType.Double;
-            else if (type.StripNullable() == typeof(Decimal)) return System.Data.DbType.Decimal;
-            else if (type.StripNullable() == typeof(Guid)) return DbType.Guid;
-            else if (type.StripNullable().IsEnum) return DbType.Int32;
-            else
-                throw new ArgumentOutOfRangeException(nameof(type), $"Can't map parameter type {type.Name}");
+            // Null check
+            if (type == null) return DbType.Object;
+
+            switch (type.StripNullable().Name)
+            {
+                case nameof(DBNull):
+                    return DbType.Object;
+
+                case nameof(String):
+                    return DbType.String;
+
+                case nameof(DateTime):
+                    return System.Data.DbType.DateTime;
+
+                case nameof(DateTimeOffset):
+                    return DbType.DateTimeOffset;
+
+                case nameof(Int32):
+                    return System.Data.DbType.Int32;
+
+                case nameof(Int64):
+                    return System.Data.DbType.Int64;
+
+                case nameof(Boolean):
+                    return System.Data.DbType.Boolean;
+
+                case nameof(Single):
+                case nameof(Double):
+                    return System.Data.DbType.Double;
+
+                case nameof(Decimal):
+                    return DbType.Decimal;
+
+                case nameof(Guid):
+                    return DbType.Guid;
+
+                default:
+                    if (type.StripNullable() == typeof(byte[])) return System.Data.DbType.Binary;
+                    else if (type.StripNullable().IsEnum) return DbType.Int32;
+                    else throw new ArgumentOutOfRangeException(nameof(type), $"Can't map parameter type {type.Name}");
+            }
         }
 
         /// <summary>
@@ -418,6 +452,48 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
                 default:
                     throw new NotImplementedException();
+            }
+        }
+
+        /// <summary>
+        /// Map datatype
+        /// </summary>
+        public string MapDatatype(SchemaPropertyType type)
+        {
+            switch (type)
+            {
+                case SchemaPropertyType.Binary:
+                    return "VARBINARY";
+
+                case SchemaPropertyType.Boolean:
+                    return "BOOLEAN";
+
+                case SchemaPropertyType.Date:
+                    return "DATE";
+
+                case SchemaPropertyType.DateTime:
+                    return "TIMESTAMP";
+
+                case SchemaPropertyType.TimeStamp:
+                    return "TIMESTAMPTZ";
+
+                case SchemaPropertyType.Decimal:
+                    return "DECIMAL";
+
+                case SchemaPropertyType.Float:
+                    return "FLOAT";
+
+                case SchemaPropertyType.Integer:
+                    return "INTEGER";
+
+                case SchemaPropertyType.String:
+                    return "VARCHAR(128)";
+
+                case SchemaPropertyType.Uuid:
+                    return "UUID";
+
+                default:
+                    return null;
             }
         }
 
