@@ -19,8 +19,10 @@
  * Date: 2021-8-5
  */
 
+using System.Reflection;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model;
+using SanteDB.OrmLite.Attributes;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
@@ -1134,6 +1136,7 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
+
                 var tableMap = TableMapping.Get(typeof(TModel));
                 SqlStatement whereClause = this.CreateSqlStatement();
                 foreach (var itm in tableMap.PrimaryKey)
