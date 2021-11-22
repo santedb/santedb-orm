@@ -17,17 +17,6 @@ namespace SanteDB.OrmLite.Tests
 {
     [ExcludeFromCodeCoverage]
     [TestFixture(Category = "ORM")]
-    //[DeploymentItem(@"santedb_test.fdb")]
-    //[DeploymentItem(@"fbclient.dll")]
-    //[DeploymentItem(@"firebird.conf")]
-    //[DeploymentItem(@"firebird.msg")]
-    //[DeploymentItem(@"ib_util.dll")]
-    //[DeploymentItem(@"icudt52.dll")]
-    //[DeploymentItem(@"icudt52l.dat")]
-    //[DeploymentItem(@"icuin52.dll")]
-    //[DeploymentItem(@"icuuc52.dll")]
-    //[DeploymentItem(@"plugins\engine12.dll", "plugins")]
-    //[DeploymentItem(@"FirebirdSql.Data.FirebirdClient.dll")]
     public class QueryBuildingTest
     {
         // Provider for unit tests
@@ -43,7 +32,6 @@ namespace SanteDB.OrmLite.Tests
               "DataDirectory",
               Path.Combine(TestContext.CurrentContext.TestDirectory, string.Empty));
         }
-
 
         /// <summary>
         /// Tests that the query builder can create an IN[] clause
@@ -64,7 +52,6 @@ namespace SanteDB.OrmLite.Tests
 
                 var systemQuery = context.Query<DbSecurityPolicy>(o => uuids.Contains(o.Key));
                 Assert.AreEqual(0, systemQuery.Count());
-
             }
         }
     }
