@@ -2,36 +2,38 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
+
 using System;
 using System.Text.RegularExpressions;
 using System.Xml;
 
 namespace SanteDB.OrmLite.Providers.Firebird
 {
-
     /// <summary>
-    /// Diff function
+    /// Provides a date-difference function for Firebird
     /// </summary>
-    /// <example>
-    /// ?dateOfBirth=:(diff|2018-01-01)&lt;3w
+    /// <remarks>This class or filter function converts the <c>date_diff</c> expression tree statement to IBSQL equivalent</remarks>
+    /// <example><code>
+    /// ?dateOfBirth=:(date_diff|2018-01-01)&lt;3w
+    /// </code>
     /// </example>
-    public class PostgreDateDiffFunction : IDbFilterFunction
+    public class FirebirdDateDiffFunction : IDbFilterFunction
     {
         /// <summary>
         /// Get the name for the function
@@ -39,7 +41,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         public string Name => "date_diff";
 
         /// <summary>
-        /// Provider 
+        /// Provider
         /// </summary>
         public string Provider => "FirebirdSQL";
 
@@ -63,18 +65,23 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     case "y":
                         unit = "year";
                         break;
+
                     case "M":
                         unit = "month";
                         break;
+
                     case "d":
                         unit = "day";
                         break;
+
                     case "h":
                         unit = "hour";
                         break;
+
                     case "m":
                         unit = "minute";
                         break;
+
                     case "s":
                         unit = "second";
                         break;
@@ -99,14 +106,15 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 }
             }
         }
-
     }
 
     /// <summary>
-    /// Age function
+    /// Firebird Age Function
     /// </summary>
-    /// <example>
-    /// ?dateOfBirth=:(age)&lt;P3Y2DT4H2M
+    /// <remarks>This method is an <see cref="IDbFilterFunction"/> which converts the <c>age</c> HDSI expression tree
+    /// expression in IBSQL</remarks>
+    /// <example><code>
+    /// ?dateOfBirth=:(age)&lt;P3Y2DT4H2M</code>
     /// </example>
     public class PostgreAgeFunction : IDbFilterFunction
     {
@@ -116,7 +124,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         public string Name => "age";
 
         /// <summary>
-        /// Provider 
+        /// Provider
         /// </summary>
         public string Provider => "FirebirdSQL";
 
@@ -135,7 +143,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     return current.Append($"ABS(DATEDIFF(millisecond, {filterColumn}, cast(? as TIMESTAMP))) {op} {timespan.TotalSeconds}", QueryBuilder.CreateParameterValue(parms[0], operandType));
                 else
                     return current.Append($"ABS(DATEDIFF(millisecond, {filterColumn}, CURRENT_TIMESTAMP))) {op} {timespan.TotalSeconds}");
-
             }
             else
             {
@@ -155,6 +162,5 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 }
             }
         }
-
     }
 }

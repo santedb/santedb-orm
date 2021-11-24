@@ -2,22 +2,23 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
+
 using SanteDB.Core;
 using SanteDB.Core.Configuration;
 using SanteDB.Core.Configuration.Data;
@@ -100,6 +101,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             connectionString.SetComponent("client library", "fbclient.dll");
             return connectionString;
         }
+
         /// <summary>
         /// Create the specified database
         /// </summary>
@@ -113,13 +115,13 @@ namespace SanteDB.OrmLite.Providers.Firebird
             if (fbConnectionType == null)
                 throw new InvalidOperationException("Cannot find FirebirdSQL provider");
 
-            var createDbMethod = fbConnectionType.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).SingleOrDefault(o => o.Name == "CreateDatabase" && o.GetParameters().Length == 2);
+            var createDbMethod = fbConnectionType.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).SingleOrDefault(o => o.Name == "CreateDatabase" && o.GetParameters().Length == 4);
             if (createDbMethod == null)
                 throw new InvalidOperationException("Cannot find FirebirdSQL CreateDatabase method. Perhaps this is an invalid version of ADO.NET provider");
             var dbPath = Path.ChangeExtension(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), databaseName), "fdb");
             dbPath = dbPath.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString());
             connectionString.SetComponent("initial catalog", dbPath);
-            createDbMethod.Invoke(null, new object[] { connectionString.ToString(), false });
+            createDbMethod.Invoke(null, new object[] { connectionString.ToString(), 4096, true, false });
             connectionString.SetComponent("initial catalog", Path.GetFileName(dbPath));
 
             return connectionString;

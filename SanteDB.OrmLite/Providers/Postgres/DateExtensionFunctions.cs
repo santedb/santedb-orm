@@ -26,10 +26,12 @@ using System.Xml;
 namespace SanteDB.OrmLite.Providers.Postgres
 {
     /// <summary>
-    /// Diff function
+    /// Date difference function for PostgreSQL
     /// </summary>
-    /// <example>
-    /// ?dateOfBirth=:(diff|2018-01-01)&lt;3w
+    /// <remarks>This method converts the HDSI <c>date_diff</c> function from the HDSI expression tree
+    /// into PL/PGSQL</remarks>
+    /// <example><code>
+    /// ?dateOfBirth=:(diff|2018-01-01)&lt;3w</code>
     /// </example>
     public class PostgreDateDiffFunction : IDbFilterFunction
     {
@@ -111,10 +113,12 @@ namespace SanteDB.OrmLite.Providers.Postgres
     }
 
     /// <summary>
-    /// Age function
+    /// Age function for PostgreSQL
     /// </summary>
-    /// <example>
-    /// ?dateOfBirth=:(age)&lt;P3Y2DT4H2M
+    /// <remarks>This class converts the <c>age</c> HDSI expression tree into a PL/PGSQL
+    /// statement.</remarks>
+    /// <example><code>
+    /// ?dateOfBirth=:(age)&lt;P3Y2DT4H2M</code>
     /// </example>
     public class PostgreAgeFunction : IDbFilterFunction
     {
