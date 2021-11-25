@@ -20,6 +20,7 @@
  */
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 using System.Xml;
 
@@ -31,6 +32,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// <example>
     /// ?dateOfBirth=:(diff|2018-01-01)&lt;3w
     /// </example>
+    [ExcludeFromCodeCoverage]
     public class PostgreDateDiffFunction : IDbFilterFunction
     {
         /// <summary>
@@ -116,6 +118,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// <example>
     /// ?dateOfBirth=:(age)&lt;P3Y2DT4H2M
     /// </example>
+    [ExcludeFromCodeCoverage]
     public class PostgreAgeFunction : IDbFilterFunction
     {
         /// <summary>

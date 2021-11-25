@@ -30,7 +30,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         private Guid m_queryId;
 
         // Laste count
-        private int? m_count;
+        private int m_count;
 
         // Last offset
         private int m_offset;
@@ -38,17 +38,18 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Creates a new persistence collection
         /// </summary>
-        internal MappedStatefulQueryResultSet(IMappedQueryProvider<TData> dataProvider, Guid queryId)
+        internal MappedStatefulQueryResultSet(IMappedQueryProvider<TData> dataProvider, Guid queryId, int count)
         {
             this.m_provider = dataProvider;
             this.m_context = dataProvider.Provider.GetReadonlyConnection();
             this.m_queryId = queryId;
+            this.m_count = count;
         }
 
         /// <summary>
         /// Create a wrapper persistence collection
         /// </summary>
-        private MappedStatefulQueryResultSet(MappedStatefulQueryResultSet<TData> copyFrom) : this(copyFrom.m_provider, copyFrom.m_queryId)
+        private MappedStatefulQueryResultSet(MappedStatefulQueryResultSet<TData> copyFrom) : this(copyFrom.m_provider, copyFrom.m_queryId, copyFrom.m_count)
         {
             this.m_context = copyFrom.m_context;
         }
@@ -60,7 +61,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         {
             if (this.m_lastFetched == null)
             {
-                this.m_lastFetched = this.m_provider.QueryPersistence.GetQueryResults(this.m_queryId, this.m_offset, this.m_count ?? 1000);
+                this.m_lastFetched = this.m_provider.QueryPersistence.GetQueryResults(this.m_queryId, this.m_offset, this.m_count);
             }
             return this.m_lastFetched;
         }
@@ -251,12 +252,12 @@ namespace SanteDB.OrmLite.MappedResultSets
             {
                 // Nab the query result sets and intersect them
                 var queryUuid = Guid.NewGuid();
-                var results = this.m_provider.QueryPersistence.GetQueryResults(tOther.m_queryId, 0, tOther.m_count.Value)
-                    .Union(this.m_provider.QueryPersistence.GetQueryResults(this.m_queryId, 0, this.m_count.Value));
+                var results = this.m_provider.QueryPersistence.GetQueryResults(tOther.m_queryId, 0, tOther.m_count)
+                    .Union(this.m_provider.QueryPersistence.GetQueryResults(this.m_queryId, 0, this.m_count));
                 this.m_provider.QueryPersistence.RegisterQuerySet(queryUuid, results, null, results.Count());
                 this.m_provider.QueryPersistence.AbortQuerySet(this.m_queryId);
                 this.m_provider.QueryPersistence.AbortQuerySet(tOther.m_queryId);
-                return new MappedStatefulQueryResultSet<TData>(this.m_provider, this.m_queryId);
+                return new MappedStatefulQueryResultSet<TData>(this.m_provider, this.m_queryId, results.Count());
             }
             else
             {

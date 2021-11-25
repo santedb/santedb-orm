@@ -22,6 +22,7 @@
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -31,6 +32,7 @@ namespace SanteDB.OrmLite
     /// <summary>
     /// String etensions
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public static class StringExtensions
     {
         /// <summary>
@@ -245,7 +247,7 @@ namespace SanteDB.OrmLite
         protected override Expression VisitParameter(ParameterExpression node)
         {
             var tableMap = TableMapping.Get(node.Type);
-            this.m_sqlStatement.Append($"{this.m_tableAlias ?? tableMap.TableName}");
+            this.m_sqlStatement.Append($"{tableMap.TableName}");
             return node;
         }
 

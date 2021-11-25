@@ -30,6 +30,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Tracing;
 using System.Linq;
 using System.Net;
@@ -40,6 +41,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// <summary>
     /// Represents a IDbProvider for PostgreSQL
     /// </summary>
+    [ExcludeFromCodeCoverage] // PostgreSQL is not used in unit testing 
     public class PostgreSQLProvider : IDbMonitorProvider
     {
         // Last rr host used

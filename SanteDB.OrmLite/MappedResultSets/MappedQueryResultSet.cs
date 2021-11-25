@@ -20,7 +20,7 @@ namespace SanteDB.OrmLite.MappedResultSets
     /// </summary>
     /// <remarks>This query set wraps the returns of Query methods and allows for
     /// delay loading of the resulting data from the underlying data provider</remarks>
-    public class MappedQueryResultSet<TElement> : IQueryResultSet<TElement>, IDisposable
+    public class MappedQueryResultSet<TElement> : IQueryResultSet<TElement>, IOrderableQueryResultSet<TElement>, IDisposable
         where TElement : IdentifiedData
     {
         // The data context
@@ -289,7 +289,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Append the order by statements onto the specifed result set
         /// </summary>
-        public IQueryResultSet<TElement> OrderBy(Expression<Func<TElement, dynamic>> sortExpression)
+        public IOrderableQueryResultSet<TElement> OrderBy(Expression<Func<TElement, dynamic>> sortExpression)
         {
             if (this.m_resultSet == null) // this is the first
             {
@@ -302,7 +302,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Order result set by descending order
         /// </summary>
-        public IQueryResultSet<TElement> OrderByDescending(Expression<Func<TElement, dynamic>> sortExpression)
+        public IOrderableQueryResultSet<TElement> OrderByDescending(Expression<Func<TElement, dynamic>> sortExpression)
         {
             if (this.m_resultSet == null) // this is the first
             {
@@ -331,7 +331,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 // Is the query already registered? If so, load
                 if (this.m_provider.QueryPersistence.IsRegistered(stateId))
                 {
-                    return new MappedStatefulQueryResultSet<TElement>(this.m_provider, stateId);
+                    return new MappedStatefulQueryResultSet<TElement>(this.m_provider, stateId, (int)this.m_provider.QueryPersistence.QueryResultTotalQuantity(stateId));
                 }
                 else
                 {
@@ -341,14 +341,14 @@ namespace SanteDB.OrmLite.MappedResultSets
                     if (!String.IsNullOrEmpty(this.m_keyName))
                     {
                         // TODO: In Firebird this seems to lose ordering?
-                        keySet = this.m_resultSet.Select<Guid>(this.m_keyName).Distinct().ToArray();
+                        keySet = this.m_resultSet.Select<Guid>(this.m_keyName).ToArray().Distinct().ToArray();
                     }
                     else
                     {
                         keySet = this.m_resultSet.Keys<Guid>().OfType<Guid>().ToArray();
                     }
                     this.m_provider.QueryPersistence.RegisterQuerySet(stateId, keySet, this.m_resultSet.Statement, keySet.Length);
-                    return new MappedStatefulQueryResultSet<TElement>(this.m_provider, stateId);
+                    return new MappedStatefulQueryResultSet<TElement>(this.m_provider, stateId, keySet.Length);
                 }
             }
             finally
@@ -516,7 +516,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Order by a generic expression
         /// </summary>
-        public IQueryResultSet OrderBy(Expression expression)
+        public IOrderableQueryResultSet OrderBy(Expression expression)
         {
             if (expression is Expression<Func<TElement, dynamic>> le)
             {
@@ -531,7 +531,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Order by descending order
         /// </summary>
-        public IQueryResultSet OrderByDescending(Expression expression)
+        public IOrderableQueryResultSet OrderByDescending(Expression expression)
         {
             if (expression is Expression<Func<TElement, dynamic>> le)
             {

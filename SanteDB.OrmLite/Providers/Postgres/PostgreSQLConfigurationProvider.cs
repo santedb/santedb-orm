@@ -23,12 +23,14 @@ using SanteDB.Core.Configuration;
 using SanteDB.Core.Configuration.Data;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.OrmLite.Providers.Postgres
 {
     /// <summary>
     /// PostgreSQL data provider for the configuration system
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public class PostgreSQLConfigurationProvider : AdoNetConfigurationProvider
     {
 
