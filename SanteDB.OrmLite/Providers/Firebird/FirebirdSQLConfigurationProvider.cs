@@ -2,22 +2,23 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
+
 using SanteDB.Core;
 using SanteDB.Core.Configuration;
 using SanteDB.Core.Configuration.Data;
@@ -57,7 +58,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Get the options
         /// </summary>
-        public override Dictionary<string, ConfigurationOptionType> Options => new Dictionary<string, ConfigurationOptionType>()
+        public override IDictionary<string, ConfigurationOptionType> Options => new Dictionary<string, ConfigurationOptionType>()
         {
             { "user id", ConfigurationOptionType.User },
             { "password", ConfigurationOptionType.Password },
@@ -67,7 +68,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Create a connection string from the specified options
         /// </summary>
-        public override ConnectionString CreateConnectionString(Dictionary<string, object> options)
+        public override ConnectionString CreateConnectionString(IDictionary<string, object> options)
         {
             return this.CorrectConnectionString(new ConnectionString(this.Invariant, options));
         }
@@ -100,6 +101,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             connectionString.SetComponent("client library", "fbclient.dll");
             return connectionString;
         }
+
         /// <summary>
         /// Create the specified database
         /// </summary>
@@ -152,7 +154,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Parse the specified connection string into a series of objects
         /// </summary>
-        public override Dictionary<string, object> ParseConnectionString(ConnectionString connectionString)
+        public override IDictionary<string, object> ParseConnectionString(ConnectionString connectionString)
         {
             return new Dictionary<string, object>()
             {
