@@ -58,7 +58,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Get the options
         /// </summary>
-        public override Dictionary<string, ConfigurationOptionType> Options => new Dictionary<string, ConfigurationOptionType>()
+        public override IDictionary<string, ConfigurationOptionType> Options => new Dictionary<string, ConfigurationOptionType>()
         {
             { "user id", ConfigurationOptionType.User },
             { "password", ConfigurationOptionType.Password },
@@ -154,7 +154,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Parse the specified connection string into a series of objects
         /// </summary>
-        public override Dictionary<string, object> ParseConnectionString(ConnectionString connectionString)
+        public override IDictionary<string, object> ParseConnectionString(ConnectionString connectionString)
         {
             return new Dictionary<string, object>()
             {
