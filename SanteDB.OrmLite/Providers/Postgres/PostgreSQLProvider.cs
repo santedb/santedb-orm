@@ -41,7 +41,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// <summary>
     /// Represents a IDbProvider for PostgreSQL
     /// </summary>
-    [ExcludeFromCodeCoverage] // PostgreSQL is not used in unit testing 
+    [ExcludeFromCodeCoverage] // PostgreSQL is not used in unit testing
     public class PostgreSQLProvider : IDbMonitorProvider
     {
         // Last rr host used
@@ -89,6 +89,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 return SqlEngineFeatures.AutoGenerateGuids |
                     SqlEngineFeatures.AutoGenerateTimestamps |
                     SqlEngineFeatures.ReturnedInsertsAsReader |
+                    SqlEngineFeatures.ReturnedUpdatesAsReader |
                     SqlEngineFeatures.StrictSubQueryColumnNames |
                     SqlEngineFeatures.LimitOffset |
                     SqlEngineFeatures.FetchOffset |

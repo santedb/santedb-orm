@@ -280,7 +280,7 @@ namespace SanteDB.OrmLite
             var tableMap = TableMapping.Get(typeof(TExpression));
             var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
             queryBuilder.Visit(expression.Body);
-            return this.Append(new SqlStatement(this.m_provider, "WHERE ").Append(queryBuilder.SqlStatement));
+            return this.Append(new SqlStatement(this.m_provider, "WHERE ").Append(queryBuilder.SqlStatement.Build()));
         }
 
         internal void Append(object like)
@@ -296,7 +296,7 @@ namespace SanteDB.OrmLite
             var tableMap = TableMapping.Get(typeof(TExpression));
             var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
             queryBuilder.Visit(expression.Body);
-            return this.And(queryBuilder.SqlStatement);
+            return this.And(queryBuilder.SqlStatement.Build());
         }
 
         /// <summary>

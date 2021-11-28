@@ -2,22 +2,23 @@
  * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you 
- * may not use this file except in compliance with the License. You may 
- * obtain a copy of the License at 
- * 
- * http://www.apache.org/licenses/LICENSE-2.0 
- * 
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
- * License for the specific language governing permissions and limitations under 
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
  * the License.
- * 
+ *
  * User: fyfej
  * Date: 2021-8-5
  */
+
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Attributes;
 using SanteDB.Core.Model.Interfaces;
@@ -49,7 +50,6 @@ namespace SanteDB.OrmLite
         PropertyAndGuard = Path | Guard,
         PropertyAndCast = Path | Cast
     }
-
 
     /// <summary>
     /// Represents the query predicate
@@ -101,7 +101,6 @@ namespace SanteDB.OrmLite
             };
         }
 
-
         /// <summary>
         /// Represent the predicate as a string
         /// </summary>
@@ -120,18 +119,18 @@ namespace SanteDB.OrmLite
 
             return sb.ToString();
         }
-
     }
+
     /// <summary>
     /// Query builder for model objects
     /// </summary>
     /// <remarks>
-    /// Because the ORM used in the ADO persistence layer is very very lightweight, this query builder exists to parse 
+    /// Because the ORM used in the ADO persistence layer is very very lightweight, this query builder exists to parse
     /// LINQ or HTTP query parameters into complex queries which implement joins/CTE/etc. across tables. Stuff that the
     /// classes in the little data model can't possibly support via LINQ expression.
-    /// 
-    /// To use this, simply pass a model based LINQ expression to the CreateQuery method. Examples are in the test project. 
-    /// 
+    ///
+    /// To use this, simply pass a model based LINQ expression to the CreateQuery method. Examples are in the test project.
+    ///
     /// Some reasons to use this:
     ///     - The generated SQL will gather all table instances up the object hierarchy for you (one hit instead of multiple)
     ///     - The queries it writes use efficient CTE tables
@@ -144,32 +143,32 @@ namespace SanteDB.OrmLite
     /// </example>
     /// <example lang="sql" name="Resulting SQL query">
     /// <![CDATA[
-    /// WITH 
+    /// WITH
     ///     cte0 AS (
-    ///         SELECT cd_tbl.cd_id 
-    ///         FROM cd_vrsn_tbl AS cd_vrsn_tbl 
-    ///             INNER JOIN cd_tbl AS cd_tbl ON (cd_tbl.cd_id = cd_vrsn_tbl.cd_id) 
+    ///         SELECT cd_tbl.cd_id
+    ///         FROM cd_vrsn_tbl AS cd_vrsn_tbl
+    ///             INNER JOIN cd_tbl AS cd_tbl ON (cd_tbl.cd_id = cd_vrsn_tbl.cd_id)
     ///         WHERE (cd_vrsn_tbl.mnemonic = ? )
     ///     )
-    /// SELECT * 
-    /// FROM pat_tbl AS pat_tbl 
-    ///     INNER JOIN psn_tbl AS psn_tbl ON (pat_tbl.ent_vrsn_id = psn_tbl.ent_vrsn_id) 
-    ///     INNER JOIN ent_vrsn_tbl AS ent_vrsn_tbl ON (psn_tbl.ent_vrsn_id = ent_vrsn_tbl.ent_vrsn_id) 
-    ///     INNER JOIN ent_tbl AS ent_tbl ON (ent_tbl.ent_id = ent_vrsn_tbl.ent_id) 
+    /// SELECT *
+    /// FROM pat_tbl AS pat_tbl
+    ///     INNER JOIN psn_tbl AS psn_tbl ON (pat_tbl.ent_vrsn_id = psn_tbl.ent_vrsn_id)
+    ///     INNER JOIN ent_vrsn_tbl AS ent_vrsn_tbl ON (psn_tbl.ent_vrsn_id = ent_vrsn_tbl.ent_vrsn_id)
+    ///     INNER JOIN ent_tbl AS ent_tbl ON (ent_tbl.ent_id = ent_vrsn_tbl.ent_id)
     ///     INNER JOIN cte0 ON (ent_tbl.dtr_cd_id = cte0.cd_id)
     /// ]]>
     /// </example>
     public class QueryBuilder
     {
-
         // Join cache
         private Dictionary<String, KeyValuePair<SqlStatement, List<TableMapping>>> s_joinCache = new Dictionary<String, KeyValuePair<SqlStatement, List<TableMapping>>>();
 
         // A list of hacks injected into this query builder
-        private List<IQueryBuilderHack> m_hacks = new List<IQueryBuilderHack>();
+        private static List<IQueryBuilderHack> m_hacks = new List<IQueryBuilderHack>();
 
         // Mapper
         private ModelMapper m_mapper;
+
         private IDbProvider m_provider;
 
         /// <summary>
@@ -178,18 +177,26 @@ namespace SanteDB.OrmLite
         public IDbProvider Provider => this.m_provider;
 
         /// <summary>
-        /// Represents model mapper
+        /// Add query builder hacks
         /// </summary>
-        /// <param name="mapper"></param>
-        public QueryBuilder(ModelMapper mapper, IDbProvider provider, params IQueryBuilderHack[] hacks)
+        public static void AddQueryHacks(IEnumerable<IQueryBuilderHack> hacks)
         {
-            this.m_mapper = mapper;
-            this.m_provider = provider;
-            this.m_hacks = hacks.ToList();
+            m_hacks.AddRange(hacks);
         }
 
         /// <summary>
-        /// Create a query 
+        /// Represents model mapper
+        /// </summary>
+        /// <param name="mapper">The mapper which is used to map types</param>
+        /// <param name="provider">The provider which built this query provider</param>
+        public QueryBuilder(ModelMapper mapper, IDbProvider provider)
+        {
+            this.m_mapper = mapper;
+            this.m_provider = provider;
+        }
+
+        /// <summary>
+        /// Create a query
         /// </summary>
         public SqlStatement CreateQuery<TModel>(Expression<Func<TModel, bool>> predicate, params ColumnMapping[] selector)
         {
@@ -198,7 +205,7 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Create a query 
+        /// Create a query
         /// </summary>
         public SqlStatement CreateWhere<TModel>(Expression<Func<TModel, bool>> predicate)
         {
@@ -211,7 +218,7 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Create a query 
+        /// Create a query
         /// </summary>
         public SqlStatement CreateQuery<TModel>(Expression<Func<TModel, bool>> predicate, ModelSort<TModel>[] orderBy, params ColumnMapping[] selector)
         {
@@ -228,7 +235,7 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Create query 
+        /// Create query
         /// </summary>
         public SqlStatement CreateQuery<TModel>(IEnumerable<KeyValuePair<String, Object>> query, String tablePrefix, ModelSort<TModel>[] orderBy, params ColumnMapping[] selector)
         {
@@ -236,7 +243,7 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Query query 
+        /// Query query
         /// </summary>
         /// TODO: Refactor this
         public SqlStatement CreateQuery<TModel>(IEnumerable<KeyValuePair<String, Object>> query, String tablePrefix, bool skipJoins, List<TableMapping> parentScopedTables, ModelSort<TModel>[] orderBy, params ColumnMapping[] selector)
@@ -270,7 +277,6 @@ namespace SanteDB.OrmLite
                     scopedTables = new List<TableMapping>() { tableMap };
                 }
                 selectStatement = new SqlStatement(this.m_provider, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
-
             }
             else
             {
@@ -336,14 +342,13 @@ namespace SanteDB.OrmLite
                     }
                 } while (fkStack.Count > 0);
 
-
                 //}
                 //else
                 //{
                 //    selectStatement = cacheHit.Key.Build();
                 //    scopedTables = cacheHit.Value;
 
-                // Optimize the join structure - We only join tables where we reference a property in them  
+                // Optimize the join structure - We only join tables where we reference a property in them
 
                 //}
             }
@@ -352,7 +357,7 @@ namespace SanteDB.OrmLite
             var columnSelector = selector;
             if (selector == null || selector.Length == 0)
             {
-                // The SQL Engine being used does not permit duplicate column names that may come from 
+                // The SQL Engine being used does not permit duplicate column names that may come from
                 // SELECT * in a sub-query, so we should explicitly call out the columns to be safe
                 if (this.m_provider.Features.HasFlag(SqlEngineFeatures.StrictSubQueryColumnNames))
                 {
@@ -369,7 +374,6 @@ namespace SanteDB.OrmLite
                         return false;
                     }).Select(o => $"{tablePrefix}{o.Table.TableName}.{o.Name}"));
                     selectStatement = new SqlStatement(this.m_provider, $"SELECT {columnList} ").Append(selectStatement);
-
                 }
                 else
                     selectStatement = new SqlStatement(this.m_provider, $"SELECT *").Append(selectStatement);
@@ -391,7 +395,6 @@ namespace SanteDB.OrmLite
                 selectStatement = new SqlStatement(this.m_provider, $"SELECT {columnList} ").Append(selectStatement);
             }
 
-           
             var whereClause = this.CreateWhereCondition<TModel>(selectStatement, query, tablePrefix, scopedTables, parentScopedTables, out IList<SqlStatement> cteStatements);
             // Return statement
             SqlStatement retVal = new SqlStatement(this.m_provider);
@@ -413,7 +416,7 @@ namespace SanteDB.OrmLite
                 retVal.Append("ORDER BY");
                 foreach (var ob in orderBy)
                 {
-                    // Query property path 
+                    // Query property path
                     var orderStatement = this.CreateOrderBy(typeof(TModel), tablePrefix, scopedTables, ob.SortProperty.Body, ob.SortOrder);
                     retVal.Append(orderStatement).Append(",");
                 }
@@ -434,7 +437,6 @@ namespace SanteDB.OrmLite
         /// <param name="cteStatements">CTE which need to be appended</param>
         private SqlStatement CreateWhereCondition<TModel>(SqlStatement selectStatement, IEnumerable<KeyValuePair<String, object>> query, string tablePrefix, IEnumerable<TableMapping> scopedTables, IEnumerable<TableMapping> parentScopedTables, out IList<SqlStatement> cteStatements)
         {
-
             // We want to process each query and build WHERE clauses - these where clauses are based off of the JSON / XML names
             // on the model, so we have to use those for the time being before translating to SQL
             List<KeyValuePair<String, Object>> workingParameters = new List<KeyValuePair<string, object>>(query);
@@ -476,7 +478,7 @@ namespace SanteDB.OrmLite
 
                     // Link to this table in the other?
                     // Allow hacking of the query before we get to the auto-generated stuff
-                    if (!this.m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, typeof(TModel), subProp, tablePrefix, propertyPredicate, parm.Value, scopedTables, queryParms.ToArray())))
+                    if (!m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, typeof(TModel), subProp, tablePrefix, propertyPredicate, parm.Value, scopedTables, queryParms.ToArray())))
                     {
                         // Is this a collection?
                         if (typeof(IList).IsAssignableFrom(subProp.PropertyType)) // Other table points at this on
@@ -503,7 +505,7 @@ namespace SanteDB.OrmLite
                                 linkColumn = tableWithJoin.Columns.SingleOrDefault(o => scopedTables.Any(s => s.OrmType == o.ForeignKey?.Table));
                                 var targetColumn = tableWithJoin.Columns.SingleOrDefault(o => o.ForeignKey?.Table == subTableMap.OrmType);
                                 subTableColumn = subTableMap.GetColumn(targetColumn.ForeignKey.Column);
-                                // The sub-query statement needs to be joined as well 
+                                // The sub-query statement needs to be joined as well
                                 subQueryStatement.Append($"SELECT 1 FROM {tableWithJoin.TableName} AS {lnkPfx}{tableWithJoin.TableName} WHERE ");
                                 existsClause = $"{lnkPfx}{tableWithJoin.TableName}.{targetColumn.Name}";
                                 //throw new InvalidOperationException($"Cannot find foreign key reference to table {tableMap.TableName} in {subTableMap.TableName}");
@@ -601,7 +603,6 @@ namespace SanteDB.OrmLite
                                 whereClause.And($"EXISTS (").Append(subQueryStatement).And($"{tablePrefix}{localTable.TableName}.{localTable.GetColumn(linkColumn.ForeignKey.Column).Name} = {lnkPfx}{linkColumn.Table.TableName}.{linkColumn.Name}").Append(")");
                             else
                                 whereClause.And(subQueryStatement);
-
                         }
                         else  // this table points at other
                         {
@@ -654,17 +655,14 @@ namespace SanteDB.OrmLite
                             // Join up to the parent table
 
                             whereClause.And($" {tablePrefix}{tableMapping.TableName}.{linkColumn.Name} IN (").Append(subQueryStatement).Append(")");
-
                         }
                     }
                 }
-                else if (!this.m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, typeof(TModel), typeof(TModel).GetQueryProperty(propertyPredicate.Path), tablePrefix, propertyPredicate, parm.Value, scopedTables, parm)))
+                else if (!m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, typeof(TModel), typeof(TModel).GetQueryProperty(propertyPredicate.Path), tablePrefix, propertyPredicate, parm.Value, scopedTables, parm)))
                     whereClause.And(CreateWhereCondition(typeof(TModel), propertyPredicate.Path, parm.Value, tablePrefix, scopedTables));
-
             }
 
             return whereClause;
-
         }
 
         /// <summary>
@@ -681,10 +679,11 @@ namespace SanteDB.OrmLite
                 case ExpressionType.Convert:
                 case ExpressionType.ConvertChecked:
                     return this.CreateOrderBy(tmodel, tablePrefix, scopedTables, ((UnaryExpression)sortExpression).Operand, order);
+
                 case ExpressionType.MemberAccess:
                     var mexpr = (MemberExpression)sortExpression;
 
-                    // Determine the parameter type 
+                    // Determine the parameter type
                     if (mexpr.Expression.NodeType != ExpressionType.Parameter)
                         throw new InvalidOperationException("OrderBy can only be performed on primary properties of the object");
 
@@ -722,7 +721,6 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement CreateWhereCondition(Type tmodel, String propertyPath, Object value, String tablePrefix, IEnumerable<TableMapping> scopedTables)
         {
-
             // Map the type
             var tableMapping = scopedTables.First();
             var propertyInfo = tmodel.GetQueryProperty(propertyPath);
@@ -746,7 +744,7 @@ namespace SanteDB.OrmLite
             if (domainProperty == null && Guid.TryParse(sValue, out pkey))
             {
                 domainProperty = tableMapping.PrimaryKey.First().SourceProperty;
-                // Link property to the key 
+                // Link property to the key
                 propertyInfo = tmodel.GetProperty(propertyInfo.Name + "Key");
             }
             else if (domainProperty == null)
@@ -770,7 +768,6 @@ namespace SanteDB.OrmLite
         /// <param name="values">The values to be matched</param>
         public SqlStatement CreateSqlPredicate(String tableAlias, String columnName, PropertyInfo modelProperty, IList values)
         {
-
             var retVal = new SqlStatement(this.m_provider);
 
             bool noCase = modelProperty.GetCustomAttribute<NoCaseAttribute>() != null;
@@ -819,6 +816,7 @@ namespace SanteDB.OrmLite
                             else
                                 retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, modelProperty.PropertyType));
                             break;
+
                         case '<':
                             semantic = " AND ";
                             if (sValue[1] == '=')
@@ -826,6 +824,7 @@ namespace SanteDB.OrmLite
                             else
                                 retVal.Append($" < {parmValue}", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
                             break;
+
                         case '>':
                             // peek the next value and see if it is < then we use BETWEEN
                             if (i < values.Count - 1 && values[i + 1].ToString().StartsWith("<"))
@@ -860,15 +859,19 @@ namespace SanteDB.OrmLite
                             else
                                 retVal.Append($" <> {parmValue}", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
                             break;
+
                         case '~':
                             retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
                             break;
+
                         case '^':
                             retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
                             break;
+
                         case '$':
                             retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue}", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
                             break;
+
                         default:
                             if (sValue.Equals("null"))
                                 retVal.Append(" IS NULL");

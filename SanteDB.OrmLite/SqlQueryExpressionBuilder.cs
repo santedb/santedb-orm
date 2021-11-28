@@ -52,12 +52,12 @@ namespace SanteDB.OrmLite
         private string m_tableAlias = null;
         private SqlStatement m_sqlStatement = null;
         private IDbProvider m_provider;
+        private bool m_isFilterExpression = true;
 
         /// <summary>
         /// Gets the constructed SQL statement
         /// </summary>
-        public SqlStatement SqlStatement
-        { get { return this.m_sqlStatement.Build(); } }
+        public SqlStatement SqlStatement => this.m_sqlStatement;
 
         /// <summary>
         /// Creates a new postgresql query expression builder
@@ -117,6 +117,10 @@ namespace SanteDB.OrmLite
                 case ExpressionType.TypeAs:
                     return this.VisitUnary((UnaryExpression)node);
 
+                case ExpressionType.Lambda:
+                    this.m_isFilterExpression = node.Type == typeof(bool);
+                    return this.Visit(((LambdaExpression)node).Body);
+
                 default:
                     return base.Visit(node);
             }
@@ -172,7 +176,11 @@ namespace SanteDB.OrmLite
                 this.m_sqlStatement.Append(" COALESCE");
             }
 
-            this.m_sqlStatement.Append("(");
+            if (this.m_isFilterExpression)
+            {
+                this.m_sqlStatement.Append("(");
+            }
+
             this.Visit(node.Left);
 
             bool skipRight = false;
@@ -237,7 +245,11 @@ namespace SanteDB.OrmLite
             if (!skipRight)
                 this.Visit(node.Right);
 
-            this.m_sqlStatement.Append(")");
+            if (this.m_isFilterExpression)
+            {
+                this.m_sqlStatement.Append(")");
+            }
+
             return node;
         }
 
@@ -283,17 +295,34 @@ namespace SanteDB.OrmLite
                         Expression enumerable = node.Arguments[0],
                             contained = node.Arguments[1];
 
-                        var value = this.GetConstantValue(enumerable) as IEnumerable;
-                        if (value.OfType<Object>().Count() == 0)
-                            this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.False));
-                        else
+                        // Is the Enumerable a IOrmResultSet? if so we can just include the SQL!!! :)
+                        var value = this.GetConstantValue(enumerable);
+                        if (value is IOrmResultSet orm)
                         {
+                            // Append the SQL statement with an IN
+                            if (orm.ElementType != typeof(Guid))
+                            {
+                                orm = orm.Keys<Guid>();
+                            }
+
                             this.Visit(contained);
                             this.m_sqlStatement.Append(" IN (");
-
-                            this.m_sqlStatement.Append(String.Join(",", value.OfType<Object>().Select(o => "?")), value.OfType<Object>().ToArray());
-
+                            this.m_sqlStatement.Append(orm.Statement);
                             this.m_sqlStatement.Append(")");
+                        }
+                        else if (value is IEnumerable enumerableValue)
+                        {
+                            if (enumerableValue.OfType<Object>().Count() == 0)
+                                this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.False));
+                            else
+                            {
+                                this.Visit(contained);
+                                this.m_sqlStatement.Append(" IN (");
+
+                                this.m_sqlStatement.Append(String.Join(",", enumerableValue.OfType<Object>().Select(o => "?")), enumerableValue.OfType<Object>().ToArray());
+
+                                this.m_sqlStatement.Append(")");
+                            }
                         }
                     }
                     else if (node.Method.DeclaringType == typeof(String)) // is a STRING contains()
@@ -358,38 +387,42 @@ namespace SanteDB.OrmLite
         /// </summary>
         private Object GetConstantValue(Expression expression)
         {
-            if (expression == null)
-                return null;
-            else if (expression is ConstantExpression)
-                return (expression as ConstantExpression).Value;
-            else if (expression is UnaryExpression)
+            switch (expression)
             {
-                var un = expression as UnaryExpression;
-                switch (expression.NodeType)
-                {
-                    case ExpressionType.TypeAs:
-                        return this.GetConstantValue(un.Operand);
+                case null:
+                    return null;
 
-                    case ExpressionType.Convert:
-                        return this.GetConstantValue(un.Operand);
+                case ConstantExpression ce:
+                    return ce.Value;
 
-                    default:
-                        throw new InvalidOperationException($"Expression {expression} not supported for constant extraction");
-                }
+                case UnaryExpression ue:
+                    switch (expression.NodeType)
+                    {
+                        case ExpressionType.TypeAs:
+                            return this.GetConstantValue(ue.Operand);
+
+                        case ExpressionType.Convert:
+                            return this.GetConstantValue(ue.Operand);
+
+                        default:
+                            throw new InvalidOperationException($"Expression {expression} not supported for constant extraction");
+                    }
+                case MemberExpression mem:
+                    var obj = this.GetConstantValue(mem.Expression);
+                    switch (mem.Member)
+                    {
+                        case PropertyInfo pi:
+                            return pi.GetValue(obj);
+
+                        case FieldInfo fi:
+                            return fi.GetValue(obj);
+
+                        default:
+                            throw new NotSupportedException();
+                    }
+                default:
+                    throw new InvalidOperationException($"Expression {expression} not supported for constant extraction");
             }
-            else if (expression is MemberExpression)
-            {
-                var mem = expression as MemberExpression;
-                var obj = this.GetConstantValue(mem.Expression);
-                if (mem.Member is PropertyInfo)
-                    return (mem.Member as PropertyInfo).GetValue(obj);
-                else if (mem.Member is FieldInfo)
-                    return (mem.Member as FieldInfo).GetValue(obj);
-                else
-                    throw new NotSupportedException();
-            }
-            else
-                throw new InvalidOperationException($"Expression {expression} not supported for constant extraction");
         }
 
         /// <summary>
