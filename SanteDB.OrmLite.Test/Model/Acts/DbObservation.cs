@@ -2,6 +2,7 @@
 using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
 {
@@ -10,6 +11,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
     /// Stores data related to an observation act
     /// </summary>
     [Table("obs_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbObservation : DbActSubTable
     {
 
@@ -48,6 +50,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
     /// Represents additional data related to a quantified observation
     /// </summary>
     [Table("qty_obs_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbQuantityObservation : DbObsSubTable
     {
         
@@ -75,6 +78,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
     /// Identifies the observation as a text obseration
     /// </summary>
     [Table("txt_obs_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbTextObservation : DbObsSubTable
     {
         /// <summary>
@@ -89,6 +93,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
     /// Identifies data related to a coded observation
     /// </summary>
     [Table("cd_obs_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbCodedObservation : DbObsSubTable
     {
 

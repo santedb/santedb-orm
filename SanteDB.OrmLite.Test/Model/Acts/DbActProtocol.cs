@@ -1,11 +1,13 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
 {
     /// <summary>
     /// Represents a link between act and protocol
     /// </summary>
+    [ExcludeFromCodeCoverage]
     [Table("act_proto_assoc_tbl")]
     public class DbActProtocol : DbAssociation
     {

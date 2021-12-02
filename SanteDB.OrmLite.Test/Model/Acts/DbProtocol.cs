@@ -1,5 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
 {
@@ -7,6 +8,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
     /// Table which stores clinical protocols
     /// </summary>
     [Table("proto_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbProtocol : DbBaseData
     {
         /// <summary>
@@ -50,6 +52,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
     /// Represents a protocol handler
     /// </summary>
     [Table("proto_hdlr_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbProtocolHandler : DbBaseData
     {
         /// <summary>

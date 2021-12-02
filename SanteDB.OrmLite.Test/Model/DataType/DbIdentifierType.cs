@@ -1,6 +1,7 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
 {
@@ -8,7 +9,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
     /// Identifier type table.
     /// </summary>
     [Table("id_typ_tbl")]
-	public class DbIdentifierType : DbBaseData
+    [ExcludeFromCodeCoverage]
+    public class DbIdentifierType : DbBaseData
 	{
         /// <summary>
         /// Gets or sets the id type

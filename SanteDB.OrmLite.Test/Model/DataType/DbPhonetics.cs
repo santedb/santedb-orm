@@ -1,5 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
 {
@@ -8,6 +9,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
     /// Phonetic value table
     /// </summary>
     [Table("phon_val_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbPhoneticValue : DbIdentified
     {
 
@@ -55,6 +57,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
     /// Represents a phonetic algorithm
     /// </summary>
     [Table("phon_alg_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbPhoneticAlgorithm : DbNonVersionedBaseData
     {
         /// <summary>

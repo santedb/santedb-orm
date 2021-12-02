@@ -1,5 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
 {
@@ -7,6 +8,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     /// Represents a security role
     /// </summary>
     [Table("sec_rol_tbl")]
+    [ExcludeFromCodeCoverage]
 	public class DbSecurityRole : DbNonVersionedBaseData
 	{
 

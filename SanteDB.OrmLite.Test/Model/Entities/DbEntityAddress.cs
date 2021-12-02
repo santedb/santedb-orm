@@ -1,6 +1,7 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
 {
@@ -8,7 +9,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// Represents one or more entity addresses linked to an Entity
     /// </summary>
     [Table("ent_addr_tbl")]
-	public class DbEntityAddress : DbEntityVersionedAssociation
+    [ExcludeFromCodeCoverage]
+    public class DbEntityAddress : DbEntityVersionedAssociation
 	{
         /// <summary>
         /// Gets or sets the key
@@ -38,11 +40,12 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
 
 	}
 
-	/// <summary>
-	/// Represents an identified address component
-	/// </summary>
-	[Table("ent_addr_cmp_tbl")]
-	public class DbEntityAddressComponent : DbGenericNameComponent
+    /// <summary>
+    /// Represents an identified address component
+    /// </summary>
+    [ExcludeFromCodeCoverage]
+    [Table("ent_addr_cmp_tbl")]
+    public class DbEntityAddressComponent : DbGenericNameComponent
 	{
 
 		/// <summary>
@@ -71,6 +74,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// <summary>
     /// Gets or sets the entity address component value
     /// </summary>
+    [ExcludeFromCodeCoverage]
     [Table("ent_addr_cmp_val_tbl")]
     public class DbEntityAddressComponentValue  : DbIdentified
     {

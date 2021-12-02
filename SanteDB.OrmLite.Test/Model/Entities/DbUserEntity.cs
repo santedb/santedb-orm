@@ -1,6 +1,7 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
 {
@@ -8,6 +9,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// User entity ORM
     /// </summary>
     [Table("usr_ent_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbUserEntity : DbPersonSubTable
     {
 

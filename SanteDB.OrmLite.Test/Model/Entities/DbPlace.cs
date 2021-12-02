@@ -1,7 +1,7 @@
 ﻿using SanteDB.Core.Model.Constants;
 using SanteDB.OrmLite.Attributes;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
@@ -10,7 +10,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// Represents a place in the local database
     /// </summary>
     [Table("plc_tbl")]
-	public class DbPlace : DbEntitySubTable
+    [ExcludeFromCodeCoverage]
+    public class DbPlace : DbEntitySubTable
     {
 
         /// <summary>

@@ -1,14 +1,15 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
 {
-    /// <summary>
-    /// Concept relationship type.
-    /// </summary>
-    [Table("cd_rel_typ_cdtbl")]
+	/// <summary>
+	/// Concept relationship type.
+	/// </summary>
+	[ExcludeFromCodeCoverage]
+	[Table("cd_rel_typ_cdtbl")]
 	public class DbConceptRelationshipType: DbNonVersionedBaseData
 	{
 

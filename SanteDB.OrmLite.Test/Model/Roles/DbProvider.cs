@@ -3,6 +3,7 @@ using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Entities;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Roles
 {
@@ -10,7 +11,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Roles
     /// Represents a health care provider in the database
     /// </summary>
     [Table("pvdr_tbl")]
-	public class DbProvider : DbPersonSubTable
+    [ExcludeFromCodeCoverage]
+    public class DbProvider : DbPersonSubTable
     {
 
         /// <summary>

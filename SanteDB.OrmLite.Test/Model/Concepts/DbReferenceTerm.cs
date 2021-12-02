@@ -1,5 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
 {
@@ -7,6 +8,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
     /// Reference term table
     /// </summary>
     [Table("ref_term_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbReferenceTerm : DbNonVersionedBaseData
     {
         /// <summary>

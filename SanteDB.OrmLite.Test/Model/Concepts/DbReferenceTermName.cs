@@ -2,12 +2,14 @@
 using SanteDB.Persistence.Data.ADO.Data.Model.DataType;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
 {
     /// <summary>
     /// Reference term name
     /// </summary>
+    [ExcludeFromCodeCoverage]
     [Table("ref_term_name_tbl")]
     public class DbReferenceTermName : DbAssociation, IDbBaseData
     {

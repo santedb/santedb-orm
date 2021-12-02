@@ -2,12 +2,14 @@
 using SanteDB.Persistence.Data.ADO.Data.Model.Acts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Entities;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model
 {
     /// <summary>
     /// Gets or sets the derived parent class
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbSubTable 
     {
 
@@ -22,6 +24,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Act based sub-table
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbActSubTable : DbSubTable
     {
         /// <summary>
@@ -34,6 +37,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Act based sub-table
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbObsSubTable : DbActSubTable
     {
         /// <summary>
@@ -46,6 +50,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Entity based sub-table
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbEntitySubTable : DbSubTable
     {
         /// <summary>
@@ -58,6 +63,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Represents a person based sub-table
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbPersonSubTable : DbEntitySubTable
     {
         /// <summary>

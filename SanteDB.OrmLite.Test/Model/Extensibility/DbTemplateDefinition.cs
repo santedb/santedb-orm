@@ -1,5 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
 {
@@ -7,6 +8,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
     /// Represents a database template definition
     /// </summary>
     [Table("tpl_def_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbTemplateDefinition : DbBaseData
     {
         /// <summary>

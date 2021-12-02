@@ -1,6 +1,7 @@
 ﻿using SanteDB.OrmLite;
 using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model
 {
@@ -19,6 +20,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Gets or sets the identified data
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbIdentified : IDbIdentified
     {
         /// <summary>

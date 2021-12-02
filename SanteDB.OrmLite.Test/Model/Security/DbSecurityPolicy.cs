@@ -1,6 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
@@ -9,6 +9,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     /// Represents a single security policy
     /// </summary>
     [Table("sec_pol_tbl")]
+    [ExcludeFromCodeCoverage]
 	public class DbSecurityPolicy : DbBaseData
 	{
 

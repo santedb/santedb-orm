@@ -1,11 +1,13 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
 {
     /// <summary>
     /// Represents a claim on a table
     /// </summary>
+    [ExcludeFromCodeCoverage]
     [Table("sec_ses_clm_tbl")]
     public class DbSessionClaim : DbIdentified
     {

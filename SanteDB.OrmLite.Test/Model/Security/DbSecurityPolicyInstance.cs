@@ -2,7 +2,7 @@
 using SanteDB.Persistence.Data.ADO.Data.Model.Acts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Entities;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
@@ -11,6 +11,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     /// Represents a security policy instance which includes a link to a policy and
     /// to a decision
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbSecurityPolicyInstance : DbAssociation
 	{
         /// <summary>
@@ -31,10 +32,11 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
         }
     }
 
-	/// <summary>
-	/// Represents a relationship between an entity and security policy
-	/// </summary>
-	[Table("ent_pol_assoc_tbl")]
+    /// <summary>
+    /// Represents a relationship between an entity and security policy
+    /// </summary>
+    [ExcludeFromCodeCoverage]
+    [Table("ent_pol_assoc_tbl")]
 	public class DbEntitySecurityPolicy : DbSecurityPolicyInstance, IDbVersionedAssociation
 	{
         /// <summary>
@@ -64,6 +66,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     /// <summary>
     /// Represents a security policy applied to an act
     /// </summary>
+    [ExcludeFromCodeCoverage]
     [Table("act_pol_assoc_tbl")]
 	public class DbActSecurityPolicy : DbSecurityPolicyInstance, IDbVersionedAssociation
 	{
@@ -94,6 +97,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     /// <summary>
     /// Represents a security policy applied to a role
     /// </summary>
+    [ExcludeFromCodeCoverage]
     [Table("sec_rol_pol_assoc_tbl")]
 	public class DbSecurityRolePolicy : DbSecurityPolicyInstance
 	{
@@ -122,10 +126,11 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
        
     }
 
-	/// <summary>
-	/// Represents a security policy applied to an application (this is "my" data)
-	/// </summary>
-	[Table("sec_app_pol_assoc_tbl")]
+    /// <summary>
+    /// Represents a security policy applied to an application (this is "my" data)
+    /// </summary>
+    [ExcludeFromCodeCoverage]
+    [Table("sec_app_pol_assoc_tbl")]
 	public class DbSecurityApplicationPolicy : DbSecurityPolicyInstance
 	{
         /// <summary>
@@ -155,6 +160,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     /// <summary>
     /// Represents a security policy applied to a device
     /// </summary>
+    [ExcludeFromCodeCoverage]
     [Table("sec_dev_pol_assoc_tbl")]
 	public class DbSecurityDevicePolicy : DbSecurityPolicyInstance
 	{
