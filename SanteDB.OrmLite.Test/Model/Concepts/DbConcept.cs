@@ -1,5 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
 {
@@ -7,6 +8,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
     /// Physical data layer implemntation of concept
     /// </summary>
     [Table("cd_tbl")]
+    [ExcludeFromCodeCoverage]
     [AssociativeTable(typeof(DbConceptSet), typeof(DbConceptSetConceptAssociation))]
 	public class DbConcept : DbIdentified, IDbReadonly
 	{

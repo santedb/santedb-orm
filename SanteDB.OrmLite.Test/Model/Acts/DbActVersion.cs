@@ -1,6 +1,7 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
 {
@@ -8,6 +9,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
     /// Represents a table which can store act data
     /// </summary>
     [Table("act_vrsn_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbActVersion : DbVersionedData
     {
         /// <summary>

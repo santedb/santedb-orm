@@ -1,11 +1,13 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
 {
     /// <summary>
     /// Represents concept relationships
     /// </summary>
+    [ExcludeFromCodeCoverage]
     [Table("cd_rel_assoc_tbl")]
 	public class DbConceptRelationship : DbVersionedAssociation
 	{

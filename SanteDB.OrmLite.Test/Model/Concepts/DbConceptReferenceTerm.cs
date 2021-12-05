@@ -1,11 +1,13 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
 {
     /// <summary>
     /// Concept reference term link
     /// </summary>
+    [ExcludeFromCodeCoverage]
     [Table("cd_ref_term_assoc_tbl")]
     public class DbConceptReferenceTerm : DbConceptVersionedAssociation
     {

@@ -1,6 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
@@ -9,7 +9,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     /// Security applicationDb Should only be one entry here as well
     /// </summary>
     [Table("sec_app_tbl")]
-	public class DbSecurityApplication : DbBaseData
+    [ExcludeFromCodeCoverage]
+    public class DbSecurityApplication : DbBaseData
 	{
 
         /// <summary>

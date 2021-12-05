@@ -1,5 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model
 {
@@ -40,6 +41,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Versioned Database data
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbVersionedData : DbBaseData, IDbVersionedData
     {
         /// <summary>

@@ -1,5 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
 {
@@ -7,7 +8,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     /// Represents a user for the purpose of authentication
     /// </summary>
     [Table("sec_usr_tbl")]
-	public class DbSecurityUser : DbNonVersionedBaseData
+    [ExcludeFromCodeCoverage]
+    public class DbSecurityUser : DbNonVersionedBaseData
 	{
 
 		/// <summary>
@@ -31,7 +33,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
 		}
 
 		/// <summary>
-		/// Gets or sets a value indicating whether this <see cref="SanteDB.Mobile.Core.Data.Model.Security.DbSecurityUser"/> lockout enabled.
+		/// Gets or sets a value indicating whether this <see cref="DbSecurityUser"/> lockout enabled.
 		/// </summary>
 		/// <value><c>true</c> if lockout enabled; otherwise, <c>false</c>.</value>
 		[Column("locked")]
@@ -132,10 +134,11 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
         
     }
 
-	/// <summary>
-	/// Associative entity between security user and role
-	/// </summary>
-	[Table("sec_usr_rol_assoc_tbl")]
+    /// <summary>
+    /// Associative entity between security user and role
+    /// </summary>
+    [ExcludeFromCodeCoverage]
+    [Table("sec_usr_rol_assoc_tbl")]
 	public class DbSecurityUserRole 
 	{
         /// <summary>
@@ -155,6 +158,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     /// <summary>
     /// Represents an external login
     /// </summary>
+    [ExcludeFromCodeCoverage]
     [Table("sec_usr_extrn_lgn_tbl")]
     public class DbUserExternalLogin : IDbAssociation
     {
@@ -180,6 +184,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     /// <summary>
     /// User claim
     /// </summary>
+    [ExcludeFromCodeCoverage]
     [Table("sec_usr_clm_tbl")]
     public class DbUserClaim : DbAssociation
     {

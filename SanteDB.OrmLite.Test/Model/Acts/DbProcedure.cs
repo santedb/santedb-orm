@@ -2,6 +2,7 @@
 using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
 {
@@ -9,6 +10,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
     /// Represents a procedure in the data model
     /// </summary>
     [Table("proc_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbProcedure : DbActSubTable
     {
 

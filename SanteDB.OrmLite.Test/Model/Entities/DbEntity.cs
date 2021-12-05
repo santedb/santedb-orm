@@ -2,7 +2,7 @@
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Extensibility;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
@@ -10,6 +10,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// <summary>
     /// Represents an entity in the database
     /// </summary>
+    [ExcludeFromCodeCoverage]
     [Table("ent_tbl"), SkipHint("template"), SkipHint("classConcept"), SkipHint("determinerConcept")]
 	public class DbEntity : DbIdentified
 	{

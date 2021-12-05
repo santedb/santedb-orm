@@ -1,6 +1,7 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
 {
@@ -8,6 +9,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// Represents the orm class for place service
     /// </summary>
     [Table("plc_svc_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbPlaceService : DbEntityVersionedAssociation
     {
 

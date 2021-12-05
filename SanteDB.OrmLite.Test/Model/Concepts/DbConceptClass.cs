@@ -1,6 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
@@ -9,6 +9,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
     /// Represents storage entity for concept class
     /// </summary>
     [Table("cd_cls_tbl")]
+    [ExcludeFromCodeCoverage]
 	public class DbConceptClass : DbNonVersionedBaseData
 	{
 

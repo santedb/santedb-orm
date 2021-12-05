@@ -1,6 +1,7 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Mail
 {
@@ -8,7 +9,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Mail
     /// Represents an alert message.
     /// </summary>
     [Table("mail_msg_tbl")]
-    [AssociativeTable(typeof(DbSecurityUser), typeof(DbMailMessageRcptTo))]
+    [ExcludeFromCodeCoverage]
+	[AssociativeTable(typeof(DbSecurityUser), typeof(DbMailMessageRcptTo))]
 	public class DbMailMessage : DbNonVersionedBaseData
 	{
 		/// <summary>

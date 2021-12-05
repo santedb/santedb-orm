@@ -1,13 +1,15 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
 {
     /// <summary>
     /// Represents a relationship between two entities
     /// </summary>
-    [Table("ent_rel_tbl")] 
+    [Table("ent_rel_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbEntityRelationship : DbVersionedAssociation
     {
         

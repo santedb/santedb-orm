@@ -1,6 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
@@ -9,6 +9,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
     /// Extension types
     /// </summary>
     [Table("ext_typ_tbl")]
+    [ExcludeFromCodeCoverage]
 	public class DbExtensionType: DbNonVersionedBaseData
 	{
 

@@ -2,6 +2,7 @@
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
 {
@@ -9,6 +10,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
     /// Represents an assigning authority
     /// </summary>
     [Table("asgn_aut_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbAssigningAuthority : DbBaseData
     {
 
@@ -71,6 +73,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
     /// <summary>
     /// Identifier scope
     /// </summary>
+    [ExcludeFromCodeCoverage]
     [Table("asgn_aut_scp_tbl")]
     public class DbAuthorityScope 
     {

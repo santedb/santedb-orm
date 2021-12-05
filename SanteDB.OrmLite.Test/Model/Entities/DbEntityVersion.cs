@@ -1,6 +1,7 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
 {
@@ -8,7 +9,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// Represents an entity in the database
     /// </summary>
     [Table("ent_vrsn_tbl")]
-	public class DbEntityVersion : DbVersionedData
+    [ExcludeFromCodeCoverage]
+    public class DbEntityVersion : DbVersionedData
     {
         /// <summary>
         /// Gets or sets the key

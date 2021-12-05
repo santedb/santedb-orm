@@ -1,6 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
@@ -9,6 +9,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
     /// Concept set
     /// </summary>
     [Table("cd_set_tbl")]
+    [ExcludeFromCodeCoverage]
 	public class DbConceptSet : DbNonVersionedBaseData
 	{
 		/// <summary>
@@ -53,6 +54,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
 	/// <summary>
 	/// Concept set concept association.
 	/// </summary>
+    [ExcludeFromCodeCoverage]
 	[Table("cd_set_mem_assoc_tbl")]
 	public class DbConceptSetConceptAssociation 
 	{

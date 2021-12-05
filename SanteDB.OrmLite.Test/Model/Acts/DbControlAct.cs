@@ -1,4 +1,5 @@
-﻿using SanteDB.OrmLite.Attributes;
+﻿using System.Diagnostics.CodeAnalysis;
+using SanteDB.OrmLite.Attributes;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
 {
@@ -6,6 +7,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
     /// Represents controlling actions
     /// </summary>
     [Table("cntrl_act_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbControlAct : DbActSubTable
     {
 

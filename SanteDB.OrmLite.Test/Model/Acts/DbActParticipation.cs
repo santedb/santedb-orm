@@ -2,6 +2,7 @@
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Entities;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
 {
@@ -9,6 +10,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
     /// Represents a link between an act and an entity
     /// </summary>
     [Table("act_ptcpt_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbActParticipation : DbActVersionedAssociation
     {
         /// <summary>

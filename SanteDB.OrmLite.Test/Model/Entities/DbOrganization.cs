@@ -1,6 +1,7 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
 {
@@ -8,6 +9,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// Represents an organization in the data store
     /// </summary>
     [Table("org_tbl")]
+    [ExcludeFromCodeCoverage]
 	public class DbOrganization : DbEntitySubTable
 	{
 		/// <summary>
