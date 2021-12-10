@@ -3,13 +3,15 @@ using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Entities;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Roles
 {
-    /// <summary>
-    /// Represents a patient in the SQLite store
-    /// </summary>
+	/// <summary>
+	/// Represents a patient in the SQLite store
+	/// </summary>
     [Table("pat_tbl")]
+    [ExcludeFromCodeCoverage]
 	public class DbPatient : DbPersonSubTable
 	{
 

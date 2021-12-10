@@ -2,7 +2,7 @@
 using SanteDB.Persistence.Data.ADO.Data.Model.Acts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Entities;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
@@ -10,6 +10,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
     /// <summary>
     /// Represents note storage
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbNote : DbVersionedAssociation
 	{
         /// <summary>
@@ -43,7 +44,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
 	/// Entity note.
 	/// </summary>
 	[Table("ent_note_tbl")]
-	public class DbEntityNote : DbNote
+    [ExcludeFromCodeCoverage]
+    public class DbEntityNote : DbNote
 	{
 
         /// <summary>
@@ -63,7 +65,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
     /// Act note.
     /// </summary>
     [Table("act_note_tbl")]
-	public class DbActNote : DbNote
+    [ExcludeFromCodeCoverage]
+    public class DbActNote : DbNote
 	{
         /// <summary>
         /// Gets or sets the source identifier.

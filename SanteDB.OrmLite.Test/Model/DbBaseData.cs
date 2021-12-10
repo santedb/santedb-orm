@@ -1,6 +1,7 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model
 {
@@ -55,6 +56,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Represents base data
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbBaseData : DbIdentified, IDbBaseData
     {
         /// <summary>
@@ -91,6 +93,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Non-versioned base data
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbNonVersionedBaseData : DbBaseData, IDbNonVersionedBaseData
     {
 

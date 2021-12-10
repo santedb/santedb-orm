@@ -2,7 +2,7 @@
 using SanteDB.Persistence.Data.ADO.Data.Model.Acts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Entities;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
@@ -10,6 +10,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
     /// <summary>
     /// Extension.
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbExtension : DbVersionedAssociation
 	{
 
@@ -45,7 +46,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
 	/// Entity extension.
 	/// </summary>
 	[Table ("ent_ext_tbl")]
-	public class DbEntityExtension : DbExtension
+    [ExcludeFromCodeCoverage]
+    public class DbEntityExtension : DbExtension
 	{
         /// <summary>
         /// Gets or sets the primary key
@@ -70,7 +72,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
     /// Act extensions
     /// </summary>
     [Table ("act_ext_tbl")]
-	public class DbActExtension : DbExtension
+    [ExcludeFromCodeCoverage]
+    public class DbActExtension : DbExtension
 	{
         /// <summary>
         /// Get or sets the key

@@ -3,6 +3,7 @@ using SanteDB.Persistence.Data.ADO.Data.Model.Acts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Entities;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model
 {
@@ -38,6 +39,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Represents the databased associated entity
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbAssociation : DbIdentified, IDbAssociation
     {
         /// <summary>
@@ -49,6 +51,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Represents the versioned copy of an association
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbVersionedAssociation : DbAssociation, IDbVersionedAssociation
     {
         /// <summary>
@@ -67,6 +70,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Represents an act association
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbActAssociation : DbAssociation
     {
         /// <summary>
@@ -79,6 +83,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Represents an act association
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbActVersionedAssociation : DbVersionedAssociation
     {
         /// <summary>
@@ -91,6 +96,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Represents an act association
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbEntityAssociation : DbAssociation
     {
         /// <summary>
@@ -103,6 +109,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Represents an act association
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbEntityVersionedAssociation : DbVersionedAssociation
     {
         /// <summary>
@@ -115,6 +122,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Represents an concept association
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbConceptVersionedAssociation : DbVersionedAssociation
     {
         /// <summary>

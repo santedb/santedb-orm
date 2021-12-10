@@ -115,13 +115,13 @@ namespace SanteDB.OrmLite.Providers.Firebird
             if (fbConnectionType == null)
                 throw new InvalidOperationException("Cannot find FirebirdSQL provider");
 
-            var createDbMethod = fbConnectionType.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).SingleOrDefault(o => o.Name == "CreateDatabase" && o.GetParameters().Length == 2);
+            var createDbMethod = fbConnectionType.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).SingleOrDefault(o => o.Name == "CreateDatabase" && o.GetParameters().Length == 4);
             if (createDbMethod == null)
                 throw new InvalidOperationException("Cannot find FirebirdSQL CreateDatabase method. Perhaps this is an invalid version of ADO.NET provider");
             var dbPath = Path.ChangeExtension(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), databaseName), "fdb");
             dbPath = dbPath.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString());
             connectionString.SetComponent("initial catalog", dbPath);
-            createDbMethod.Invoke(null, new object[] { connectionString.ToString(), false });
+            createDbMethod.Invoke(null, new object[] { connectionString.ToString(), 4096, true, false });
             connectionString.SetComponent("initial catalog", Path.GetFileName(dbPath));
 
             return connectionString;

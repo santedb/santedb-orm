@@ -1,7 +1,7 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
@@ -10,6 +10,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// Represents a telecommunications address
     /// </summary>
     [Table("ent_tel_tbl")]
+    [ExcludeFromCodeCoverage]
 	public class DbTelecomAddress : DbEntityVersionedAssociation
 	{
         /// <summary>

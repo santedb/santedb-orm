@@ -2,12 +2,14 @@
 using SanteDB.Persistence.Data.ADO.Data.Model.Acts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Entities;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
 {
     /// <summary>
     /// Represents an identifier
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbIdentifier : DbVersionedAssociation
     {
         /// <summary>
@@ -47,6 +49,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
     /// Entity identifier storage.
     /// </summary>
     [Table("ent_id_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbEntityIdentifier : DbIdentifier
     {
         /// <summary>
@@ -66,6 +69,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
     /// Act identifier storage.
     /// </summary>
     [Table("act_id_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbActIdentifier : DbIdentifier
     {
         /// <summary>

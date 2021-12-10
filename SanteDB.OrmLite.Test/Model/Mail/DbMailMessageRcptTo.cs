@@ -1,14 +1,16 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Mail
 {
-    /// <summary>
-    /// Represents an alert recipient.
-    /// </summary>
-    [Table("mail_msg_rcpt_to_tbl")]
-	public class DbMailMessageRcptTo : DbAssociation
+	/// <summary>
+	/// Represents an alert recipient.
+	/// </summary>
+	[ExcludeFromCodeCoverage]
+	[Table("mail_msg_rcpt_to_tbl")]
+    public class DbMailMessageRcptTo : DbAssociation
 	{
 		/// <summary>
 		/// Initializes a new instance of the <see cref="DbMailMessageRcptTo"/> class.

@@ -3,7 +3,7 @@ using SanteDB.Persistence.Data.ADO.Data.Model.Acts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Entities;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
@@ -11,6 +11,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
     /// <summary>
     /// Represents a simpe tag (version independent)
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbTag : DbAssociation, IDbBaseData
 	{
         /// <summary>
@@ -78,7 +79,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
 	/// Represents a tag associated with an enttiy
 	/// </summary>
 	[Table("ent_tag_tbl")]
-	public class DbEntityTag : DbTag
+    [ExcludeFromCodeCoverage]
+    public class DbEntityTag : DbTag
 	{
 
         /// <summary>
@@ -97,7 +99,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
 	/// Represents a tag associated with an act
 	/// </summary>
 	[Table("act_tag_tbl")]
-	public class DbActTag : DbTag
+    [ExcludeFromCodeCoverage]
+    public class DbActTag : DbTag
 	{
         /// <summary>
         /// Gets or sets the source.

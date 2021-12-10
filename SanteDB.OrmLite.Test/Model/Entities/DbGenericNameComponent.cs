@@ -1,12 +1,14 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
 {
     /// <summary>
     /// Generic name component
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public abstract class DbGenericNameComponent : DbAssociation, IDbIdentified
     {
         /// <summary>

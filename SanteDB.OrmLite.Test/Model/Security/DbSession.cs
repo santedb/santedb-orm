@@ -1,5 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
 {
@@ -7,6 +8,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     /// Represents a session in the database
     /// </summary>
     [Table("sec_ses_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbSession : DbIdentified
     {
         /// <summary>

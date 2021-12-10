@@ -1,14 +1,15 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
 {
-    /// <summary>
-    /// Represents a concept name
-    /// </summary>
+	/// <summary>
+	/// Represents a concept name
+	/// </summary>
     [Table("cd_name_tbl")]
+    [ExcludeFromCodeCoverage]
 	public class DbConceptName : DbConceptVersionedAssociation
 	{
 	

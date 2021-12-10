@@ -1,7 +1,7 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
@@ -10,6 +10,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// Represents the entity representation of an object
     /// </summary>
     [Table("dev_ent_tbl")]
+    [ExcludeFromCodeCoverage]
 	public class DbDeviceEntity : DbEntitySubTable
     {
 

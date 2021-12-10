@@ -1,5 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
 {
@@ -7,6 +8,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
     /// Represents a code system 
     /// </summary>
     [Table("cd_sys_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbCodeSystem : DbNonVersionedBaseData
     {
         /// <summary>

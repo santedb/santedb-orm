@@ -1,6 +1,7 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
 {
@@ -8,6 +9,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// Represents one or more entity addresses linked to an Entity
     /// </summary>
     [Table("ent_addr_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbEntityAddress : DbEntityVersionedAssociation
     {
         /// <summary>

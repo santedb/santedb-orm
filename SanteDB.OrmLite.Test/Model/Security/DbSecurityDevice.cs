@@ -1,6 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
@@ -9,7 +9,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     /// Represents a security device. This table should only have one row (the current device)
     /// </summary>
     [Table("sec_dev_tbl")]
-	public class DbSecurityDevice : DbBaseData
+    [ExcludeFromCodeCoverage]
+    public class DbSecurityDevice : DbBaseData
 	{
 		
 		/// <summary>

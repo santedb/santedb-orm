@@ -2,6 +2,7 @@
 using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
 {
@@ -9,7 +10,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// Represents a person
     /// </summary>
     [Table("psn_tbl")]
-	public class DbPerson : DbEntitySubTable
+    [ExcludeFromCodeCoverage]
+    public class DbPerson : DbEntitySubTable
 	{
         /// <summary>
         /// Parent key

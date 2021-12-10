@@ -2,7 +2,7 @@
 using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
-
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
@@ -11,6 +11,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// Represents a material in the database
     /// </summary>
     [Table("mat_tbl")]
+    [ExcludeFromCodeCoverage]
 	public class DbMaterial : DbEntitySubTable
     {
 
@@ -87,6 +88,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
 	/// Manufactured material.
 	/// </summary>
 	[Table("mmat_tbl")]
+    [ExcludeFromCodeCoverage]
 	public class DbManufacturedMaterial : DbEntitySubTable
 	{
 

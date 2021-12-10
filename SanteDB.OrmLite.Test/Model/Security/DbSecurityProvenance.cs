@@ -1,5 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
 {
@@ -7,6 +8,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     /// Represents simple provenance
     /// </summary>
     [Table("sec_prov_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbSecurityProvenance : DbIdentified
     {
         /// <summary>

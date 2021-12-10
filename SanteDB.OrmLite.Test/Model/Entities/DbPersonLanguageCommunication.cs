@@ -1,5 +1,6 @@
 ﻿using SanteDB.OrmLite.Attributes;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
 {
@@ -7,6 +8,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// Represents a person's languages of communication
     /// </summary>
     [Table("psn_lng_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbPersonLanguageCommunication : DbEntityVersionedAssociation
     {
         /// <summary>

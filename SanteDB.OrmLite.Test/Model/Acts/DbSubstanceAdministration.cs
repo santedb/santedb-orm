@@ -2,6 +2,7 @@
 using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
 {
@@ -9,6 +10,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
     /// Represents storage class for a substance administration
     /// </summary>
     [Table("sub_adm_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbSubstanceAdministration : DbActSubTable
     {
 
