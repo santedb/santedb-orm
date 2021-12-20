@@ -170,5 +170,10 @@ namespace SanteDB.OrmLite
             Name = "1",
             SourceProperty = null
         };
+
+        /// <summary>
+        /// Represent as a string
+        /// </summary>
+        public override string ToString() => $"{this.Table.TableName}.{this.Name}";
     }
 }
