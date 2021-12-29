@@ -44,6 +44,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// Represents an identified address component
     /// </summary>
     [Table("ent_addr_cmp_tbl")]
+    [ExcludeFromCodeCoverage]
     public class DbEntityAddressComponent : DbGenericNameComponent
     {
         /// <summary>
