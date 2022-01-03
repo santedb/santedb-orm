@@ -162,7 +162,21 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// </summary>
         public IQueryResultSet<TData> Intersect(IQueryResultSet<TData> other)
         {
-            throw new NotSupportedException();
+            if (other is MappedStatefulQueryResultSet<TData> tOther)
+            {
+                // Nab the query result sets and intersect them
+                var queryUuid = Guid.NewGuid();
+                var results = this.m_provider.QueryPersistence.GetQueryResults(tOther.m_queryId, 0, tOther.m_count)
+                    .Intersect(this.m_provider.QueryPersistence.GetQueryResults(this.m_queryId, 0, this.m_count));
+                this.m_provider.QueryPersistence.RegisterQuerySet(queryUuid, results, null, results.Count());
+                this.m_provider.QueryPersistence.AbortQuerySet(this.m_queryId);
+                this.m_provider.QueryPersistence.AbortQuerySet(tOther.m_queryId);
+                return new MappedStatefulQueryResultSet<TData>(this.m_provider, queryUuid, results.Count());
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.ARGUMENT_INCOMPATIBLE_TYPE, typeof(MappedStatefulQueryResultSet<TData>), other.GetType()));
+            }
         }
 
         /// <summary>
@@ -257,7 +271,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 this.m_provider.QueryPersistence.RegisterQuerySet(queryUuid, results, null, results.Count());
                 this.m_provider.QueryPersistence.AbortQuerySet(this.m_queryId);
                 this.m_provider.QueryPersistence.AbortQuerySet(tOther.m_queryId);
-                return new MappedStatefulQueryResultSet<TData>(this.m_provider, this.m_queryId, results.Count());
+                return new MappedStatefulQueryResultSet<TData>(this.m_provider, queryUuid, results.Count());
             }
             else
             {
