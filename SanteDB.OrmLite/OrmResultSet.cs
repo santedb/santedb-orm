@@ -101,7 +101,7 @@ namespace SanteDB.OrmLite
         /// <param name="selector">The key to order by</param>
         public OrmResultSet<TData> OrderBy(Expression<Func<TData, dynamic>> keySelector)
         {
-            return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy<TData>(keySelector, Core.Model.Map.SortOrderType.OrderBy));
+            return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy(keySelector, Core.Model.Map.SortOrderType.OrderBy));
         }
 
         /// <summary>
@@ -110,7 +110,7 @@ namespace SanteDB.OrmLite
         /// <param name="selector">The selector to order by </param>
         public OrmResultSet<TData> OrderByDescending(Expression<Func<TData, dynamic>> keySelector)
         {
-            return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy<TData>(keySelector, Core.Model.Map.SortOrderType.OrderByDescending));
+            return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy(keySelector, Core.Model.Map.SortOrderType.OrderByDescending));
         }
 
         /// <summary>
@@ -315,6 +315,14 @@ namespace SanteDB.OrmLite
         {
             if (orderExpression is Expression<Func<TData, dynamic>> expr)
                 return this.OrderBy(expr);
+            else if (orderExpression is LambdaExpression le &&
+                (typeof(CompositeResult).IsAssignableFrom(typeof(TData)) &&
+                typeof(TData).GetGenericArguments().Contains(le.Parameters[0].Type) ||
+                typeof(TData) == le.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
+            {
+                var stmt = this.Statement.Build().OrderBy(le, Core.Model.Map.SortOrderType.OrderBy);
+                return new OrmResultSet<TData>(this.Context, stmt);
+            }
             else
                 throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, orderExpression.GetType(), typeof(Expression<Func<TData, Boolean>>)));
         }
@@ -326,8 +334,16 @@ namespace SanteDB.OrmLite
         {
             if (orderExpression is Expression<Func<TData, dynamic>> expr)
                 return this.OrderByDescending(expr);
+            else if(orderExpression is LambdaExpression le &&
+                (typeof(CompositeResult).IsAssignableFrom(typeof(TData)) &&
+                typeof(TData).GetGenericArguments().Contains(le.Parameters[0].Type) ||
+                typeof(TData) == le.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
+            {
+                var stmt = this.Statement.Build().OrderBy(le, Core.Model.Map.SortOrderType.OrderByDescending);
+                return new OrmResultSet<TData>(this.Context, stmt);
+            }
             else
-                throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, orderExpression.GetType(), typeof(Expression<Func<TData, Boolean>>)));
+                throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, orderExpression.GetType(), typeof(Expression<Func<TData, dynamic>>)));
         }
 
         /// <summary>

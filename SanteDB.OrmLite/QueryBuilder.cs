@@ -298,47 +298,32 @@ namespace SanteDB.OrmLite
                         var fkTbl = TableMapping.Get(jt.ForeignKey.Table);
                         var fkAtt = fkTbl.GetColumn(jt.ForeignKey.Column);
 
-                        // is this just a sub-statement? If so we should only join tables which will provide some sort of use
-                        //if(!String.IsNullOrEmpty(tablePrefix))
-                        //{
-                        if (selector.Length > 0 && (selector[0] == ColumnMapping.One || selector.Where(o => o.Table.TableName == fkTbl.TableName).All(s => dt.GetColumn(s.Name) != null)))
+                        // Does the table add nothing?
+                        if (fkTbl.Columns.Count() <= 1)
                         {
-                            var sha = fkTbl.OrmType.GetCustomAttributes<SkipHintAttribute>();
-                            if (sha.Any() && !query.Any(q => sha.Any(s => q.Key.StartsWith(s.QueryHint)))) // Self join on skip to speed up the queries
-                            {
-                                scopedTables.Add(TableMapping.Redirect(fkTbl.OrmType, dt.OrmType));
+                            scopedTables.Add(TableMapping.Redirect(fkAtt.Table.OrmType, jt.Table.OrmType));
+                        }
+                        else
+                        {
+                            selectStatement.Append($"INNER JOIN {fkAtt.Table.TableName} AS {tablePrefix}{fkAtt.Table.TableName} ON ({tablePrefix}{jt.Table.TableName}.{jt.Name} = {tablePrefix}{fkAtt.Table.TableName}.{fkAtt.Name} ");
 
-                                // Rewrite any column selectors
-                                for (int i = 0; i < selector.Length; i++)
+                            foreach (var flt in jt.JoinFilters.Union(joinFilters).GroupBy(o => o.PropertyName).ToArray())
+                            {
+                                var fltCol = fkTbl.GetColumn(flt.Key);
+                                if (fltCol == null)
+                                    joinFilters.AddRange(flt);
+                                else
                                 {
-                                    if (selector[i].Table.OrmType == fkTbl.OrmType)
-                                        selector[i] = dt.GetColumn(selector[i].Name);
+                                    selectStatement.And($"({String.Join(" OR ", flt.Select(o => $"{tablePrefix}{fltCol.Table.TableName}.{fltCol.Name} = '{o.Value}'"))})");
+                                    joinFilters.RemoveAll(o => flt.Contains(o));
                                 }
-
-                                //var pkMap = dt.PrimaryKey.First();
-                                //selectStatement.Append($"INNER JOIN {dt.TableName} AS {tablePrefix}{fkAtt.Table.TableName} ON ({tablePrefix}{jt.Table.TableName}.{fkAtt.Name} = {tablePrefix}{fkAtt.Table.TableName}.{fkAtt.Name} )");
-                                continue;
                             }
-                        }
-                        //}
-                        selectStatement.Append($"INNER JOIN {fkAtt.Table.TableName} AS {tablePrefix}{fkAtt.Table.TableName} ON ({tablePrefix}{jt.Table.TableName}.{jt.Name} = {tablePrefix}{fkAtt.Table.TableName}.{fkAtt.Name} ");
 
-                        foreach (var flt in jt.JoinFilters.Union(joinFilters).GroupBy(o => o.PropertyName).ToArray())
-                        {
-                            var fltCol = fkTbl.GetColumn(flt.Key);
-                            if (fltCol == null)
-                                joinFilters.AddRange(flt);
-                            else
-                            {
-                                selectStatement.And($"({String.Join(" OR ", flt.Select(o => $"{tablePrefix}{fltCol.Table.TableName}.{fltCol.Name} = '{o.Value}'"))})");
-                                joinFilters.RemoveAll(o => flt.Contains(o));
-                            }
+                            selectStatement.Append(")");
+                            if (!scopedTables.Contains(fkTbl))
+                                fkStack.Push(fkTbl);
+                            scopedTables.Add(fkAtt.Table);
                         }
-
-                        selectStatement.Append(")");
-                        if (!scopedTables.Contains(fkTbl))
-                            fkStack.Push(fkTbl);
-                        scopedTables.Add(fkAtt.Table);
                     }
                 } while (fkStack.Count > 0);
 

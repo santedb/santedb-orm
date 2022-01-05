@@ -289,7 +289,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Append the order by statements onto the specifed result set
         /// </summary>
-        public IOrderableQueryResultSet<TElement> OrderBy(Expression<Func<TElement, dynamic>> sortExpression)
+        public IOrderableQueryResultSet<TElement> OrderBy<TKey>(Expression<Func<TElement, TKey>> sortExpression)
         {
             if (this.m_resultSet == null) // this is the first
             {
@@ -302,7 +302,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Order result set by descending order
         /// </summary>
-        public IOrderableQueryResultSet<TElement> OrderByDescending(Expression<Func<TElement, dynamic>> sortExpression)
+        public IOrderableQueryResultSet<TElement> OrderByDescending<TKey>(Expression<Func<TElement, TKey>> sortExpression)
         {
             if (this.m_resultSet == null) // this is the first
             {

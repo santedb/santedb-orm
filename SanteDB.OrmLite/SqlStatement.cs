@@ -328,10 +328,15 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Construct an order by
         /// </summary>
-        public SqlStatement OrderBy<TExpression>(Expression<Func<TExpression, dynamic>> orderField, SortOrderType sortOperation = SortOrderType.OrderBy)
+        public SqlStatement OrderBy<TData>(Expression<Func<TData, dynamic>> orderExpression, SortOrderType sortOperation = SortOrderType.OrderBy) => this.OrderBy((LambdaExpression)orderExpression, sortOperation);
+
+        /// <summary>
+        /// Construct an order by
+        /// </summary>
+        public SqlStatement OrderBy(LambdaExpression orderExpression, SortOrderType sortOperation = SortOrderType.OrderBy)
         {
-            var orderMap = TableMapping.Get(typeof(TExpression));
-            var fldRef = orderField.Body;
+            var orderMap = TableMapping.Get(orderExpression.Parameters[0].Type);
+            var fldRef = orderExpression.Body;
             while (fldRef.NodeType != ExpressionType.MemberAccess)
             {
                 switch (fldRef.NodeType)
