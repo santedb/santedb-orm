@@ -1262,7 +1262,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Execute a non query
         /// </summary>
-        public void ExecuteNonQuery(SqlStatement stmt)
+        public void ExecuteNonQuery(SqlStatement stmt, int? timeout = null)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -1275,6 +1275,11 @@ namespace SanteDB.OrmLite
                     var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
                     try
                     {
+                        if (timeout.HasValue)
+                        {
+                            dbc.CommandTimeout = timeout.Value;
+                        }
+
                         dbc.ExecuteNonQuery();
                     }
                     finally

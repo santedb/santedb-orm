@@ -318,6 +318,8 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     return " FALSE ";
                 case SqlKeyword.True:
                     return " TRUE ";
+                case SqlKeyword.CreateOrAlter:
+                    return "CREATE OR ALTER ";
                 default:
                     throw new ArgumentOutOfRangeException(nameof(keywordType));
             }

@@ -48,6 +48,7 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Represents True (or 1)
         /// </summary>
-        True
+        True,
+        CreateOrAlter
     }
 }
