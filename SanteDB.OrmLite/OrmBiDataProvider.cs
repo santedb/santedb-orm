@@ -112,14 +112,14 @@ namespace SanteDB.OrmLite
                         context.ExecuteNonQuery(new SqlStatement(provider, "CREATE MATERIALIZED VIEW ")
                             .Append(rdbmsQueryDefinition.Materialize.Name)
                             .Append(" AS ")
-                            .Append(rdbmsQueryDefinition.Materialize.Sql));
+                            .Append(rdbmsQueryDefinition.Materialize.Sql), 360000);
                     }
                     else
                     {
                         context.ExecuteNonQuery(new SqlStatement(provider, "CREATE VIEW ")
                             .Append(rdbmsQueryDefinition.Materialize.Name)
                             .Append(" AS ")
-                            .Append(rdbmsQueryDefinition.Materialize.Sql));
+                            .Append(rdbmsQueryDefinition.Materialize.Sql), 360000);
                     }
                 }
                 catch (Exception e)
@@ -400,7 +400,7 @@ namespace SanteDB.OrmLite
                     {
                         context.Open();
                         context.ExecuteNonQuery(new SqlStatement(provider, "REFRESH MATERIALIZED VIEW ")
-                            .Append(rdbmsQueryDefinition.Materialize.Name));
+                            .Append(rdbmsQueryDefinition.Materialize.Name), 360000);
                     }
                     catch (Exception e)
                     {
