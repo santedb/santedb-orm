@@ -46,6 +46,89 @@ namespace SanteDB.OrmLite
         // Tracer
         private Tracer m_tracer = Tracer.GetTracer(typeof(OrmBiDataProvider));
 
+        // Parameter regular expression
+        private readonly Regex m_parmRegex = new Regex(@"\$\{([\w_][\-\d\w\._]*?)\}");
+
+        // Services
+        private readonly IPolicyEnforcementService m_policyEnforcementService;
+        private readonly IConfigurationManager m_configurationManager;
+        private readonly IBiMetadataRepository m_metadataRepository;
+        private readonly IBiPivotProvider m_pivotProvider;
+
+        /// <summary>
+        /// DI constructor
+        /// </summary>
+        public OrmBiDataProvider(IPolicyEnforcementService policyEnforcementService, IConfigurationManager configurationManager, IBiMetadataRepository biMetadataRepository = null, IBiPivotProvider biPivotProvider = null)
+        {
+            this.m_policyEnforcementService = policyEnforcementService;
+            this.m_configurationManager = configurationManager;
+            this.m_metadataRepository = biMetadataRepository;
+            this.m_pivotProvider = biPivotProvider;
+        }
+        /// <summary>
+        /// Create materialized view
+        /// </summary>
+        /// <param name="materializeDefinition">The materialized query definition</param>
+        public void CreateMaterializedView(BiQueryDefinition materializeDefinition)
+        {
+            if (materializeDefinition == null)
+            {
+                throw new ArgumentNullException(nameof(materializeDefinition));
+            }
+
+            materializeDefinition = BiUtils.ResolveRefs(materializeDefinition);
+
+            // The ADO.NET provider only allows one connection to one db at a time, so verify the connections are appropriate
+            if (materializeDefinition.DataSources?.Count != 1)
+                throw new InvalidOperationException($"ADO.NET BI queries can only source data from 1 connection source, query {materializeDefinition.Name} has {materializeDefinition.DataSources?.Count}");
+
+            // We want to open the specified connection
+            var provider = this.GetProvider(materializeDefinition);
+
+            // Query definition
+            var rdbmsQueryDefinition = this.GetSqlDefinition(materializeDefinition, provider);
+
+            if (rdbmsQueryDefinition.Materialize == null)
+            {
+                return; // no materialized view
+            }
+            else if (String.IsNullOrEmpty(rdbmsQueryDefinition.Materialize.Name))
+            {
+                throw new InvalidOperationException($"Materialization on {materializeDefinition.Id} must have a unique name");
+            }
+            else if (this.m_parmRegex.IsMatch(rdbmsQueryDefinition.Materialize.Sql))
+            {
+                throw new InvalidOperationException("Materializations are not allowed to have parameters references - move parameters to the SQL definition");
+            }
+
+            // Get connection and execute
+            using (var context = provider.GetWriteConnection())
+            {
+                try
+                {
+                    context.Open();
+                    if (provider.Features.HasFlag(SqlEngineFeatures.MaterializedViews))
+                    {
+                        context.ExecuteNonQuery(new SqlStatement(provider, "CREATE MATERIALIZED VIEW ")
+                            .Append(rdbmsQueryDefinition.Materialize.Name)
+                            .Append(" AS ")
+                            .Append(rdbmsQueryDefinition.Materialize.Sql));
+                    }
+                    else
+                    {
+                        context.ExecuteNonQuery(new SqlStatement(provider, "CREATE VIEW ")
+                            .Append(rdbmsQueryDefinition.Materialize.Name)
+                            .Append(" AS ")
+                            .Append(rdbmsQueryDefinition.Materialize.Sql));
+                    }
+                }
+                catch (Exception e)
+                {
+                    throw new DataPersistenceException($"Error creating materialized view for {materializeDefinition.Id}", e);
+                }
+            }
+        }
+
         /// <summary>
         /// Executes the query
         /// </summary>
@@ -54,19 +137,13 @@ namespace SanteDB.OrmLite
             if (queryDefinition == null)
                 throw new ArgumentNullException(nameof(queryDefinition));
 
-            // First we want to grab the connection strings used by this object
-            var filledQuery = BiUtils.ResolveRefs(queryDefinition);
-
+            queryDefinition = BiUtils.ResolveRefs(queryDefinition);
             // The ADO.NET provider only allows one connection to one db at a time, so verify the connections are appropriate
             if (queryDefinition.DataSources?.Count != 1)
                 throw new InvalidOperationException($"ADO.NET BI queries can only source data from 1 connection source, query {queryDefinition.Name} has {queryDefinition.DataSources?.Count}");
 
             // Ensure we have sufficient priviledge
-            var demandList = queryDefinition.DataSources.SelectMany(o => o?.MetaData.Demands);
-            if (queryDefinition.MetaData?.Demands != null)
-                demandList = demandList.Union(queryDefinition.MetaData?.Demands);
-            foreach (var pol in demandList)
-                ApplicationServiceContext.Current.GetService<IPolicyEnforcementService>().Demand(pol);
+            this.AclCheck(queryDefinition);
 
             // Apply defaults where possible
             foreach (var defaultParm in queryDefinition.Parameters.Where(p => !String.IsNullOrEmpty(p.DefaultValue) && !parameters.ContainsKey(p.Name)))
@@ -125,20 +202,14 @@ namespace SanteDB.OrmLite
             }
 
             // We want to open the specified connection
-            var connectionString = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetConnectionString(queryDefinition.DataSources.First().ConnectionString);
-            var provider = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().GetProvider(connectionString.Provider);
-            provider.ConnectionString = connectionString.Value;
-            provider.ReadonlyConnectionString = connectionString.Value;
+            var provider = this.GetProvider(queryDefinition);
 
             // Query definition
-            var rdbmsQueryDefinition = queryDefinition.QueryDefinitions.FirstOrDefault(o => o.Invariants.Contains(provider.Invariant));
-            if (rdbmsQueryDefinition == null)
-                throw new InvalidOperationException($"Could not find a SQL definition for invariant {provider.Invariant} from {queryDefinition?.Id} (supported invariants: {String.Join(",", queryDefinition.QueryDefinitions.SelectMany(o => o.Invariants))})");
+            var rdbmsQueryDefinition = this.GetSqlDefinition(queryDefinition, provider);
 
             // Prepare the templated SQL
-            var parmRegex = new Regex(@"\$\{([\w_][\-\d\w\._]*?)\}");
             List<Object> values = new List<object>();
-            var stmt = parmRegex.Replace(rdbmsQueryDefinition.Sql, (m) =>
+            var stmt = this.m_parmRegex.Replace(rdbmsQueryDefinition.Sql, (m) =>
             {
                 object pValue = null;
                 parameters.TryGetValue(m.Groups[1].Value, out pValue);
@@ -226,11 +297,51 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Get the SQL definition for the specified provider invariant
+        /// </summary>
+        /// <param name="queryDefinition">The query definition from which the SQL should be extracted</param>
+        /// <param name="provider">The provider for which the SQL should be retrieved</param>
+        /// <returns>The SQL definition</returns>
+        private BiSqlDefinition GetSqlDefinition(BiQueryDefinition queryDefinition, IDbProvider provider)
+        {
+            var rdbmsQueryDefinition = queryDefinition.QueryDefinitions.FirstOrDefault(o => o.Invariants.Contains(provider.Invariant));
+            if (rdbmsQueryDefinition == null)
+                throw new InvalidOperationException($"Could not find a SQL definition for invariant {provider.Invariant} from {queryDefinition?.Id} (supported invariants: {String.Join(",", queryDefinition.QueryDefinitions.SelectMany(o => o.Invariants))})");
+            return rdbmsQueryDefinition;
+        }
+
+        /// <summary>
+        /// Get provider
+        /// </summary>
+        private IDbProvider GetProvider(BiQueryDefinition queryDefinition)
+        {
+            var connectionString = this.m_configurationManager.GetConnectionString(queryDefinition.DataSources.First().ConnectionString);
+            var provider = this.m_configurationManager.GetSection<OrmConfigurationSection>().GetProvider(connectionString.Provider);
+            provider.ConnectionString = connectionString.Value;
+            provider.ReadonlyConnectionString = connectionString.Value;
+            return provider;
+        }
+
+        /// <summary>
+        /// Perform a check on the ACL for the 
+        /// </summary>
+        /// <param name="queryDefinition">The query definition to perform a demand on</param>
+        private void AclCheck(BiQueryDefinition queryDefinition)
+        {
+
+            var demandList = queryDefinition.DataSources.SelectMany(o => o?.MetaData.Demands);
+            if (queryDefinition.MetaData?.Demands != null)
+                demandList = demandList.Union(queryDefinition.MetaData?.Demands);
+            foreach (var pol in demandList)
+                this.m_policyEnforcementService.Demand(pol);
+        }
+
+        /// <summary>
         /// Execute the specified query
         /// </summary>
         public BisResultContext ExecuteQuery(string queryId, IDictionary<string, object> parameters, BiAggregationDefinition[] aggregation, int offset, int? count)
         {
-            var query = ApplicationServiceContext.Current.GetService<IBiMetadataRepository>()?.Get<BiQueryDefinition>(queryId);
+            var query = this.m_metadataRepository?.Get<BiQueryDefinition>(queryId);
             if (query == null)
                 throw new KeyNotFoundException(queryId);
             else
@@ -245,8 +356,59 @@ namespace SanteDB.OrmLite
             viewDef = BiUtils.ResolveRefs(viewDef) as BiViewDefinition;
             var retVal = this.ExecuteQuery(viewDef.Query, parameters, viewDef.AggregationDefinitions?.ToArray(), offset, count);
             if (viewDef.Pivot != null)
-                retVal = ApplicationServiceContext.Current.GetService<IBiPivotProvider>().Pivot(retVal, viewDef.Pivot);
+                retVal = this.m_pivotProvider.Pivot(retVal, viewDef.Pivot);
             return retVal;
         }
+
+        /// <summary>
+        /// Refresh materialized view
+        /// </summary>
+        public void RefreshMaterializedView(BiQueryDefinition materializeDefinition)
+        {
+            if (materializeDefinition == null)
+            {
+                throw new ArgumentNullException(nameof(materializeDefinition));
+            }
+
+            materializeDefinition = BiUtils.ResolveRefs(materializeDefinition);
+            // The ADO.NET provider only allows one connection to one db at a time, so verify the connections are appropriate
+            if (materializeDefinition.DataSources?.Count != 1)
+                throw new InvalidOperationException($"ADO.NET BI queries can only source data from 1 connection source, query {materializeDefinition.Name} has {materializeDefinition.DataSources?.Count}");
+
+            // We want to open the specified connection
+            var provider = this.GetProvider(materializeDefinition);
+
+            // Query definition
+            var rdbmsQueryDefinition = this.GetSqlDefinition(materializeDefinition, provider);
+
+            if (rdbmsQueryDefinition.Materialize == null)
+            {
+                return; // no materialized view
+            }
+            else if (String.IsNullOrEmpty(rdbmsQueryDefinition.Materialize.Name))
+            {
+                throw new InvalidOperationException($"Materialization on {materializeDefinition.Id} must have a unique name");
+            }
+
+            // Get connection and execute
+            if (provider.Features.HasFlag(SqlEngineFeatures.MaterializedViews))
+            {
+
+                using (var context = provider.GetWriteConnection())
+                {
+                    try
+                    {
+                        context.Open();
+                        context.ExecuteNonQuery(new SqlStatement(provider, "REFRESH MATERIALIZED VIEW ")
+                            .Append(rdbmsQueryDefinition.Materialize.Name));
+                    }
+                    catch (Exception e)
+                    {
+                        throw new DataPersistenceException($"Error refreshing materialized view for {materializeDefinition.Id}", e);
+                    }
+                }
+            }
+        }
+
     }
 }
