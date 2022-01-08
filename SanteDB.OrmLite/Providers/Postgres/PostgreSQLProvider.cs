@@ -94,7 +94,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     SqlEngineFeatures.LimitOffset |
                     SqlEngineFeatures.FetchOffset |
                     SqlEngineFeatures.MustNameSubQuery |
-                    SqlEngineFeatures.SetTimeout;
+                    SqlEngineFeatures.SetTimeout | 
+                    SqlEngineFeatures.MaterializedViews;
             }
         }
 
@@ -426,6 +427,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
                 case SqlKeyword.True:
                     return " TRUE ";
+
+                case SqlKeyword.CreateOrAlter:
+                    return "CREATE OR REPLACE ";
 
                 default:
                     throw new NotImplementedException();
