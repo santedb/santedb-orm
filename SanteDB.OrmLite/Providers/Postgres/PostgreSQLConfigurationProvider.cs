@@ -57,8 +57,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
             { "password", ConfigurationOptionType.Password },
             { "database", ConfigurationOptionType.DatabaseName },
             { "pooling", ConfigurationOptionType.Boolean },
-            { "minpoolsize", ConfigurationOptionType.Numeric },
-            { "maxpoolsize", ConfigurationOptionType.Numeric },
+            { "Minimum Pool Size", ConfigurationOptionType.Numeric },
+            { "Maximum Pool Size", ConfigurationOptionType.Numeric },
+            { "Load Balance Hosts", ConfigurationOptionType.Boolean },
+            { "Target Session Attributes", ConfigurationOptionType.String },
+            { "Max Auto Prepare", ConfigurationOptionType.Numeric }
         };
 
         /// <summary>
@@ -67,7 +70,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public override IDictionary<String, String[]> OptionGroups => new Dictionary<string, string[]>()
         {
             { "Connection", new string[]{ "host","port","user id","password","database"} },
-            { "Pooling", new string[] { "pooling", "minpoolsize", "maxpoolsize" } }
+            { "Pooling", new string[] { "pooling", "Minimum Pool Size", "Maximum Pool Size" } },
+            { "Performance", new string[] { "Load Balance Hosts", "Target Session Attributes", "Max Auto Prepare" } }
         };
 
         /// <summary>
