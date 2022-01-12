@@ -92,7 +92,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     SqlEngineFeatures.LimitOffset |
                     SqlEngineFeatures.FetchOffset |
                     SqlEngineFeatures.MustNameSubQuery |
-                    SqlEngineFeatures.SetTimeout | 
+                    SqlEngineFeatures.SetTimeout |
                     SqlEngineFeatures.MaterializedViews;
             }
         }
@@ -127,52 +127,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public DataContext GetReadonlyConnection()
         {
             var conn = this.GetProviderFactory().CreateConnection();
-
-            DbConnectionStringBuilder dbst = new DbConnectionStringBuilder();
-            dbst.ConnectionString = this.ReadonlyConnectionString ?? this.ConnectionString;
-
-            if (dbst.ConnectionString != this.ConnectionString)
-            {
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "Will rewrite readonly connection string from {0}", dbst.ConnectionString);
-                Object host = String.Empty;
-                if (this.m_readonlyIpAddresses == null && (dbst.TryGetValue("host", out host) || dbst.TryGetValue("server", out host)))
-                {
-                    IPAddress ip = null;
-                    this.m_tracer.TraceEvent(EventLevel.Verbose, "Will attempt to resolve '{0}' to readonly pool", host);
-
-                    if (IPAddress.TryParse(host.ToString(), out ip)) // server is an IP, no need to dns
-                        this.m_readonlyIpAddresses = new IPAddress[] { ip };
-                    else if (host.ToString() == "localhost" ||
-                        host.ToString() == "127.0.0.1")
-                    {
-                        conn.ConnectionString = dbst.ConnectionString;
-                        return new DataContext(this, conn, true);
-                    }
-                    else
-                    {
-                        this.m_readonlyIpAddresses = Dns.GetHostAddresses(host.ToString());
-                        this.m_tracer.TraceVerbose("Resolved {0} to {1}", host, String.Join(",", this.m_readonlyIpAddresses.Select(o => o.ToString())));
-                    }
-
-                    dbst.Remove("host");
-                    dbst.Remove("server");
-                    this.m_tracer.TraceInfo("Readonly host {0} resolves to pool of IP addresses [{1}]", host, String.Join(",", this.m_readonlyIpAddresses.Select(o => o.ToString())));
-                }
-
-                // Readonly IP address
-                if (this.m_readonlyIpAddresses?.Length > 0)
-                {
-                    this.m_tracer.TraceEvent(EventLevel.Verbose, "Assign readonly IP address from resolved pool to {0}", dbst.ConnectionString);
-                    dbst["host"] = this.m_readonlyIpAddresses[this.m_lastRrHost++ % this.m_readonlyIpAddresses.Length].ToString();
-                    if (this.m_lastRrHost > this.m_readonlyIpAddresses.Length) this.m_lastRrHost = 0;
-                    conn.ConnectionString = dbst.ConnectionString;
-                }
-                else
-                    conn.ConnectionString = dbst.ConnectionString;
-            }
-            else
-                conn.ConnectionString = dbst.ConnectionString;
-
+            conn.ConnectionString = this.ReadonlyConnectionString ?? this.ConnectionString;
             this.m_tracer.TraceEvent(EventLevel.Verbose, "Created readonly connection: {0}", conn.ConnectionString);
             return new DataContext(this, conn, true);
         }
@@ -265,6 +220,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     else if (value is DateTimeOffset dto)
                     {
                         parm.Value = dto.ToUniversalTime();
+                    }
+                    else if (value is DateTime dt)
+                    {
+                        parm.Value = dt.ToUniversalTime();
                     }
                     else
                         parm.Value = itm;
