@@ -24,13 +24,25 @@ namespace SanteDB.OrmLite.Providers
 {
 
     /// <summary>
-    /// States of the database statement
+    /// States of the database statements which are returned from <see cref="IDbMonitorProvider.StatActivity"/>
     /// </summary>
     public enum DbStatementStatus
     {
+        /// <summary>
+        /// The connection/statement is idle
+        /// </summary>
         Idle,
+        /// <summary>
+        /// The connection/statement is active
+        /// </summary>
         Active,
+        /// <summary>
+        /// The statement is stalled
+        /// </summary>
         Stalled,
+        /// <summary>
+        /// Another unknown state
+        /// </summary>
         Other
     }
 
