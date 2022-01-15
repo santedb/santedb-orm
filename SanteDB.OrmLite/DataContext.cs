@@ -71,6 +71,11 @@ namespace SanteDB.OrmLite
         public LoadState LoadState { get; set; }
 
         /// <summary>
+        /// Overrides the command timeout for any command executed on this data context
+        /// </summary>
+        public int? CommandTimeout { get; set; }
+
+        /// <summary>
         /// Data dictionary
         /// </summary>
         public IDictionary<String, Object> Data { get { return this.m_dataDictionary; } }
