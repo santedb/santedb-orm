@@ -66,6 +66,11 @@ namespace SanteDB.OrmLite
         { get { return this.m_dataDictionary; } }
 
         /// <summary>
+        /// Overrides the command timeout for any command executed on this data context
+        /// </summary>
+        public int? CommandTimeout { get; set; }
+
+        /// <summary>
         /// Internal utility method to get provider
         /// </summary>
         internal IDbProvider Provider => this.m_provider;

@@ -35,114 +35,7 @@ using System.Linq.Expressions;
 
 namespace SanteDB.OrmLite
 {
-    /// <summary>
-    /// Multi type result used when a result set is a join
-    /// </summary>
-    /// <remarks>A composite result is used when the caller is joining together data 
-    /// from multiple tables and would like the ORM result engine to load multiple 
-    /// types of objects from a single tuple</remarks>
-    /// <example>
-    /// <code language="cs">
-    ///     var sql = context.Provider.CreateSqlStatement&lt;Table1>().SelectFrom(typeof(Table1), typeof(Table2))
-    ///         .InnerJoin&lt;Table1, Table2>(o=>o.ForeignKey, o=>o.PrimaryKey);
-    ///     var results = context.Query&lt;CompositeResult&lt;Table1, Table2>>(sql);
-    /// </code>
-    /// </example>
-    public abstract class CompositeResult
-    {
-        /// <summary>
-        /// Gets or sets the values
-        /// </summary>
-        public Object[] Values { get; protected set; }
-
-        /// <summary>
-        /// Parse values form the open <paramref name="rdr"/> using the <paramref name="provider"/> to populate this <see cref="CompositeResult"/>
-        /// </summary>
-        /// <param name="rdr">The reader which is being read (the current row in the data reader)</param>
-        /// <param name="provider">The database provider to use to convert data from the <paramref name="rdr"/></param>
-        public abstract void ParseValues(IDataReader rdr, IDbProvider provider);
-
-        /// <summary>
-        /// Parse the data
-        /// </summary>
-        protected TData Parse<TData>(IDataReader rdr, IDbProvider provider)
-        {
-            var tableMapping = TableMapping.Get(typeof(TData));
-            dynamic result = Activator.CreateInstance(typeof(TData));
-            // Read each column and pull from reader
-            foreach (var itm in tableMapping.Columns)
-            {
-                try
-                {
-                    object value = provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
-                    itm.SourceProperty.SetValue(result, value);
-                }
-                catch
-                {
-                    throw new MissingFieldException(tableMapping.TableName, itm.Name);
-                }
-            }
-            return result;
-        }
-    }
-
-    /// <summary>
-    /// Multi-type result for two types
-    /// </summary>
-    public class CompositeResult<TData1, TData2> : CompositeResult
-    {
-
-        /// <summary>
-        /// Gets the first object in the composite result
-        /// </summary>
-        public TData1 Object1 { get { return (TData1)this.Values[0]; } }
-
-        /// <summary>
-        /// Gets the second object in the composite result
-        /// </summary>
-        public TData2 Object2 { get { return (TData2)this.Values[1]; } }
-
-        /// <inheritdoc/>
-        public override void ParseValues(IDataReader rdr, IDbProvider provider)
-        {
-            this.Values = new object[] { this.Parse<TData1>(rdr, provider), this.Parse<TData2>(rdr, provider) };
-        }
-    }
-
-    /// <summary>
-    /// Multi-type result for three types
-    /// </summary>
-    public class CompositeResult<TData1, TData2, TData3> : CompositeResult<TData1, TData2>
-    {
-        /// <summary>
-        /// Gets the third object in the composite result
-        /// </summary>
-        public TData3 Object3 { get { return (TData3)this.Values[2]; } }
-
-        /// <inheritdoc/>
-        public override void ParseValues(IDataReader rdr, IDbProvider provider)
-        {
-            this.Values = new object[] { this.Parse<TData1>(rdr, provider), this.Parse<TData2>(rdr, provider), this.Parse<TData3>(rdr, provider) };
-        }
-    }
-
-    /// <summary>
-    /// Multi-type result for four types
-    /// </summary>
-    public class CompositeResult<TData1, TData2, TData3, TData4> : CompositeResult<TData1, TData2, TData3>
-    {
-        /// <summary>
-        /// Gets the fourth object in the coposite result
-        /// </summary>
-        public TData4 Object4 { get { return (TData4)this.Values[3]; } }
-
-        /// <inheritdoc/>
-        public override void ParseValues(IDataReader rdr, IDbProvider provider)
-        {
-            this.Values = new object[] { this.Parse<TData1>(rdr, provider), this.Parse<TData2>(rdr, provider), this.Parse<TData3>(rdr, provider), this.Parse<TData4>(rdr, provider) };
-        }
-    }
-
+    
     /// <summary>
     /// Data context functions for the execution of query data
     /// </summary>
@@ -391,8 +284,12 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
                             using (var rdr = dbc.ExecuteReader())
-                                return this.ReaderToResult(returnType, rdr);
+                                    return this.ReaderToResult(returnType, rdr);
                         }
                         catch (TimeoutException)
                         {
@@ -429,8 +326,12 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
                             using (var rdr = dbc.ExecuteReader())
-                                return this.ReaderToResult<TModel>(rdr);
+                                    return this.ReaderToResult<TModel>(rdr);
                         }
                         catch (TimeoutException)
                         {
@@ -467,8 +368,12 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
                             using (var rdr = dbc.ExecuteReader())
-                                return this.ReaderToResult<TModel>(rdr);
+                                    return this.ReaderToResult<TModel>(rdr);
                         }
                         catch (TimeoutException)
                         {
@@ -504,8 +409,13 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+
                             using (var rdr = dbc.ExecuteReader())
-                                return this.ReaderToResult<TModel>(rdr);
+                                    return this.ReaderToResult<TModel>(rdr);
                         }
                         catch (TimeoutException)
                         {
@@ -544,6 +454,11 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+
                             using (var rdr = dbc.ExecuteReader())
                             {
                                 var retVal = this.ReaderToResult<TModel>(rdr);
@@ -586,6 +501,11 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+
                             return (TReturn)dbc.ExecuteScalar();
                         }
                         catch (TimeoutException)
@@ -624,6 +544,10 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
                             return (bool)dbc.ExecuteScalar();
                         }
                         catch (TimeoutException)
@@ -662,6 +586,11 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+
                             return (bool)dbc.ExecuteScalar();
                         }
                         catch (TimeoutException)
@@ -701,6 +630,11 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+
                             return (long)dbc.ExecuteScalar();
                         }
                         catch (TimeoutException)
@@ -740,6 +674,11 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+
                             return Convert.ToInt32(dbc.ExecuteScalar());
                         }
                         catch (TimeoutException)
@@ -810,6 +749,10 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
+                        if (this.CommandTimeout.HasValue)
+                        {
+                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                        }
                         using (var rdr = dbc.ExecuteReader())
                             while (rdr.Read())
                                 yield return this.MapObject<TModel>(rdr);
@@ -933,7 +876,11 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
-
+                        if (this.CommandTimeout.HasValue)
+                        {
+                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                        }   
+                        
                         // There are returned keys and we support simple mode returned inserts
                         if (returnKeys.Any() && this.m_provider.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsReader))
                         {
@@ -988,6 +935,11 @@ namespace SanteDB.OrmLite
                                 // Create command and exec
                                 using (var dbcSelect = this.m_provider.CreateCommand(this, stmt))
                                 {
+                                    if (this.CommandTimeout.HasValue)
+                                    {
+                                        dbc.CommandTimeout = this.CommandTimeout.Value;
+                                    }
+
                                     using (var rdr = dbcSelect.ExecuteReader())
                                     {
                                         if (rdr.Read())
@@ -1035,7 +987,10 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
-
+                        if (this.CommandTimeout.HasValue)
+                        {
+                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                        }
                         dbc.ExecuteNonQuery();
 
                     }
@@ -1067,6 +1022,10 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
+                        if (this.CommandTimeout.HasValue)
+                        {
+                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                        }
                         dbc.ExecuteNonQuery();
                     }
                 }
@@ -1106,6 +1065,10 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
+                        if (this.CommandTimeout.HasValue)
+                        {
+                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                        }
                         dbc.ExecuteNonQuery();
                     }
                 }
@@ -1176,6 +1139,10 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
+                        if (this.CommandTimeout.HasValue)
+                        {
+                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                        }
                         dbc.ExecuteNonQuery();
                     }
                 }
@@ -1257,7 +1224,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Execute a non query
         /// </summary>
-        public void ExecuteNonQuery(SqlStatement stmt, int? timeout = null)
+        public void ExecuteNonQuery(SqlStatement stmt)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -1269,9 +1236,9 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
-                        if (timeout.HasValue)
+                        if (this.CommandTimeout.HasValue)
                         {
-                            dbc.CommandTimeout = timeout.Value;
+                            dbc.CommandTimeout = this.CommandTimeout.Value;
                         }
 
                         dbc.ExecuteNonQuery();
