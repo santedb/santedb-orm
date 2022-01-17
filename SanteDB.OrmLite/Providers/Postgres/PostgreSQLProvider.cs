@@ -93,7 +93,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     SqlEngineFeatures.FetchOffset |
                     SqlEngineFeatures.MustNameSubQuery |
                     SqlEngineFeatures.SetTimeout |
-                    SqlEngineFeatures.MaterializedViews;
+                    SqlEngineFeatures.MaterializedViews ;
             }
         }
 

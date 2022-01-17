@@ -107,19 +107,20 @@ namespace SanteDB.OrmLite
                 try
                 {
                     context.Open();
+                    context.CommandTimeout = 360000;
                     if (provider.Features.HasFlag(SqlEngineFeatures.MaterializedViews))
                     {
                         context.ExecuteNonQuery(new SqlStatement(provider, "CREATE MATERIALIZED VIEW ")
                             .Append(rdbmsQueryDefinition.Materialize.Name)
                             .Append(" AS ")
-                            .Append(rdbmsQueryDefinition.Materialize.Sql), 360000);
+                            .Append(rdbmsQueryDefinition.Materialize.Sql));
                     }
                     else
                     {
                         context.ExecuteNonQuery(new SqlStatement(provider, "CREATE VIEW ")
                             .Append(rdbmsQueryDefinition.Materialize.Name)
                             .Append(" AS ")
-                            .Append(rdbmsQueryDefinition.Materialize.Sql), 360000);
+                            .Append(rdbmsQueryDefinition.Materialize.Sql));
                     }
                 }
                 catch (Exception e)
@@ -399,8 +400,9 @@ namespace SanteDB.OrmLite
                     try
                     {
                         context.Open();
+                        context.CommandTimeout = 360000;
                         context.ExecuteNonQuery(new SqlStatement(provider, "REFRESH MATERIALIZED VIEW ")
-                            .Append(rdbmsQueryDefinition.Materialize.Name), 360000);
+                            .Append(rdbmsQueryDefinition.Materialize.Name));
                     }
                     catch (Exception e)
                     {
