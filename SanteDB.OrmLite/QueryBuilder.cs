@@ -258,7 +258,7 @@ namespace SanteDB.OrmLite
 
             // Is the query using any of the properties from this table?
             var useKeys = !skipJoins ||
-                typeof(IVersionedEntity).IsAssignableFrom(typeof(TModel)) && query.Any(o =>
+                typeof(IVersionedData).IsAssignableFrom(typeof(TModel)) && query.Any(o =>
                 {
                     var mPath = this.m_mapper.MapModelProperty(typeof(TModel), typeof(TModel).GetQueryProperty(QueryPredicate.Parse(o.Key).Path));
                     if (mPath == null || mPath.Name == "ObsoletionTime" && o.Value.Equals("null"))
@@ -270,7 +270,7 @@ namespace SanteDB.OrmLite
             if (skipJoins && !useKeys)
             {
                 // If we're skipping joins with a versioned table, then we should really go for the root tablet not the versioned table
-                if (typeof(IVersionedEntity).IsAssignableFrom(typeof(TModel)))
+                if (typeof(IVersionedData).IsAssignableFrom(typeof(TModel)))
                 {
                     tableMap = TableMapping.Get(tableMap.Columns.FirstOrDefault(o => o.ForeignKey != null && o.IsAlwaysJoin).ForeignKey.Table);
                     query = query.Where(o => o.Key != "obsoletionTime");
@@ -593,7 +593,7 @@ namespace SanteDB.OrmLite
                         {
                             var subQuery = queryParms.Select(o => new KeyValuePair<String, Object>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
 
-                            if (!subQuery.Any(o => o.Key == "obsoletionTime") && typeof(IBaseEntityData).IsAssignableFrom(subProp.PropertyType))
+                            if (!subQuery.Any(o => o.Key == "obsoletionTime") && typeof(IBaseData).IsAssignableFrom(subProp.PropertyType))
                                 subQuery.Add(new KeyValuePair<string, object>("obsoletionTime", "null"));
 
                             TableMapping tableMapping = null;

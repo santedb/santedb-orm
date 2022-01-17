@@ -159,6 +159,18 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Determines if <paramref name="modelKey"/> of type <paramref name="type"/> exists in the database
+        /// </summary>
+        public bool Exists(Type type, Guid modelKey)
+        {
+            var sqlStatement = this.CreateSqlStatement();
+            foreach (var cm in TableMapping.Get(type).Columns.Where(o => o.IsPrimaryKey))
+                sqlStatement.And($"{cm.Name} = ?", modelKey);
+            sqlStatement = this.CreateSqlStatement().SelectFrom(type, ColumnMapping.One).Where(sqlStatement);
+            return this.Any(sqlStatement);
+        }
+
+        /// <summary>
         /// Map an object
         /// </summary>
         private TModel MapObject<TModel>(IDataReader rdr)
