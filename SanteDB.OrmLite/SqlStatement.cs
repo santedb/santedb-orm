@@ -57,6 +57,11 @@ namespace SanteDB.OrmLite
         /// True if the sql statement is finalized
         /// </summary>
         public bool IsFinalized { get; private set; }
+        
+        /// <summary>
+        /// Get the DB provider
+        /// </summary>
+        public IDbProvider DbProvider => this.m_provider;
 
         /// <summary>
         /// Arguments for the SQL Statement

@@ -25,6 +25,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
         {
+            
             if(parms.Length == 1)
             {
                 switch(filterColumn.Split('.').Last())

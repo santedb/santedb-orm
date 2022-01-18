@@ -863,7 +863,9 @@ namespace SanteDB.OrmLite
         public static object CreateParameterValue(object value, Type toType)
         {
             object retVal = null;
-            if (value is String str && str.StartsWith("\"") && str.EndsWith("\"")) // quoted string
+            if (value is String str && str.StartsWith("\"") && str.EndsWith("\"") 
+                && str.Length > 2// JF - Fix issue where str == "\""
+                ) // quoted string
                 value = str.Substring(1, str.Length - 2).Replace("\\\"", "\"");
             if (value.GetType() == toType ||
                 value.GetType() == toType.StripNullable())
