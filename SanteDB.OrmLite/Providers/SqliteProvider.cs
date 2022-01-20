@@ -93,7 +93,7 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         public SqlStatement Count(SqlStatement sqlStatement)
         {
-            return new SqlStatement(this, "SELECT COUNT(*) FROM (").Append(sqlStatement.Build()).Append(") Q0");
+            return new SqlStatement("SELECT COUNT(*) FROM (").Append(sqlStatement.Build()).Append(") Q0");
         }
 
         /// <summary>
@@ -101,7 +101,7 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         public SqlStatement Exists(SqlStatement sqlStatement)
         {
-            return new SqlStatement(this, "SELECT CASE WHEN EXISTS (").Append(sqlStatement.Build()).Append(") THEN true ELSE false END");
+            return new SqlStatement("SELECT CASE WHEN EXISTS (").Append(sqlStatement.Build()).Append(") THEN true ELSE false END");
         }
 
         /// <summary>
@@ -306,31 +306,34 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Map datatype
         /// </summary>
-        public string MapDatatype(SchemaPropertyType type)
+        public string MapSchemaDataType(Type type)
         {
-            switch (type)
-            {
-                case SchemaPropertyType.Binary:
-                    return "blob";
-                case SchemaPropertyType.Boolean:
-                    return "boolean";
-                case SchemaPropertyType.Date:
-                case SchemaPropertyType.TimeStamp:
-                case SchemaPropertyType.DateTime:
-                    return "bigint";
-                case SchemaPropertyType.Decimal:
-                    return "decimal";
-                case SchemaPropertyType.Float:
-                    return "float";
-                case SchemaPropertyType.Integer:
-                    return "integer";
-                case SchemaPropertyType.String:
-                    return "varchar(128)";
-                case SchemaPropertyType.Uuid:
-                    return "blob(16)";
-                default:
-                    return null;
-            }
+            type = type.StripNullable();
+            if (type == typeof(byte[]))
+                return "blob";
+            else switch (type.Name)
+                {
+                    case nameof(Boolean):
+                        return "boolean";
+                    case nameof(DateTime):
+                    case nameof(DateTimeOffset):
+                    case nameof(Int64):
+                        return "BIGINT";
+                    case nameof(Decimal):
+                        return "DECIMAL";
+                    case nameof(Double):
+                        return "FLOAT";
+                    case nameof(Int32):
+                        return "INTEGER";
+                    
+                    case nameof(String):
+                        return "VARCHAR(256)";
+                    case nameof(Guid):
+                        return "blob(16)";
+                    default:
+                        throw new NotSupportedException($"Schema type {type} not supported by SQLite provider");
+                }
+
         }
 
         /// <summary>
@@ -342,12 +345,30 @@ namespace SanteDB.OrmLite.Providers
         }
 
         /// <summary>
+        /// Gets the filter function
+        /// </summary>
+        public IDbIndexFunction GetIndexFunction(string name)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
         /// Reset sequence
         /// </summary>
         public SqlStatement GetResetSequence(string sequenceName, object sequenceValue)
         {
             throw new NotImplementedException();
         }
+        /// <inheritdoc/>
+        public SqlStatement CreateIndex(string indexName, string tableName, string column, bool isUnique)
+        {
+            return new SqlStatement($"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} ({column})");
+        }
 
+        /// <inheritdoc/>
+        public SqlStatement DropIndex(string indexName)
+        {
+            return new SqlStatement($"DROP INDEX {indexName}");
+        }
     }
 }

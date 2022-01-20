@@ -35,6 +35,7 @@ namespace SanteDB.OrmLite.Providers
         /// Gets the features of the database back-end
         /// </summary>
         SqlEngineFeatures Features { get; }
+
         /// <summary>
         /// Trace SQL commands
         /// </summary>
@@ -124,7 +125,7 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Map datatype
         /// </summary>
-        string MapDatatype(SchemaPropertyType type);
+        string MapSchemaDataType(Type netType);
 
         /// <summary>
         /// Map a type to parameter type
@@ -139,9 +140,30 @@ namespace SanteDB.OrmLite.Providers
         IDbFilterFunction GetFilterFunction(String name);
 
         /// <summary>
+        /// Gets the specified indexing function
+        /// </summary>
+        /// <param name="name">The name of the indexing function to retrieve ($default is the default provider)</param>
+        /// <returns>The retrieved indexing function if it is provided by the provider</returns>
+        IDbIndexFunction GetIndexFunction(String name);
+
+        /// <summary>
         /// Gets the reset sequence command
         /// </summary>
         SqlStatement GetResetSequence(string sequenceName, object sequenceValue);
 
+        /// <summary>
+        /// Create the statement to define the index
+        /// </summary>
+        /// <param name="indexName">The index name</param>
+        /// <param name="column">The column to be indexed</param>
+        /// <param name="tableName">The table to be indexed</param>
+        /// <param name="isUnique">True if the index is uique</param>
+        SqlStatement CreateIndex(String indexName, String tableName, String column, bool isUnique);
+
+        /// <summary>
+        /// Create the statement to drop the specified index
+        /// </summary>
+        /// <param name="indexName">The index name</param>
+        SqlStatement DropIndex(String indexName);
     }
 }
