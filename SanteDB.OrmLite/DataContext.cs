@@ -155,14 +155,6 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Get the datatype
-        /// </summary>
-        public String GetDataType(SchemaPropertyType type)
-        {
-            return this.m_provider.MapDatatype(type);
-        }
-
-        /// <summary>
         /// Open the connection to the database
         /// </summary>
         public void Open()

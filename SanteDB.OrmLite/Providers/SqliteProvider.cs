@@ -93,7 +93,7 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         public SqlStatement Count(SqlStatement sqlStatement)
         {
-            return new SqlStatement("SELECT COUNT(*) FROM (").Append(sqlStatement.Build()).Append(") Q0");
+            return new SqlStatement(this, "SELECT COUNT(*) FROM (").Append(sqlStatement.Build()).Append(") Q0");
         }
 
         /// <summary>
@@ -101,7 +101,7 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         public SqlStatement Exists(SqlStatement sqlStatement)
         {
-            return new SqlStatement("SELECT CASE WHEN EXISTS (").Append(sqlStatement.Build()).Append(") THEN true ELSE false END");
+            return new SqlStatement(this, "SELECT CASE WHEN EXISTS (").Append(sqlStatement.Build()).Append(") THEN true ELSE false END");
         }
 
         /// <summary>
@@ -362,13 +362,13 @@ namespace SanteDB.OrmLite.Providers
         /// <inheritdoc/>
         public SqlStatement CreateIndex(string indexName, string tableName, string column, bool isUnique)
         {
-            return new SqlStatement($"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} ({column})");
+            return new SqlStatement(this, $"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} ({column})");
         }
 
         /// <inheritdoc/>
         public SqlStatement DropIndex(string indexName)
         {
-            return new SqlStatement($"DROP INDEX {indexName}");
+            return new SqlStatement(this, $"DROP INDEX {indexName}");
         }
     }
 }

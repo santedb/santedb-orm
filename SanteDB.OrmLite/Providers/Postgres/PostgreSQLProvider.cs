@@ -334,7 +334,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public SqlStatement Count(SqlStatement sqlStatement)
         {
-            return new SqlStatement("SELECT COUNT(*) FROM (").Append(sqlStatement.Build()).Append(") Q0");
+            return new SqlStatement(this, "SELECT COUNT(*) FROM (").Append(sqlStatement.Build()).Append(") Q0");
         }
 
         /// <summary>
@@ -342,7 +342,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public SqlStatement Exists(SqlStatement sqlStatement)
         {
-            return new SqlStatement("SELECT CASE WHEN EXISTS (").Append(sqlStatement.Build()).Append(") THEN true ELSE false END");
+            return new SqlStatement(this, "SELECT CASE WHEN EXISTS (").Append(sqlStatement.Build()).Append(") THEN true ELSE false END");
         }
 
         /// <summary>
@@ -520,19 +520,19 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public SqlStatement GetResetSequence(string sequenceName, object sequenceValue)
         {
-            return new SqlStatement($"SELECT setval('{sequenceName}', {sequenceValue})");
+            return new SqlStatement(this, $"SELECT setval('{sequenceName}', {sequenceValue})");
         }
 
         /// <inheritdoc/>
         public SqlStatement CreateIndex(string indexName, string tableName, string column, bool isUnique)
         {
-            return new SqlStatement($"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} USING BTREE ({column})");
+            return new SqlStatement(this, $"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} USING BTREE ({column})");
         }
 
         /// <inheritdoc/>
         public SqlStatement DropIndex(string indexName)
         {
-            return new SqlStatement($"DROP INDEX {indexName};");
+            return new SqlStatement(this, $"DROP INDEX {indexName};");
         }
 
     }

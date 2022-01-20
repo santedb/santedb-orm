@@ -71,7 +71,6 @@ namespace SanteDB.OrmLite
         /// </summary>
         /// <returns>The modified expression list, if any one of the elements were modified; otherwise, returns the original
         /// expression list.</returns>
-        /// <param name="nodes">The expressions to visit.</param>
         /// <param name="node">Node.</param>
         public override Expression Visit(Expression node)
         {
