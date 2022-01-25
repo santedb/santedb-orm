@@ -226,7 +226,15 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     }
                     else if (value is DateTime dt)
                     {
-                        parm.Value = dt.ToUniversalTime();
+                        if (dt.Kind == DateTimeKind.Local)
+                        {
+                            parm.Value = dt.ToUniversalTime();
+                        }
+                        else if(dt.Kind == DateTimeKind.Unspecified)
+                        {
+                            parm.DbType = DbType.Date;
+                            parm.Value = dt;
+                        }
                     }
                     else
                         parm.Value = itm;
