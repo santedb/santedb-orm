@@ -58,6 +58,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
         // Filter functions
         private static Dictionary<String, IDbFilterFunction> s_filterFunctions = null;
 
+        // Index functions
+        private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
+
         /// <summary>
         /// Trace SQL commands
         /// </summary>
@@ -93,7 +96,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     SqlEngineFeatures.FetchOffset |
                     SqlEngineFeatures.MustNameSubQuery |
                     SqlEngineFeatures.SetTimeout |
-                    SqlEngineFeatures.MaterializedViews ;
+                    SqlEngineFeatures.MaterializedViews;
             }
         }
 
@@ -128,7 +131,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             var conn = this.GetProviderFactory().CreateConnection();
             conn.ConnectionString = this.ReadonlyConnectionString ?? this.ConnectionString;
-            this.m_tracer.TraceEvent(EventLevel.Verbose, "Created readonly connection: {0}", conn.ConnectionString);
             return new DataContext(this, conn, true);
         }
 
@@ -223,7 +225,15 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     }
                     else if (value is DateTime dt)
                     {
-                        parm.Value = dt.ToUniversalTime();
+                        if (dt.Kind == DateTimeKind.Local)
+                        {
+                            parm.Value = dt.ToUniversalTime();
+                        }
+                        else if(dt.Kind == DateTimeKind.Unspecified)
+                        {
+                            parm.DbType = DbType.Date;
+                            parm.Value = dt;
+                        }
                     }
                     else
                         parm.Value = itm;
@@ -422,43 +432,35 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Map datatype
         /// </summary>
-        public string MapDatatype(SchemaPropertyType type)
+        public string MapSchemaDataType(Type type)
         {
-            switch (type)
-            {
-                case SchemaPropertyType.Binary:
-                    return "VARBINARY";
+            type = type.StripNullable();
+            if (type == typeof(byte[]))
+                return "BYTEA";
+            else switch (type.Name)
+                {
+                    case nameof(Boolean):
+                        return "BOOLEAN";
+                    case nameof(DateTime):
+                        return "DATE";
+                    case nameof(DateTimeOffset):
+                        return "TIMESTAMPTZ";
+                    case nameof(Decimal):
+                        return "DECIMAL";
+                    case nameof(Double):
+                        return "FLOAT";
+                    case nameof(Int32):
+                        return "INTEGER";
+                    case nameof(Int64):
+                        return "BIGINT";
+                    case nameof(String):
+                        return "VARCHAR(256)";
+                    case nameof(Guid):
+                        return "UUID";
+                    default:
+                        throw new NotSupportedException($"Schema type {type} not supported by PostgreSQL provider");
+                }
 
-                case SchemaPropertyType.Boolean:
-                    return "BOOLEAN";
-
-                case SchemaPropertyType.Date:
-                    return "DATE";
-
-                case SchemaPropertyType.DateTime:
-                    return "TIMESTAMP";
-
-                case SchemaPropertyType.TimeStamp:
-                    return "TIMESTAMPTZ";
-
-                case SchemaPropertyType.Decimal:
-                    return "DECIMAL";
-
-                case SchemaPropertyType.Float:
-                    return "FLOAT";
-
-                case SchemaPropertyType.Integer:
-                    return "INTEGER";
-
-                case SchemaPropertyType.String:
-                    return "VARCHAR(128)";
-
-                case SchemaPropertyType.Uuid:
-                    return "UUID";
-
-                default:
-                    return null;
-            }
         }
 
         /// <summary>
@@ -475,6 +477,23 @@ namespace SanteDB.OrmLite.Providers.Postgres
             }
             IDbFilterFunction retVal = null;
             s_filterFunctions.TryGetValue(name, out retVal);
+            return retVal;
+        }
+
+        /// <summary>
+        /// Gets the index function
+        /// </summary>
+        public IDbIndexFunction GetIndexFunction(string name)
+        {
+            if (s_indexFunctions == null)
+            {
+                s_indexFunctions = ApplicationServiceContext.Current.GetService<IServiceManager>()
+                        .CreateInjectedOfAll<IDbIndexFunction>()
+                        .Where(o => o.Provider == this.Invariant)
+                        .ToDictionary(o => o.Name, o => o);
+            }
+
+            s_indexFunctions.TryGetValue(name, out var retVal);
             return retVal;
         }
 
@@ -510,5 +529,18 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             return new SqlStatement(this, $"SELECT setval('{sequenceName}', {sequenceValue})");
         }
+
+        /// <inheritdoc/>
+        public SqlStatement CreateIndex(string indexName, string tableName, string column, bool isUnique)
+        {
+            return new SqlStatement(this, $"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} USING BTREE ({column})");
+        }
+
+        /// <inheritdoc/>
+        public SqlStatement DropIndex(string indexName)
+        {
+            return new SqlStatement(this, $"DROP INDEX {indexName};");
+        }
+
     }
 }

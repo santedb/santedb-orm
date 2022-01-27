@@ -138,6 +138,7 @@ namespace SanteDB.OrmLite.Migration
                     {
                         if (String.IsNullOrEmpty(dsql.Trim()))
                             continue;
+                        cmd.CommandTimeout = 36000;
                         cmd.CommandText = dsql;
                         cmd.CommandType = CommandType.Text;
                         m_traceSource.TraceVerbose("EXEC: {0}", dsql);

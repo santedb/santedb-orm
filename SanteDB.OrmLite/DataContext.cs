@@ -155,19 +155,10 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Get the datatype
-        /// </summary>
-        public String GetDataType(SchemaPropertyType type)
-        {
-            return this.m_provider.MapDatatype(type);
-        }
-
-        /// <summary>
         /// Open the connection to the database
         /// </summary>
         public void Open()
         {
-            this.m_tracer.TraceEvent(EventLevel.Verbose, "Connecting to {0}...", this.m_connection.ConnectionString);
             if (this.m_connection.State == ConnectionState.Closed)
                 this.m_connection.Open();
             else if (this.m_connection.State == ConnectionState.Broken)

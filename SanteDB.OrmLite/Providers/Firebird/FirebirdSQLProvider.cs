@@ -63,6 +63,9 @@ namespace SanteDB.OrmLite.Providers.Firebird
         // Filter functions
         private static Dictionary<String, IDbFilterFunction> s_filterFunctions = null;
 
+        // Filter functions
+        private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
+
         /// <summary>
         /// Gets or sets the connection string for the provider
         /// </summary>
@@ -420,32 +423,34 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// </summary>
         /// <param name="type"></param>
         /// <returns></returns>
-        public string MapDatatype(SchemaPropertyType type)
+        public string MapSchemaDataType(Type type)
         {
-            switch (type)
-            {
-                case SchemaPropertyType.Binary:
-                    return "BLOB";
-                case SchemaPropertyType.Boolean:
-                    return "BOOLEAN";
-                case SchemaPropertyType.Date:
-                    return "DATE";
-                case SchemaPropertyType.TimeStamp:
-                case SchemaPropertyType.DateTime:
-                    return "TIMESTAMP";
-                case SchemaPropertyType.Decimal:
-                    return "DECIMAL";
-                case SchemaPropertyType.Float:
-                    return "FLOAT";
-                case SchemaPropertyType.Integer:
-                    return "BIGINT";
-                case SchemaPropertyType.String:
-                    return "VARCHAR(256)";
-                case SchemaPropertyType.Uuid:
-                    return "UUID";
-                default:
-                    throw new NotSupportedException($"Schema type {type} not supported by FirebirdSQL provider");
-            }
+            type = type.StripNullable();
+            if (type == typeof(byte[]))
+                return "BLOB";
+            else switch (type.Name)
+                {
+                    case nameof(Boolean):
+                        return "BOOLEAN";
+                    case nameof(DateTime):
+                        return "DATE";
+                    case nameof(DateTimeOffset):
+                        return "TIMESTAMP";
+                    case nameof(Decimal):
+                        return "DECIMAL";
+                    case nameof(Double):
+                        return "FLOAT";
+                    case nameof(Int32):
+                        return "INTEGER";
+                    case nameof(Int64):
+                        return "BIGINT";
+                    case nameof(String):
+                        return "VARCHAR(256)";
+                    case nameof(Guid):
+                        return "UUID";
+                    default:
+                        throw new NotSupportedException($"Schema type {type} not supported by FirebirdSQL provider");
+                }
         }
 
         /// <summary>
@@ -471,11 +476,29 @@ namespace SanteDB.OrmLite.Providers.Firebird
             {
                 s_filterFunctions = ApplicationServiceContext.Current.GetService<IServiceManager>()
                         .CreateInjectedOfAll<IDbFilterFunction>()
-                        .Where(o => o.Provider == "FirebirdSQL")
+                        .Where(o => o.Provider == this.Invariant)
                         .ToDictionary(o => o.Name, o => o);
             }
             IDbFilterFunction retVal = null;
             s_filterFunctions.TryGetValue(name, out retVal);
+            return retVal;
+        }
+
+
+        /// <summary>
+        /// Gets the index function
+        /// </summary>
+        public IDbIndexFunction GetIndexFunction(string name)
+        {
+            if (s_indexFunctions == null)
+            {
+                s_indexFunctions = ApplicationServiceContext.Current.GetService<IServiceManager>()
+                        .CreateInjectedOfAll<IDbIndexFunction>()
+                        .Where(o => o.Provider == this.Invariant)
+                        .ToDictionary(o => o.Name, o => o);
+            }
+
+            s_indexFunctions.TryGetValue(name, out var retVal);
             return retVal;
         }
 
@@ -513,5 +536,16 @@ namespace SanteDB.OrmLite.Providers.Firebird
             return new SqlStatement(this, $"ALTER SEQUENCE {sequenceName} RESTART WITH {(int)sequenceValue}");
         }
 
+        /// <inheritdoc/>
+        public SqlStatement CreateIndex(string indexName, string tableName, string column, bool isUnique)
+        {
+            return new SqlStatement(this, $"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} ({column})");
+        }
+
+        /// <inheritdoc/>
+        public SqlStatement DropIndex(string indexName)
+        {
+            return new SqlStatement(this, $"DROP INDEX {indexName}");
+        }
     }
 }
