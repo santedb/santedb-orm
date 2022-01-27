@@ -131,7 +131,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             var conn = this.GetProviderFactory().CreateConnection();
             conn.ConnectionString = this.ReadonlyConnectionString ?? this.ConnectionString;
-            this.m_tracer.TraceEvent(EventLevel.Verbose, "Created readonly connection: {0}", conn.ConnectionString);
             return new DataContext(this, conn, true);
         }
 
