@@ -424,6 +424,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 case SqlKeyword.CreateOrAlter:
                     return "CREATE OR REPLACE ";
 
+                case SqlKeyword.RefreshMaterializedView:
+                    return "REFRESH MATERIALIZED VIEW CONCURRENTLY ";
+
                 default:
                     throw new NotImplementedException();
             }

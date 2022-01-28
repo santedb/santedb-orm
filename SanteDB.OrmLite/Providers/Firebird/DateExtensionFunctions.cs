@@ -25,6 +25,54 @@ using System.Xml;
 
 namespace SanteDB.OrmLite.Providers.Firebird
 {
+
+
+    /// <summary>
+    /// Date truncation function compares two dates based on a truncation
+    /// </summary>
+    /// <example><code>?dateOfBirth=:(date_trunc|M)1975-04-03</code></example>
+    public class FirebirdDateTruncFunction : IDbFilterFunction
+    {
+        /// <summary>
+        /// Get the provider
+        /// </summary>
+        public string Provider => "FirebirdSQL";
+
+        /// <summary>
+        /// Get the name 
+        /// </summary>
+        public string Name => "date_trunc";
+
+        /// <summary>
+        /// Create SQL statement
+        /// </summary>
+        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        {
+            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            String op = match.Groups[1].Value, value = match.Groups[2].Value;
+            if (String.IsNullOrEmpty(op)) op = "=";
+            if (parms.Length == 1) // There is a threshold
+            {
+                var dtValue = DateTime.Parse(value);
+                switch (parms[0].Replace("\"", ""))
+                {
+                    case "y":
+                        return current.Append($"{filterColumn}::DATE BETWEEN ?::DATE AND ?::DATE", new DateTime(dtValue.Year, 01, 01), new DateTime(dtValue.Year, 12, 31));
+                    case "M":
+                        return current.Append($"{filterColumn}::DATE BETWEEN ?::DATE AND ?::DATE", new DateTime(dtValue.Year, dtValue.Month, 01), new DateTime(dtValue.Year, dtValue.Month, DateTime.DaysInMonth(dtValue.Year, dtValue.Month)));
+                    case "d":
+                        return current.Append($"{filterColumn}::DATE = ?::DATE", dtValue.Date);
+                    default:
+                        throw new NotSupportedException("Date truncate precision must be y, M, or d");
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("date_trunc requires a precision");
+            }
+        }
+    }
+
     /// <summary>
     /// Provides a date-difference function for Firebird
     /// </summary>
