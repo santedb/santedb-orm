@@ -120,9 +120,9 @@ namespace SanteDB.OrmLite.Diagnostics
             this.m_provider = provider;
             this.m_componentValues = new OrmPerformanceComponentProbe[4]
             {
-                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Readonly Connections", "Shows active readonly connections between this server and the database"),
-                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Read-Write Connections", "Shows active read/write connections between this server and the database"),
-                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Active Statements", "Shows the active statements between this server and the database")
+                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Read-Only Connections", "Shows active read-only connections between this server and the read-only database pool"),
+                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Read-Write Connections", "Shows active read/write connections between this server and the database pool"),
+                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Active Statements", "Shows the active statements between this server and the database pool")
 #if DEBUG
                 ,
                 new OrmPerformanceComponentProbe(Guid.NewGuid(), "Average Result Time", "Shows the rolling average of result times in MS", "ms")
@@ -176,7 +176,7 @@ namespace SanteDB.OrmLite.Diagnostics
         /// <summary>
         /// Get the description of this field
         /// </summary>
-        public string Description => $"Shows metrics related to connections to {this.m_provider.GetDatabaseName()}";
+        public string Description => $"Metrics for client database connections to {this.m_provider.GetDatabaseName()}";
 
         /// <summary>
         /// Get the type of metric
