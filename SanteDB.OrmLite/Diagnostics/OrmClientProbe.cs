@@ -118,16 +118,23 @@ namespace SanteDB.OrmLite.Diagnostics
         private OrmClientProbe(IDbProvider provider)
         {
             this.m_provider = provider;
+#if DEBUG
             this.m_componentValues = new OrmPerformanceComponentProbe[4]
             {
                 new OrmPerformanceComponentProbe(Guid.NewGuid(), "Read-Only Connections", "Shows active read-only connections between this server and the read-only database pool"),
                 new OrmPerformanceComponentProbe(Guid.NewGuid(), "Read-Write Connections", "Shows active read/write connections between this server and the database pool"),
-                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Active Statements", "Shows the active statements between this server and the database pool")
-#if DEBUG
-                ,
+                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Active Statements", "Shows the active statements between this server and the database pool"),
                 new OrmPerformanceComponentProbe(Guid.NewGuid(), "Average Result Time", "Shows the rolling average of result times in MS", "ms")
+        };
+#else
+            this.m_componentValues = new OrmPerformanceComponentProbe[3]
+{
+                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Read-Only Connections", "Shows active read-only connections between this server and the read-only database pool"),
+                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Read-Write Connections", "Shows active read/write connections between this server and the database pool"),
+                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Active Statements", "Shows the active statements between this server and the database pool")
+};
+
 #endif
-            };
 
             DiagnosticsProbeManager.Current.Add(this);
         }
