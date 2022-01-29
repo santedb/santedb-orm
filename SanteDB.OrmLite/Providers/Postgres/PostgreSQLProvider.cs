@@ -62,6 +62,14 @@ namespace SanteDB.OrmLite.Providers.Postgres
         private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
 
         /// <summary>
+        /// Create new provider
+        /// </summary>
+        public PostgreSQLProvider()
+        {
+            this.MonitorProbe = Diagnostics.OrmClientProbe.CreateProbe(this);
+
+        }
+        /// <summary>
         /// Trace SQL commands
         /// </summary>
         public bool TraceSql { get; set; }
@@ -106,6 +114,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public string Invariant => "npgsql";
 
         /// <summary>
+        /// Get the monitor probe
+        /// </summary>
+        public IDiagnosticsProbe MonitorProbe { get; }
+
+        /// <summary>
         /// Get provider factory
         /// </summary>
         /// <returns></returns>
@@ -130,6 +143,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public DataContext GetReadonlyConnection()
         {
             var conn = this.GetProviderFactory().CreateConnection();
+            
             conn.ConnectionString = this.ReadonlyConnectionString ?? this.ConnectionString;
             return new DataContext(this, conn, true);
         }
@@ -425,7 +439,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     return "CREATE OR REPLACE ";
 
                 case SqlKeyword.RefreshMaterializedView:
-                    return "REFRESH MATERIALIZED VIEW CONCURRENTLY ";
+                    return "REFRESH MATERIALIZED VIEW ";
 
                 default:
                     throw new NotImplementedException();
@@ -545,5 +559,15 @@ namespace SanteDB.OrmLite.Providers.Postgres
             return new SqlStatement(this, $"DROP INDEX {indexName};");
         }
 
+        /// <summary>
+        /// Get the name of the database
+        /// </summary>
+        public string GetDatabaseName()
+        {
+            var fact = this.GetProviderFactory().CreateConnectionStringBuilder();
+            fact.ConnectionString = this.ConnectionString;
+            fact.TryGetValue("database", out var value);
+            return value?.ToString();
+        }
     }
 }

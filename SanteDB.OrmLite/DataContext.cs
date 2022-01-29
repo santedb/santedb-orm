@@ -23,6 +23,7 @@ using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Warehouse;
+using SanteDB.OrmLite.Diagnostics;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Concurrent;
@@ -59,6 +60,40 @@ namespace SanteDB.OrmLite
 
         // Commands prepared on this connection
         private ConcurrentDictionary<String, IDbCommand> m_preparedCommands = new ConcurrentDictionary<string, IDbCommand>();
+
+
+        /// <summary>
+        /// Increment the value
+        /// </summary>
+        private void IncrementProbe(OrmPerformanceMetric metric)
+        {
+            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            {
+                ocp.Increment(metric);
+            }
+        }
+
+        /// <summary>
+        /// Decrement the value
+        /// </summary>
+        private void DecrementProbe(OrmPerformanceMetric metric)
+        {
+            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            {
+                ocp.Decrement(metric);
+            }
+        }
+
+        /// <summary>
+        /// Average the time
+        /// </summary>
+        private void AddProbeResponseTime(long value)
+        {
+            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            {
+                ocp.AverageWith(OrmPerformanceMetric.AverageTime, value);
+            }
+        }
 
         /// <summary>
         /// Connection
@@ -160,14 +195,21 @@ namespace SanteDB.OrmLite
         public void Open()
         {
             if (this.m_connection.State == ConnectionState.Closed)
+            {
                 this.m_connection.Open();
+                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+            }
             else if (this.m_connection.State == ConnectionState.Broken)
             {
                 this.m_connection.Close();
                 this.m_connection.Open();
             }
             else if (this.m_connection.State != ConnectionState.Open)
+            {
                 this.m_connection.Open();
+                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+
+            }
         }
 
         /// <summary>
@@ -235,6 +277,8 @@ namespace SanteDB.OrmLite
                 finally { this.m_lastCommand?.Dispose(); this.m_lastCommand = null; }
             }
 
+            this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+
             this.m_cacheCommit?.Clear();
             this.m_cacheCommit = null;
             this.m_transaction?.Dispose();
@@ -243,6 +287,7 @@ namespace SanteDB.OrmLite
             this.m_connection = null;
             this.m_dataDictionary?.Clear();
             this.m_dataDictionary = null;
+
         }
 
         /// <summary>

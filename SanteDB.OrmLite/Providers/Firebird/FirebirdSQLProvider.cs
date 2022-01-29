@@ -67,6 +67,14 @@ namespace SanteDB.OrmLite.Providers.Firebird
         private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
 
         /// <summary>
+        /// Create a new firebird provider
+        /// </summary>
+        public FirebirdSQLProvider()
+        {
+            this.MonitorProbe = Diagnostics.OrmClientProbe.CreateProbe(this);
+        }
+
+        /// <summary>
         /// Gets or sets the connection string for the provider
         /// </summary>
         public string ConnectionString { get; set; }
@@ -110,6 +118,11 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// Gets or sets whether SQL tracing is supported
         /// </summary>
         public bool TraceSql { get; set; }
+
+        /// <summary>
+        /// Get hte monitoring probe
+        /// </summary>
+        public IDiagnosticsProbe MonitorProbe { get; }
 
         /// <summary>
         /// Clone a connection
@@ -547,5 +560,18 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             return new SqlStatement(this, $"DROP INDEX {indexName}");
         }
+
+
+        /// <summary>
+        /// Get the name of the database
+        /// </summary>
+        public string GetDatabaseName()
+        {
+            var fact = this.GetProviderFactory().CreateConnectionStringBuilder();
+            fact.ConnectionString = this.ConnectionString;
+            fact.TryGetValue("initial catalog", out var value);
+            return value?.ToString();
+        }
+
     }
 }
