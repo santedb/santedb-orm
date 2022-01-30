@@ -242,6 +242,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
                         parm.DbType = DbType.Date;
                         parm.Value = dt;
                     }
+                    else
+                    {
+                        parm.Value = dt; // already utc
+                    }
                 }
                 else
                     parm.Value = itm;
