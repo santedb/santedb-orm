@@ -58,9 +58,6 @@ namespace SanteDB.OrmLite
         // Trace source
         private Tracer m_tracer = new Tracer(Constants.TracerName);
 
-        // Commands prepared on this connection
-        private ConcurrentDictionary<String, IDbCommand> m_preparedCommands = new ConcurrentDictionary<string, IDbCommand>();
-
 
         /// <summary>
         /// Increment the value
@@ -131,10 +128,6 @@ namespace SanteDB.OrmLite
             }
         }
 
-        /// <summary>
-        /// True if the context should prepare statements
-        /// </summary>
-        public bool PrepareStatements { get; set; }
 
         /// <summary>
         /// Current Transaction
@@ -213,14 +206,6 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Add a prepared command
-        /// </summary>
-        internal void AddPreparedCommand(IDbCommand cmd)
-        {
-            this.m_preparedCommands.TryAdd(cmd.CommandText, cmd);
-        }
-
-        /// <summary>
         /// Opens a cloned context
         /// </summary>
         public DataContext OpenClonedContext()
@@ -236,40 +221,11 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Get prepared command
-        /// </summary>
-        internal IDbCommand GetPreparedCommand(string sql)
-        {
-            IDbCommand retVal = null;
-            this.m_preparedCommands.TryGetValue(sql, out retVal);
-            return retVal;
-        }
-
-        /// <summary>
-        /// True if the command is prepared
-        /// </summary>
-        internal bool IsPreparedCommand(IDbCommand cmd)
-        {
-            IDbCommand retVal = null;
-            return this.m_preparedCommands.TryGetValue(cmd.CommandText, out retVal) && retVal == cmd;
-        }
-
-        /// <summary>
         /// Dispose this object
         /// </summary>
         public void Dispose()
         {
-            if (this.m_preparedCommands != null)
-                foreach (var itm in this.m_preparedCommands.Values)
-                {
-                    try
-                    {
-                        itm.Cancel();
-                    }
-                    catch { }
-
-                    itm?.Dispose();
-                }
+            
             if (this.m_lastCommand != null)
             {
                 try { if (this.m_provider.CanCancelCommands) this.m_lastCommand?.Cancel(); }

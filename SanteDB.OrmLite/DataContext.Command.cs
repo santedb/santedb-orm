@@ -31,7 +31,7 @@ using System.Linq.Expressions;
 
 namespace SanteDB.OrmLite
 {
-    
+
     /// <summary>
     /// Data context functions for the execution of query data
     /// </summary>
@@ -103,8 +103,7 @@ namespace SanteDB.OrmLite
                     }
                     finally
                     {
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -260,8 +259,7 @@ namespace SanteDB.OrmLite
 #if DBPERF
                         this.PerformanceMonitor(stmt, sw);
 #endif
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -313,8 +311,7 @@ namespace SanteDB.OrmLite
 #if DBPERF
                         this.PerformanceMonitor(stmt, sw);
 #endif
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -364,8 +361,7 @@ namespace SanteDB.OrmLite
                     }
                     finally
                     {
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -418,8 +414,7 @@ namespace SanteDB.OrmLite
 #if DBPERF
                         this.PerformanceMonitor(stmt, sw);
 #endif
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -470,8 +465,7 @@ namespace SanteDB.OrmLite
 #if DBPERF
                         this.PerformanceMonitor(stmt, sw);
 #endif
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -531,8 +525,7 @@ namespace SanteDB.OrmLite
 #if DBPERF
                         this.PerformanceMonitor(stmt, sw);
 #endif
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -583,8 +576,7 @@ namespace SanteDB.OrmLite
 #if DBPERF
                         this.PerformanceMonitor(stmt, sw);
 #endif
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -633,8 +625,7 @@ namespace SanteDB.OrmLite
                     }
                     finally
                     {
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -683,8 +674,7 @@ namespace SanteDB.OrmLite
                     }
                     finally
                     {
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -734,8 +724,7 @@ namespace SanteDB.OrmLite
                     }
                     finally
                     {
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -784,8 +773,7 @@ namespace SanteDB.OrmLite
                     }
                     finally
                     {
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -875,8 +863,7 @@ namespace SanteDB.OrmLite
 #if DBPERF
                         this.PerformanceMonitor(query, sw);
 #endif
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -963,7 +950,7 @@ namespace SanteDB.OrmLite
                         val.Equals(default(DateTimeOffset)) ||
                         val.Equals(default(Decimal))))
                         val = null;
-                    
+
                     if (col.IsAutoGenerated && val == null)
                     {
                         // Uh-oh, the column is auto-gen, the type of uuid and the engine can't do it!
@@ -1009,8 +996,8 @@ namespace SanteDB.OrmLite
                         if (this.CommandTimeout.HasValue)
                         {
                             dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }   
-                        
+                        }
+
                         // There are returned keys and we support simple mode returned inserts
                         if (returnKeys.Any() && this.m_provider.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsReader))
                         {
@@ -1057,8 +1044,7 @@ namespace SanteDB.OrmLite
                             if (returnKeys.Count() > 0 &&
                                 returnKeys.Any(o => o.SourceProperty.GetValue(value) == (o.SourceProperty.PropertyType.IsValueType ? Activator.CreateInstance(o.SourceProperty.PropertyType) : null)))
                             {
-                                if (!this.IsPreparedCommand(dbc))
-                                    dbc.Dispose();
+                                dbc.Dispose();
                                 this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
 
@@ -1091,8 +1077,7 @@ namespace SanteDB.OrmLite
                     }
                     finally
                     {
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -1139,8 +1124,7 @@ namespace SanteDB.OrmLite
                     }
                     finally
                     {
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -1184,8 +1168,7 @@ namespace SanteDB.OrmLite
                     }
                     finally
                     {
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -1238,8 +1221,7 @@ namespace SanteDB.OrmLite
                     }
                     finally
                     {
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -1324,8 +1306,7 @@ namespace SanteDB.OrmLite
                     }
                     finally
                     {
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
                     }
@@ -1370,8 +1351,7 @@ namespace SanteDB.OrmLite
                     }
                     finally
                     {
-                        if (!this.IsPreparedCommand(dbc))
-                            dbc.Dispose();
+                        dbc.Dispose();
 
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
                     }

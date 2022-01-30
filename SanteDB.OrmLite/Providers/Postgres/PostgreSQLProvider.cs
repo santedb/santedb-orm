@@ -143,7 +143,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public DataContext GetReadonlyConnection()
         {
             var conn = this.GetProviderFactory().CreateConnection();
-            
+
             conn.ConnectionString = this.ReadonlyConnectionString ?? this.ConnectionString;
             return new DataContext(this, conn, true);
         }
@@ -203,85 +203,59 @@ namespace SanteDB.OrmLite.Providers.Postgres
             if (pno != parms.Length && type == CommandType.Text)
                 throw new ArgumentOutOfRangeException(nameof(sql), $"Parameter mismatch query expected {pno} but {parms.Length} supplied");
 
-            IDbCommand cmd = null;
-            if (sql.StartsWith("WITH", StringComparison.OrdinalIgnoreCase) ||
-                sql.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
-                cmd = context.GetPreparedCommand(sql);
-            if (cmd == null)
+            IDbCommand cmd = context.Connection.CreateCommand();
+            cmd.Transaction = context.Transaction;
+            cmd.CommandType = type;
+            cmd.CommandText = sql;
+
+            if (this.TraceSql)
             {
-                cmd = context.Connection.CreateCommand();
-                cmd.Transaction = context.Transaction;
-                cmd.CommandType = type;
-                cmd.CommandText = sql;
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "[{0}] {1}", type, sql);
+            }
+
+            pno = 0;
+            foreach (var itm in parms)
+            {
+                var parm = cmd.CreateParameter();
+                var value = itm;
+
+                // Parameter type
+                parm.DbType = this.MapParameterType(value?.GetType());
+
+                // Set value
+                if (itm == null || itm == DBNull.Value)
+                    parm.Value = DBNull.Value;
+                else if (value?.GetType().IsEnum == true)
+                    parm.Value = (int)value;
+                else if (value is DateTimeOffset dto)
+                {
+                    parm.Value = dto.ToUniversalTime();
+                }
+                else if (value is DateTime dt)
+                {
+                    if (dt.Kind == DateTimeKind.Local)
+                    {
+                        parm.Value = dt.ToUniversalTime();
+                    }
+                    else if (dt.Kind == DateTimeKind.Unspecified)
+                    {
+                        parm.DbType = DbType.Date;
+                        parm.Value = dt;
+                    }
+                }
+                else
+                    parm.Value = itm;
+
+                if (type == CommandType.Text)
+                    parm.ParameterName = $"parm{pno++}";
+                parm.Direction = ParameterDirection.Input;
 
                 if (this.TraceSql)
-                {
-                    this.m_tracer.TraceEvent(EventLevel.Verbose, "[{0}] {1}", type, sql);
-                }
+                    this.m_tracer.TraceEvent(EventLevel.Verbose, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
 
-                pno = 0;
-                foreach (var itm in parms)
-                {
-                    var parm = cmd.CreateParameter();
-                    var value = itm;
-
-                    // Parameter type
-                    parm.DbType = this.MapParameterType(value?.GetType());
-
-                    // Set value
-                    if (itm == null || itm == DBNull.Value)
-                        parm.Value = DBNull.Value;
-                    else if (value?.GetType().IsEnum == true)
-                        parm.Value = (int)value;
-                    else if (value is DateTimeOffset dto)
-                    {
-                        parm.Value = dto.ToUniversalTime();
-                    }
-                    else if (value is DateTime dt)
-                    {
-                        if (dt.Kind == DateTimeKind.Local)
-                        {
-                            parm.Value = dt.ToUniversalTime();
-                        }
-                        else if(dt.Kind == DateTimeKind.Unspecified)
-                        {
-                            parm.DbType = DbType.Date;
-                            parm.Value = dt;
-                        }
-                    }
-                    else
-                        parm.Value = itm;
-
-                    if (type == CommandType.Text)
-                        parm.ParameterName = $"parm{pno++}";
-                    parm.Direction = ParameterDirection.Input;
-
-                    if (this.TraceSql)
-                        this.m_tracer.TraceEvent(EventLevel.Verbose, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
-
-                    cmd.Parameters.Add(parm);
-                }
-
-                // Prepare command
-                if (context.PrepareStatements && !cmd.CommandText.StartsWith("EXPLAIN"))
-                {
-                    if (!cmd.Parameters.OfType<IDataParameter>().Any(o => o.DbType == DbType.Object) &&
-                        context.Transaction == null)
-                    {
-                        cmd.Prepare();
-                    }
-
-                    context.AddPreparedCommand(cmd);
-                }
+                cmd.Parameters.Add(parm);
             }
-            else
-            {
-                if (cmd.Parameters.Count != parms.Length)
-                    throw new ArgumentOutOfRangeException(nameof(parms), "Argument count mis-match");
 
-                for (int i = 0; i < parms.Length; i++)
-                    (cmd.Parameters[i] as IDataParameter).Value = parms[i] ?? DBNull.Value;
-            }
 
             return cmd;
         }
