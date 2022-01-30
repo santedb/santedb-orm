@@ -67,6 +67,15 @@ namespace SanteDB.OrmLite.Providers
         public bool TraceSql { get; set; }
 
         /// <summary>
+        /// New sqlite provider
+        /// </summary>
+        public SqliteProvider()
+        {
+            this.MonitorProbe = Diagnostics.OrmClientProbe.CreateProbe(this);
+
+        }
+
+        /// <summary>
         /// Features of the SQL engine
         /// </summary>
         public SqlEngineFeatures Features
@@ -87,6 +96,11 @@ namespace SanteDB.OrmLite.Providers
                 return "sqlite";
             }
         }
+
+        /// <summary>
+        /// Gets ht emonitor probe
+        /// </summary>
+        public IDiagnosticsProbe MonitorProbe { get; }
 
         /// <summary>
         /// Return exists
@@ -369,6 +383,11 @@ namespace SanteDB.OrmLite.Providers
         public SqlStatement DropIndex(string indexName)
         {
             return new SqlStatement(this, $"DROP INDEX {indexName}");
+        }
+
+        public string GetDatabaseName()
+        {
+            throw new NotImplementedException();
         }
     }
 }

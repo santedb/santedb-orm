@@ -18,9 +18,11 @@
  * User: fyfej
  * Date: 2021-8-5
  */
+using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model.Warehouse;
 using System;
 using System.Data;
+using System.Data.Common;
 
 namespace SanteDB.OrmLite.Providers
 {
@@ -30,6 +32,10 @@ namespace SanteDB.OrmLite.Providers
     public interface IDbProvider
     {
 
+        /// <summary>
+        /// Gets the prove for the provider
+        /// </summary>
+        IDiagnosticsProbe MonitorProbe { get; }
 
         /// <summary>
         /// Gets the features of the database back-end
@@ -55,6 +61,11 @@ namespace SanteDB.OrmLite.Providers
         /// Get name of the provider
         /// </summary>
         string Invariant { get; }
+
+        /// <summary>
+        /// Get the name of the database
+        /// </summary>
+        String GetDatabaseName();
 
         /// <summary>
         ///  True if this provider can cancel commands

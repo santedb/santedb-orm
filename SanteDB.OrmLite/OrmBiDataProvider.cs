@@ -401,7 +401,7 @@ namespace SanteDB.OrmLite
                     {
                         context.Open();
                         context.CommandTimeout = 360000;
-                        context.ExecuteNonQuery(new SqlStatement(provider, "REFRESH MATERIALIZED VIEW ")
+                        context.ExecuteNonQuery(new SqlStatement(provider, provider.CreateSqlKeyword(SqlKeyword.RefreshMaterializedView))
                             .Append(rdbmsQueryDefinition.Materialize.Name));
                     }
                     catch (Exception e)

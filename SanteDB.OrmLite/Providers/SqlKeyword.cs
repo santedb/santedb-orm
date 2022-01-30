@@ -49,6 +49,13 @@ namespace SanteDB.OrmLite.Providers
         /// Represents True (or 1)
         /// </summary>
         True,
-        CreateOrAlter
+        /// <summary>
+        /// Create or alter
+        /// </summary>
+        CreateOrAlter,
+        /// <summary>
+        /// Refresh materialized view
+        /// </summary>
+        RefreshMaterializedView
     }
 }

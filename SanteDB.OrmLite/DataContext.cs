@@ -23,6 +23,7 @@ using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Warehouse;
+using SanteDB.OrmLite.Diagnostics;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Concurrent;
@@ -57,8 +58,39 @@ namespace SanteDB.OrmLite
         // Trace source
         private Tracer m_tracer = new Tracer(Constants.TracerName);
 
-        // Commands prepared on this connection
-        private ConcurrentDictionary<String, IDbCommand> m_preparedCommands = new ConcurrentDictionary<string, IDbCommand>();
+
+        /// <summary>
+        /// Increment the value
+        /// </summary>
+        private void IncrementProbe(OrmPerformanceMetric metric)
+        {
+            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            {
+                ocp.Increment(metric);
+            }
+        }
+
+        /// <summary>
+        /// Decrement the value
+        /// </summary>
+        private void DecrementProbe(OrmPerformanceMetric metric)
+        {
+            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            {
+                ocp.Decrement(metric);
+            }
+        }
+
+        /// <summary>
+        /// Average the time
+        /// </summary>
+        private void AddProbeResponseTime(long value)
+        {
+            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            {
+                ocp.AverageWith(OrmPerformanceMetric.AverageTime, value);
+            }
+        }
 
         /// <summary>
         /// Connection
@@ -96,10 +128,6 @@ namespace SanteDB.OrmLite
             }
         }
 
-        /// <summary>
-        /// True if the context should prepare statements
-        /// </summary>
-        public bool PrepareStatements { get; set; }
 
         /// <summary>
         /// Current Transaction
@@ -160,22 +188,21 @@ namespace SanteDB.OrmLite
         public void Open()
         {
             if (this.m_connection.State == ConnectionState.Closed)
+            {
                 this.m_connection.Open();
+                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+            }
             else if (this.m_connection.State == ConnectionState.Broken)
             {
                 this.m_connection.Close();
                 this.m_connection.Open();
             }
             else if (this.m_connection.State != ConnectionState.Open)
+            {
                 this.m_connection.Open();
-        }
+                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
 
-        /// <summary>
-        /// Add a prepared command
-        /// </summary>
-        internal void AddPreparedCommand(IDbCommand cmd)
-        {
-            this.m_preparedCommands.TryAdd(cmd.CommandText, cmd);
+            }
         }
 
         /// <summary>
@@ -194,46 +221,19 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Get prepared command
-        /// </summary>
-        internal IDbCommand GetPreparedCommand(string sql)
-        {
-            IDbCommand retVal = null;
-            this.m_preparedCommands.TryGetValue(sql, out retVal);
-            return retVal;
-        }
-
-        /// <summary>
-        /// True if the command is prepared
-        /// </summary>
-        internal bool IsPreparedCommand(IDbCommand cmd)
-        {
-            IDbCommand retVal = null;
-            return this.m_preparedCommands.TryGetValue(cmd.CommandText, out retVal) && retVal == cmd;
-        }
-
-        /// <summary>
         /// Dispose this object
         /// </summary>
         public void Dispose()
         {
-            if (this.m_preparedCommands != null)
-                foreach (var itm in this.m_preparedCommands.Values)
-                {
-                    try
-                    {
-                        itm.Cancel();
-                    }
-                    catch { }
-
-                    itm?.Dispose();
-                }
+            
             if (this.m_lastCommand != null)
             {
                 try { if (this.m_provider.CanCancelCommands) this.m_lastCommand?.Cancel(); }
                 catch { }
                 finally { this.m_lastCommand?.Dispose(); this.m_lastCommand = null; }
             }
+
+            this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
 
             this.m_cacheCommit?.Clear();
             this.m_cacheCommit = null;
@@ -243,6 +243,7 @@ namespace SanteDB.OrmLite
             this.m_connection = null;
             this.m_dataDictionary?.Clear();
             this.m_dataDictionary = null;
+
         }
 
         /// <summary>

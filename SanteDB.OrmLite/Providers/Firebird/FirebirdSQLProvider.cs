@@ -67,6 +67,14 @@ namespace SanteDB.OrmLite.Providers.Firebird
         private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
 
         /// <summary>
+        /// Create a new firebird provider
+        /// </summary>
+        public FirebirdSQLProvider()
+        {
+            this.MonitorProbe = Diagnostics.OrmClientProbe.CreateProbe(this);
+        }
+
+        /// <summary>
         /// Gets or sets the connection string for the provider
         /// </summary>
         public string ConnectionString { get; set; }
@@ -110,6 +118,11 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// Gets or sets whether SQL tracing is supported
         /// </summary>
         public bool TraceSql { get; set; }
+
+        /// <summary>
+        /// Get hte monitoring probe
+        /// </summary>
+        public IDiagnosticsProbe MonitorProbe { get; }
 
         /// <summary>
         /// Clone a connection
@@ -190,76 +203,54 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 throw new ArgumentOutOfRangeException(nameof(sql), $"Parameter mismatch query expected {pno} but {parms.Length} supplied");
 
 
-            IDbCommand cmd = context.GetPreparedCommand(sql);
-            if (cmd == null)
+            var cmd = context.Connection.CreateCommand();
+            cmd.Transaction = context.Transaction;
+            cmd.CommandType = type;
+
+            if (this.TraceSql)
+                this.m_tracer.TraceEvent(EventLevel.Verbose, "[{0}] {1}", type, sql);
+
+            pno = 0;
+            foreach (var itm in parms)
             {
-                cmd = context.Connection.CreateCommand();
-                cmd.Transaction = context.Transaction;
-                cmd.CommandType = type;
+                var parm = cmd.CreateParameter();
+                var value = itm;
+
+                // Parameter type
+                parm.DbType = this.MapParameterType(value?.GetType());
+
+                // Set value
+                if (itm == null)
+                    parm.Value = DBNull.Value;
+                else if (value?.GetType().IsEnum == true)
+                    parm.Value = (int)value;
+                else if (parm.DbType == DbType.DateTime && value is DateTimeOffset dto)
+                    parm.Value = dto.DateTime;
+                else
+                    parm.Value = itm;
+
+                if (type == CommandType.Text)
+                    parm.ParameterName = $"parm{pno++}";
+
+                // Compensate UUID
+                if (value is Guid || value is Guid?)
+                {
+                    sql = sql.Replace($"@{parm.ParameterName} ", $"char_to_uuid(@{parm.ParameterName}) ");
+                    parm.DbType = System.Data.DbType.String;
+                }
+
+                parm.Direction = ParameterDirection.Input;
 
                 if (this.TraceSql)
-                    this.m_tracer.TraceEvent(EventLevel.Verbose, "[{0}] {1}", type, sql);
-
-                pno = 0;
-                foreach (var itm in parms)
-                {
-                    var parm = cmd.CreateParameter();
-                    var value = itm;
-
-                    // Parameter type
-                    parm.DbType = this.MapParameterType(value?.GetType());
-
-                    // Set value
-                    if (itm == null)
-                        parm.Value = DBNull.Value;
-                    else if (value?.GetType().IsEnum == true)
-                        parm.Value = (int)value;
-                    else if (parm.DbType == DbType.DateTime && value is DateTimeOffset dto)
-                        parm.Value = dto.DateTime;
-                    else
-                        parm.Value = itm;
-
-                    if (type == CommandType.Text)
-                        parm.ParameterName = $"parm{pno++}";
-
-                    // Compensate UUID
-                    if (value is Guid || value is Guid?)
-                    {
-                        sql = sql.Replace($"@{parm.ParameterName} ", $"char_to_uuid(@{parm.ParameterName}) ");
-                        parm.DbType = System.Data.DbType.String;
-                    }
-
-                    parm.Direction = ParameterDirection.Input;
-
-                    if (this.TraceSql)
-                        this.m_tracer.TraceEvent(EventLevel.Verbose, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
+                    this.m_tracer.TraceEvent(EventLevel.Verbose, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
 
 
-                    cmd.Parameters.Add(parm);
-                }
-
-                cmd.CommandText = sql;
-
-                // Prepare command
-                if (context.PrepareStatements && !cmd.CommandText.StartsWith("EXPLAIN"))
-                {
-                    if (!cmd.Parameters.OfType<IDataParameter>().Any(o => o.DbType == DbType.Object) &&
-                        context.Transaction == null)
-                    {
-                        cmd.Prepare();
-
-                        context.AddPreparedCommand(cmd);
-                    }
-                }
+                cmd.Parameters.Add(parm);
             }
-            else
-            {
-                if (cmd.Parameters.Count != parms.Length)
-                    throw new ArgumentOutOfRangeException(nameof(parms), "Argument count mis-match");
 
-                for (int i = 0; i < parms.Length; i++)
-                    (cmd.Parameters[i] as IDataParameter).Value = parms[i] ?? DBNull.Value;
-            }
+            cmd.CommandText = sql;
+
+
 
             return cmd;
         }
@@ -547,5 +538,18 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             return new SqlStatement(this, $"DROP INDEX {indexName}");
         }
+
+
+        /// <summary>
+        /// Get the name of the database
+        /// </summary>
+        public string GetDatabaseName()
+        {
+            var fact = this.GetProviderFactory().CreateConnectionStringBuilder();
+            fact.ConnectionString = this.ConnectionString;
+            fact.TryGetValue("initial catalog", out var value);
+            return value?.ToString();
+        }
+
     }
 }
