@@ -1,24 +1,23 @@
 ﻿/*
- * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you
- * may not use this file except in compliance with the License. You may
- * obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
  * the License.
- *
+ * 
  * User: fyfej
- * Date: 2021-8-5
+ * Date: 2021-8-27
  */
-
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Interfaces;
@@ -60,15 +59,16 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
         // Index functions
         private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
+        // Monitor
+        private IDiagnosticsProbe m_monitor;
 
         /// <summary>
         /// Create new provider
         /// </summary>
         public PostgreSQLProvider()
         {
-            this.MonitorProbe = Diagnostics.OrmClientProbe.CreateProbe(this);
-
         }
+
         /// <summary>
         /// Trace SQL commands
         /// </summary>
@@ -116,7 +116,16 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Get the monitor probe
         /// </summary>
-        public IDiagnosticsProbe MonitorProbe { get; }
+        public IDiagnosticsProbe MonitorProbe {
+            get
+            {
+                if (this.m_monitor == null)
+                {
+                    this.m_monitor = Diagnostics.OrmClientProbe.CreateProbe(this);
+                }
+                return this.m_monitor;
+            }
+        }
 
         /// <summary>
         /// Get provider factory
