@@ -54,6 +54,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         // DB provider factory
         private DbProviderFactory m_provider = null;
 
+
         // Parameter regex
         private readonly Regex m_parmRegex = new Regex(@"\?");
 
@@ -66,12 +67,13 @@ namespace SanteDB.OrmLite.Providers.Firebird
         // Filter functions
         private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
 
+        private IDiagnosticsProbe m_monitor;
+
         /// <summary>
         /// Create a new firebird provider
         /// </summary>
         public FirebirdSQLProvider()
         {
-            this.MonitorProbe = Diagnostics.OrmClientProbe.CreateProbe(this);
         }
 
         /// <summary>
@@ -122,7 +124,18 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Get hte monitoring probe
         /// </summary>
-        public IDiagnosticsProbe MonitorProbe { get; }
+        public IDiagnosticsProbe MonitorProbe
+        {
+            get
+            {
+                if (this.m_monitor == null)
+                {
+                    this.m_monitor = Diagnostics.OrmClientProbe.CreateProbe(this);
+                }
+                return this.m_monitor;
+            }
+        }
+
 
         /// <summary>
         /// Clone a connection

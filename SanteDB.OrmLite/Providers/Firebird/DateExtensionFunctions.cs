@@ -163,7 +163,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
     /// <example><code>
     /// ?dateOfBirth=:(age)&lt;P3Y2DT4H2M</code>
     /// </example>
-    public class PostgreAgeFunction : IDbFilterFunction
+    public class FirebirdAgeFunction : IDbFilterFunction
     {
         /// <summary>
         /// Get the name for the function

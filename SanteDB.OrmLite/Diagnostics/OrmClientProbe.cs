@@ -175,7 +175,7 @@ namespace SanteDB.OrmLite.Diagnostics
 
 #endif
 
-            DiagnosticsProbeManager.Current.Add(this);
+            DiagnosticsProbeManager.Current?.Add(this);
         }
 
         /// <summary>

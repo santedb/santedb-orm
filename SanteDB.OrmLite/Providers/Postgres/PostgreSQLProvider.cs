@@ -59,15 +59,16 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
         // Index functions
         private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
+        // Monitor
+        private IDiagnosticsProbe m_monitor;
 
         /// <summary>
         /// Create new provider
         /// </summary>
         public PostgreSQLProvider()
         {
-            this.MonitorProbe = Diagnostics.OrmClientProbe.CreateProbe(this);
-
         }
+
         /// <summary>
         /// Trace SQL commands
         /// </summary>
@@ -115,7 +116,16 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Get the monitor probe
         /// </summary>
-        public IDiagnosticsProbe MonitorProbe { get; }
+        public IDiagnosticsProbe MonitorProbe {
+            get
+            {
+                if (this.m_monitor == null)
+                {
+                    this.m_monitor = Diagnostics.OrmClientProbe.CreateProbe(this);
+                }
+                return this.m_monitor;
+            }
+        }
 
         /// <summary>
         /// Get provider factory

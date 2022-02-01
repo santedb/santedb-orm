@@ -387,7 +387,7 @@ namespace SanteDB.OrmLite.Providers
 
         public string GetDatabaseName()
         {
-            throw new NotImplementedException();
+            return String.Empty;
         }
     }
 }
