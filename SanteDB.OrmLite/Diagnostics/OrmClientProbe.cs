@@ -199,7 +199,7 @@ namespace SanteDB.OrmLite.Diagnostics
                             default:
                                 if (instruction.Value > 0)
                                     this.m_componentValues[(int)instruction.Key].Increment();
-                                else
+                                else if(instruction.Value < 0)
                                     this.m_componentValues[(int)instruction.Key].Decrement();
                                 break;
                         }
