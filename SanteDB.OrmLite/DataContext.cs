@@ -147,16 +147,24 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Open()
         {
+            this.ThrowIfDisposed();
+
             this.m_tracer.TraceEvent(EventLevel.Verbose, "Connecting to {0}...", this.m_connection.ConnectionString);
-            if (this.m_connection.State == ConnectionState.Closed)
-                this.m_connection.Open();
-            else if (this.m_connection.State == ConnectionState.Broken)
+        switch(this.m_connection.State)
             {
-                this.m_connection.Close();
-                this.m_connection.Open();
+                case ConnectionState.Closed:
+                    this.m_connection.Open();
+                    break;
+                case ConnectionState.Broken:
+                    this.m_connection.Close();
+                    this.m_connection.Open();
+                    break;
+                case ConnectionState.Open:
+                    break;
+                default:
+                    this.m_connection.Open();
+                    break;
             }
-            else if (this.m_connection.State != ConnectionState.Open)
-                this.m_connection.Open();
         }
 
 
@@ -181,6 +189,16 @@ namespace SanteDB.OrmLite
             this.m_dataDictionary = null;
         }
 
+        /// <summary>
+        /// Throw an exception if this context is disposed
+        /// </summary>
+        private void ThrowIfDisposed()
+        {
+            if(this.m_connection == null)
+            {
+                throw new ObjectDisposedException(nameof(DataContext));
+            }
+        }
         /// <summary>
         /// Create sql statement
         /// </summary>

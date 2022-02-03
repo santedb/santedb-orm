@@ -38,9 +38,10 @@ namespace SanteDB.OrmLite
         /// Parse the data
         /// </summary>
         protected TData Parse<TData>(IDataReader rdr, IDbProvider provider)
+            where TData : new()
         {
             var tableMapping = TableMapping.Get(typeof(TData));
-            dynamic result = Activator.CreateInstance(typeof(TData));
+            var result = new TData();
             // Read each column and pull from reader
             foreach (var itm in tableMapping.Columns)
             {
@@ -63,7 +64,23 @@ namespace SanteDB.OrmLite
     /// Multi-type result for two types
     /// </summary>
     public class CompositeResult<TData1, TData2> : CompositeResult
+        where TData1 : new()
+        where TData2 : new()
     {
+
+        public CompositeResult()
+        {
+
+        }
+
+        /// <summary>
+        /// Create composite result with specified values
+        /// </summary>
+        public CompositeResult(TData1 object1, TData2 object2)
+        {
+            this.Values[0] = object1;
+            this.Values[1] = object2;
+        }
 
         /// <summary>
         /// Gets the first object in the composite result
@@ -86,7 +103,24 @@ namespace SanteDB.OrmLite
     /// Multi-type result for three types
     /// </summary>
     public class CompositeResult<TData1, TData2, TData3> : CompositeResult<TData1, TData2>
+                where TData1 : new()
+        where TData2 : new()
+        where TData3 : new()
     {
+
+        public CompositeResult()
+        {
+
+        }
+
+        /// <summary>
+        /// Create composite result with specified values
+        /// </summary>
+        public CompositeResult(TData1 object1, TData2 object2, TData3 object3) : base(object1, object2)
+        {
+            this.Values[2] = object3;
+        }
+
         /// <summary>
         /// Gets the third object in the composite result
         /// </summary>
@@ -103,7 +137,24 @@ namespace SanteDB.OrmLite
     /// Multi-type result for four types
     /// </summary>
     public class CompositeResult<TData1, TData2, TData3, TData4> : CompositeResult<TData1, TData2, TData3>
+                where TData1 : new()
+        where TData2 : new()
+        where TData3 : new()
+        where TData4 : new()
     {
+
+        public CompositeResult()
+        {
+
+        }
+
+        /// <summary>
+        /// Create composite result with specified values
+        /// </summary>
+        public CompositeResult(TData1 object1, TData2 object2, TData3 object3, TData4 object4) : base(object1, object2, object3)
+        {
+            this.Values[3] = object4;
+        }
         /// <summary>
         /// Gets the fourth object in the coposite result
         /// </summary>

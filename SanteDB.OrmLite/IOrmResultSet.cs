@@ -40,6 +40,11 @@ namespace SanteDB.OrmLite
         SqlStatement Statement { get; }
 
         /// <summary>
+        /// Gets the data context
+        /// </summary>
+        DataContext Context { get; }
+
+        /// <summary>
         /// Gets the type of data in the property
         /// </summary>
         Type ElementType { get; }
