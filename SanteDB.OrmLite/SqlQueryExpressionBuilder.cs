@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  *
@@ -16,7 +16,7 @@
  * the License.
  *
  * User: fyfej
- * Date: 2021-8-5
+ * Date: 2021-8-27
  */
 
 using SanteDB.OrmLite.Providers;
@@ -74,7 +74,6 @@ namespace SanteDB.OrmLite
         /// </summary>
         /// <returns>The modified expression list, if any one of the elements were modified; otherwise, returns the original
         /// expression list.</returns>
-        /// <param name="nodes">The expressions to visit.</param>
         /// <param name="node">Node.</param>
         public override Expression Visit(Expression node)
         {

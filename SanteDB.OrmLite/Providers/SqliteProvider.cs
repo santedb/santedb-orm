@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  *
@@ -16,7 +16,7 @@
  * the License.
  *
  * User: fyfej
- * Date: 2021-8-5
+ * Date: 2021-8-27
  */
 
 using SanteDB.Core.Diagnostics;
@@ -66,6 +66,15 @@ namespace SanteDB.OrmLite.Providers
         public bool TraceSql { get; set; }
 
         /// <summary>
+        /// New sqlite provider
+        /// </summary>
+        public SqliteProvider()
+        {
+            this.MonitorProbe = Diagnostics.OrmClientProbe.CreateProbe(this);
+
+        }
+
+        /// <summary>
         /// Features of the SQL engine
         /// </summary>
         public SqlEngineFeatures Features
@@ -86,6 +95,11 @@ namespace SanteDB.OrmLite.Providers
                 return "sqlite";
             }
         }
+
+        /// <summary>
+        /// Gets ht emonitor probe
+        /// </summary>
+        public IDiagnosticsProbe MonitorProbe { get; }
 
         /// <summary>
         /// Return exists
@@ -304,9 +318,50 @@ namespace SanteDB.OrmLite.Providers
         }
 
         /// <summary>
+        /// Map datatype
+        /// </summary>
+        public string MapSchemaDataType(Type type)
+        {
+            type = type.StripNullable();
+            if (type == typeof(byte[]))
+                return "blob";
+            else switch (type.Name)
+                {
+                    case nameof(Boolean):
+                        return "boolean";
+                    case nameof(DateTime):
+                    case nameof(DateTimeOffset):
+                    case nameof(Int64):
+                        return "BIGINT";
+                    case nameof(Decimal):
+                        return "DECIMAL";
+                    case nameof(Double):
+                        return "FLOAT";
+                    case nameof(Int32):
+                        return "INTEGER";
+                    
+                    case nameof(String):
+                        return "VARCHAR(256)";
+                    case nameof(Guid):
+                        return "blob(16)";
+                    default:
+                        throw new NotSupportedException($"Schema type {type} not supported by SQLite provider");
+                }
+
+        }
+
+        /// <summary>
         /// Gets the filter function
         /// </summary>
         public IDbFilterFunction GetFilterFunction(string name)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Gets the filter function
+        /// </summary>
+        public IDbIndexFunction GetIndexFunction(string name)
         {
             throw new NotImplementedException();
         }
@@ -317,6 +372,22 @@ namespace SanteDB.OrmLite.Providers
         public SqlStatement GetResetSequence(string sequenceName, object sequenceValue)
         {
             throw new NotImplementedException();
+        }
+        /// <inheritdoc/>
+        public SqlStatement CreateIndex(string indexName, string tableName, string column, bool isUnique)
+        {
+            return new SqlStatement(this, $"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} ({column})");
+        }
+
+        /// <inheritdoc/>
+        public SqlStatement DropIndex(string indexName)
+        {
+            return new SqlStatement(this, $"DROP INDEX {indexName}");
+        }
+
+        public string GetDatabaseName()
+        {
+            return String.Empty;
         }
     }
 }

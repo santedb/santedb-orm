@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  *
@@ -16,7 +16,7 @@
  * the License.
  *
  * User: fyfej
- * Date: 2021-8-5
+ * Date: 2021-8-27
  */
 
 using System.Reflection;
@@ -35,7 +35,7 @@ using System.Linq.Expressions;
 
 namespace SanteDB.OrmLite
 {
-    
+
     /// <summary>
     /// Data context functions for the execution of query data
     /// </summary>
@@ -98,16 +98,20 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments))
                     {
+                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
                         using (var rdr = dbc.ExecuteReader())
                         {
                             while (rdr.Read())
                             {
                                 yield return this.MapObject<TModel>(rdr);
-                            }
-                        }
+                    }
+                    finally
+                    {
+                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
                     }
                 }
-#if DEBUG
+#if DEBUG 
             }
             finally
             {
@@ -259,15 +263,21 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
-                            dbc.ExecuteNonQuery();
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                dbc.ExecuteNonQuery();
                         }
                         catch (TimeoutException)
                         {
                             try { dbc.Cancel(); } catch { }
                             throw;
                         }
+                        finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
-                    }
+                            }
+                        }
                 }
 #if DEBUG
             }
@@ -275,6 +285,7 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "RESET SEQUENCE{0} to {1}", sequenceName, sequenceValue);
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -296,7 +307,9 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
-                            if (this.CommandTimeout.HasValue)
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                if (this.CommandTimeout.HasValue)
                             {
                                 dbc.CommandTimeout = this.CommandTimeout.Value;
                             }
@@ -308,8 +321,12 @@ namespace SanteDB.OrmLite
                             try { dbc.Cancel(); } catch { }
                             throw;
                         }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
-                    }
+                            }
+                        }
                 }
 #if DEBUG
             }
@@ -317,6 +334,9 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "QUERY {0} executed in {1} ms", this.GetQueryLiteral(stmt), sw.ElapsedMilliseconds);
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
+
+
             }
 #endif
         }
@@ -357,6 +377,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "FIRST {0} executed in {1} ms", spName, sw.ElapsedMilliseconds);
             }
 #endif
@@ -380,7 +401,9 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
-                            if (this.CommandTimeout.HasValue)
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                if (this.CommandTimeout.HasValue)
                             {
                                 dbc.CommandTimeout = this.CommandTimeout.Value;
                             }
@@ -392,13 +415,19 @@ namespace SanteDB.OrmLite
                             try { dbc.Cancel(); } catch { }
                             throw;
                         }
-                    }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            }
+                        }
                 }
 #if DEBUG
             }
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "FIRST {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
             }
 #endif
@@ -421,7 +450,9 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
-                            if (this.CommandTimeout.HasValue)
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                if (this.CommandTimeout.HasValue)
                             {
                                 dbc.CommandTimeout = this.CommandTimeout.Value;
                             }
@@ -434,7 +465,12 @@ namespace SanteDB.OrmLite
                             try { dbc.Cancel(); } catch { }
                             throw;
                         }
-                    }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            }
+                        }
                 }
 
 #if DEBUG
@@ -442,6 +478,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "FIRST {0} executed in {1} ms", this.GetQueryLiteral(stmt), sw.ElapsedMilliseconds);
             }
 #endif
@@ -466,7 +503,9 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
-                            if (this.CommandTimeout.HasValue)
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                if (this.CommandTimeout.HasValue)
                             {
                                 dbc.CommandTimeout = this.CommandTimeout.Value;
                             }
@@ -483,7 +522,12 @@ namespace SanteDB.OrmLite
                             try { dbc.Cancel(); } catch { }
                             throw;
                         }
-                    }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            }
+                        }
                 }
 
 #if DEBUG
@@ -491,6 +535,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "SINGLE {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
             }
 #endif
@@ -513,7 +558,9 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
-                            if (this.CommandTimeout.HasValue)
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                if (this.CommandTimeout.HasValue)
                             {
                                 dbc.CommandTimeout = this.CommandTimeout.Value;
                             }
@@ -525,7 +572,12 @@ namespace SanteDB.OrmLite
                             try { dbc.Cancel(); } catch { }
                             throw;
                         }
-                    }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            }
+                        }
                 }
 
 #if DEBUG
@@ -533,6 +585,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "SCALAR {0} executed in {1} ms", sqlStatement, sw.ElapsedMilliseconds);
             }
 #endif
@@ -556,7 +609,9 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
-                            if (this.CommandTimeout.HasValue)
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                if (this.CommandTimeout.HasValue)
                             {
                                 dbc.CommandTimeout = this.CommandTimeout.Value;
                             }
@@ -567,7 +622,12 @@ namespace SanteDB.OrmLite
                             try { dbc.Cancel(); } catch { }
                             throw;
                         }
-                    }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            }
+                        }
                 }
 
 #if DEBUG
@@ -575,6 +635,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "ANY {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
             }
 #endif
@@ -598,7 +659,9 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
-                            if (this.CommandTimeout.HasValue)
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                if (this.CommandTimeout.HasValue)
                             {
                                 dbc.CommandTimeout = this.CommandTimeout.Value;
                             }
@@ -610,8 +673,12 @@ namespace SanteDB.OrmLite
                             try { dbc.Cancel(); } catch { }
                             throw;
                         }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
-                    }
+                            }
+                        }
                 }
 
 #if DEBUG
@@ -619,6 +686,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "ANY {0} executed in {1} ms", this.GetQueryLiteral(querySpec), sw.ElapsedMilliseconds);
             }
 #endif
@@ -642,7 +710,9 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
-                            if (this.CommandTimeout.HasValue)
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                if (this.CommandTimeout.HasValue)
                             {
                                 dbc.CommandTimeout = this.CommandTimeout.Value;
                             }
@@ -654,8 +724,12 @@ namespace SanteDB.OrmLite
                             try { dbc.Cancel(); } catch { }
                             throw;
                         }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
-                    }
+                            }
+                        }
                 }
 
 #if DEBUG
@@ -663,6 +737,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "COUNT {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
             }
 #endif
@@ -686,7 +761,9 @@ namespace SanteDB.OrmLite
                     {
                         try
                         {
-                            if (this.CommandTimeout.HasValue)
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                if (this.CommandTimeout.HasValue)
                             {
                                 dbc.CommandTimeout = this.CommandTimeout.Value;
                             }
@@ -698,8 +775,13 @@ namespace SanteDB.OrmLite
                             try { dbc.Cancel(); } catch { }
                             throw;
                         }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
-                    }
+                            }
+
+                        }
                 }
 
 #if DEBUG
@@ -707,6 +789,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "COUNT {0} executed in {1} ms", this.GetQueryLiteral(querySpec), sw.ElapsedMilliseconds);
             }
 #endif
@@ -761,20 +844,31 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
-                        if (this.CommandTimeout.HasValue)
-                        {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                            try
+                            {
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                if (this.CommandTimeout.HasValue)
+                                {
+                                    dbc.CommandTimeout = this.CommandTimeout.Value;
+                                }
+                                using (var rdr = dbc.ExecuteReader())
+                                    while (rdr.Read())
+                                        yield return this.MapObject<TModel>(rdr);
+                            }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            }
                         }
-                        using (var rdr = dbc.ExecuteReader())
-                            while (rdr.Read())
-                                yield return this.MapObject<TModel>(rdr);
-                    }
                 }
 #if DEBUG
             }
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "QUERY {0} executed in {1} ms", this.GetQueryLiteral(query), sw.ElapsedMilliseconds);
             }
 #endif
@@ -888,11 +982,14 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
+                            try { 
+                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
                         if (this.CommandTimeout.HasValue)
                         {
                             dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }   
-                        
+                        }
+
                         // There are returned keys and we support simple mode returned inserts
                         if (returnKeys.Any() && this.m_provider.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsReader))
                         {
@@ -938,6 +1035,8 @@ namespace SanteDB.OrmLite
                             if (returnKeys.Count() > 0 &&
                                 returnKeys.Any(o => o.SourceProperty.GetValue(value) == (o.SourceProperty.PropertyType.IsValueType ? Activator.CreateInstance(o.SourceProperty.PropertyType) : null)))
                             {
+
+
                                 var pkcols = tableMap.Columns.Where(o => o.IsPrimaryKey);
                                 var where = new SqlStatement<TModel>(this.m_provider);
                                 foreach (var pk in pkcols)
@@ -947,29 +1046,44 @@ namespace SanteDB.OrmLite
                                 // Create command and exec
                                 using (var dbcSelect = this.m_provider.CreateCommand(this, stmt))
                                 {
-                                    if (this.CommandTimeout.HasValue)
-                                    {
-                                        dbc.CommandTimeout = this.CommandTimeout.Value;
-                                    }
-
-                                    using (var rdr = dbcSelect.ExecuteReader())
-                                    {
-                                        if (rdr.Read())
+                                        try
                                         {
-                                            foreach (var itm in returnKeys)
+                                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                            if (this.CommandTimeout.HasValue)
                                             {
-                                                object ov = this.m_provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
-                                                if (ov != null)
-                                                    itm.SourceProperty.SetValue(value, ov);
+                                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                                            }
+
+                                            using (var rdr = dbcSelect.ExecuteReader())
+                                            {
+                                                if (rdr.Read())
+                                                {
+                                                    foreach (var itm in returnKeys)
+                                                    {
+                                                        object ov = this.m_provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
+                                                        if (ov != null)
+                                                            itm.SourceProperty.SetValue(value, ov);
+                                                    }
+                                                }
                                             }
                                         }
+                                        finally
+                                        {
+                                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                        }
                                     }
-                                }
                             }
                         }
                     }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
-                }
+                            }
+
+                        }
 
                 return value;
 #if DEBUG
@@ -977,6 +1091,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "INSERT executed in {0} ms", sw.ElapsedMilliseconds);
             }
 #endif
@@ -999,13 +1114,22 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
-                        if (this.CommandTimeout.HasValue)
-                        {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }
-                        dbc.ExecuteNonQuery();
+                            try
+                            {
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
-                    }
+                                if (this.CommandTimeout.HasValue)
+                                {
+                                    dbc.CommandTimeout = this.CommandTimeout.Value;
+                                }
+                                dbc.ExecuteNonQuery();
+                            }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            }
+                        }
                 }
 
 #if DEBUG
@@ -1013,6 +1137,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "DELETE executed in {0} ms", sw.ElapsedMilliseconds);
             }
 #endif
@@ -1034,12 +1159,22 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
-                        if (this.CommandTimeout.HasValue)
-                        {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                            try
+                            {
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                if (this.CommandTimeout.HasValue)
+                                {
+                                    dbc.CommandTimeout = this.CommandTimeout.Value;
+                                }
+                                dbc.ExecuteNonQuery();
+                            }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            }
                         }
-                        dbc.ExecuteNonQuery();
-                    }
                 }
 
 #if DEBUG
@@ -1047,6 +1182,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "DELETE executed in {0} ms", sw.ElapsedMilliseconds);
             }
 #endif
@@ -1077,12 +1213,22 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
-                        if (this.CommandTimeout.HasValue)
-                        {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                            try
+                            {
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                if (this.CommandTimeout.HasValue)
+                                {
+                                    dbc.CommandTimeout = this.CommandTimeout.Value;
+                                }
+                                dbc.ExecuteNonQuery();
+                            }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            }
                         }
-                        dbc.ExecuteNonQuery();
-                    }
                 }
 
 #if DEBUG
@@ -1090,6 +1236,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "DELETE executed in {0} ms", sw.ElapsedMilliseconds);
             }
 #endif
@@ -1149,14 +1296,22 @@ namespace SanteDB.OrmLite
                 // Now update
                 lock (this.m_lockObject)
                 {
-                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
-                    {
-                        if (this.CommandTimeout.HasValue)
+                        using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                            try {
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                if (this.CommandTimeout.HasValue)
+                                {
+                                    dbc.CommandTimeout = this.CommandTimeout.Value;
+                                }
+                                dbc.ExecuteNonQuery();
+                            } finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            }
                         }
-                        dbc.ExecuteNonQuery();
-                    }
                 }
 
                 return value;
@@ -1228,6 +1383,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "UPDATE executed in {0} ms", sw.ElapsedMilliseconds);
             }
 #endif
@@ -1248,13 +1404,23 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
-                        if (this.CommandTimeout.HasValue)
-                        {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }
+                            try
+                            {
+                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
-                        dbc.ExecuteNonQuery();
-                    }
+                                if (this.CommandTimeout.HasValue)
+                                {
+                                    dbc.CommandTimeout = this.CommandTimeout.Value;
+                                }
+
+                                dbc.ExecuteNonQuery();
+                            }
+                            finally
+                            {
+                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            }
+                        }
                 }
 
 #if DEBUG
@@ -1262,6 +1428,7 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "EXECUTE NON QUERY executed in {0} ms", sw.ElapsedMilliseconds);
             }
 #endif

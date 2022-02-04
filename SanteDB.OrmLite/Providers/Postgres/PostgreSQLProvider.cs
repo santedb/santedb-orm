@@ -1,24 +1,23 @@
 ﻿/*
- * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you
- * may not use this file except in compliance with the License. You may
- * obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
  * the License.
- *
+ * 
  * User: fyfej
- * Date: 2021-8-5
+ * Date: 2021-8-27
  */
-
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Interfaces;
@@ -59,6 +58,18 @@ namespace SanteDB.OrmLite.Providers.Postgres
         // Filter functions
         private static Dictionary<String, IDbFilterFunction> s_filterFunctions = null;
 
+        // Index functions
+        private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
+        // Monitor
+        private IDiagnosticsProbe m_monitor;
+
+        /// <summary>
+        /// Create new provider
+        /// </summary>
+        public PostgreSQLProvider()
+        {
+        }
+
         /// <summary>
         /// Trace SQL commands
         /// </summary>
@@ -95,7 +106,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     SqlEngineFeatures.FetchOffset |
                     SqlEngineFeatures.MustNameSubQuery |
                     SqlEngineFeatures.SetTimeout |
-                    SqlEngineFeatures.MaterializedViews ;
+                    SqlEngineFeatures.MaterializedViews;
             }
         }
 
@@ -103,6 +114,20 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// Get name of provider
         /// </summary>
         public string Invariant => "npgsql";
+
+        /// <summary>
+        /// Get the monitor probe
+        /// </summary>
+        public IDiagnosticsProbe MonitorProbe {
+            get
+            {
+                if (this.m_monitor == null)
+                {
+                    this.m_monitor = Diagnostics.OrmClientProbe.CreateProbe(this);
+                }
+                return this.m_monitor;
+            }
+        }
 
         /// <summary>
         /// Get provider factory
@@ -129,8 +154,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public DataContext GetReadonlyConnection()
         {
             var conn = this.GetProviderFactory().CreateConnection();
+
             conn.ConnectionString = this.ReadonlyConnectionString ?? this.ConnectionString;
-            this.m_tracer.TraceEvent(EventLevel.Verbose, "Created readonly connection: {0}", conn.ConnectionString);
             return new DataContext(this, conn, true);
         }
 
@@ -208,21 +233,33 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 // Parameter type
                 parm.DbType = this.MapParameterType(value?.GetType());
 
-                    // Set value
-                    if (itm == null || itm == DBNull.Value)
-                        parm.Value = DBNull.Value;
-                    else if (value?.GetType().IsEnum == true)
-                        parm.Value = (int)value;
-                    else if (value is DateTimeOffset dto)
-                    {
-                        parm.Value = dto.ToUniversalTime();
-                    }
-                    else if (value is DateTime dt)
+                // Set value
+                if (itm == null || itm == DBNull.Value)
+                    parm.Value = DBNull.Value;
+                else if (value?.GetType().IsEnum == true)
+                    parm.Value = (int)value;
+                else if (value is DateTimeOffset dto)
+                {
+                    parm.Value = dto.ToUniversalTime();
+                }
+                else if (value is DateTime dt)
+                {
+                    if (dt.Kind == DateTimeKind.Local)
                     {
                         parm.Value = dt.ToUniversalTime();
                     }
+                    else if (dt.Kind == DateTimeKind.Unspecified)
+                    {
+                        parm.DbType = DbType.Date;
+                        parm.Value = dt;
+                    }
                     else
-                        parm.Value = itm;
+                    {
+                        parm.Value = dt; // already utc
+                    }
+                }
+                else
+                    parm.Value = itm;
 
                 if (type == CommandType.Text)
                     parm.ParameterName = $"parm{pno++}";
@@ -390,9 +427,46 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 case SqlKeyword.CreateOrAlter:
                     return "CREATE OR REPLACE ";
 
+                case SqlKeyword.RefreshMaterializedView:
+                    return "REFRESH MATERIALIZED VIEW ";
+
                 default:
                     throw new NotImplementedException();
             }
+        }
+
+        /// <summary>
+        /// Map datatype
+        /// </summary>
+        public string MapSchemaDataType(Type type)
+        {
+            type = type.StripNullable();
+            if (type == typeof(byte[]))
+                return "BYTEA";
+            else switch (type.Name)
+                {
+                    case nameof(Boolean):
+                        return "BOOLEAN";
+                    case nameof(DateTime):
+                        return "DATE";
+                    case nameof(DateTimeOffset):
+                        return "TIMESTAMPTZ";
+                    case nameof(Decimal):
+                        return "DECIMAL";
+                    case nameof(Double):
+                        return "FLOAT";
+                    case nameof(Int32):
+                        return "INTEGER";
+                    case nameof(Int64):
+                        return "BIGINT";
+                    case nameof(String):
+                        return "VARCHAR(256)";
+                    case nameof(Guid):
+                        return "UUID";
+                    default:
+                        throw new NotSupportedException($"Schema type {type} not supported by PostgreSQL provider");
+                }
+
         }
 
         /// <summary>
@@ -409,6 +483,23 @@ namespace SanteDB.OrmLite.Providers.Postgres
             }
             IDbFilterFunction retVal = null;
             s_filterFunctions.TryGetValue(name, out retVal);
+            return retVal;
+        }
+
+        /// <summary>
+        /// Gets the index function
+        /// </summary>
+        public IDbIndexFunction GetIndexFunction(string name)
+        {
+            if (s_indexFunctions == null)
+            {
+                s_indexFunctions = ApplicationServiceContext.Current.GetService<IServiceManager>()
+                        .CreateInjectedOfAll<IDbIndexFunction>()
+                        .Where(o => o.Provider == this.Invariant)
+                        .ToDictionary(o => o.Name, o => o);
+            }
+
+            s_indexFunctions.TryGetValue(name, out var retVal);
             return retVal;
         }
 
@@ -443,6 +534,29 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public SqlStatement GetResetSequence(string sequenceName, object sequenceValue)
         {
             return new SqlStatement(this, $"SELECT setval('{sequenceName}', {sequenceValue})");
+        }
+
+        /// <inheritdoc/>
+        public SqlStatement CreateIndex(string indexName, string tableName, string column, bool isUnique)
+        {
+            return new SqlStatement(this, $"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} USING BTREE ({column})");
+        }
+
+        /// <inheritdoc/>
+        public SqlStatement DropIndex(string indexName)
+        {
+            return new SqlStatement(this, $"DROP INDEX {indexName};");
+        }
+
+        /// <summary>
+        /// Get the name of the database
+        /// </summary>
+        public string GetDatabaseName()
+        {
+            var fact = this.GetProviderFactory().CreateConnectionStringBuilder();
+            fact.ConnectionString = this.ConnectionString;
+            fact.TryGetValue("database", out var value);
+            return value?.ToString();
         }
     }
 }

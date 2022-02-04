@@ -1,30 +1,77 @@
 ﻿/*
- * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you
- * may not use this file except in compliance with the License. You may
- * obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
  * the License.
- *
+ * 
  * User: fyfej
- * Date: 2021-8-5
+ * Date: 2021-8-27
  */
-
 using System;
 using System.Text.RegularExpressions;
 using System.Xml;
 
 namespace SanteDB.OrmLite.Providers.Firebird
 {
+
+
+    /// <summary>
+    /// Date truncation function compares two dates based on a truncation
+    /// </summary>
+    /// <example><code>?dateOfBirth=:(date_trunc|M)1975-04-03</code></example>
+    public class FirebirdDateTruncFunction : IDbFilterFunction
+    {
+        /// <summary>
+        /// Get the provider
+        /// </summary>
+        public string Provider => "FirebirdSQL";
+
+        /// <summary>
+        /// Get the name 
+        /// </summary>
+        public string Name => "date_trunc";
+
+        /// <summary>
+        /// Create SQL statement
+        /// </summary>
+        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        {
+            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            String op = match.Groups[1].Value, value = match.Groups[2].Value;
+            if (String.IsNullOrEmpty(op)) op = "=";
+            if (parms.Length == 1) // There is a threshold
+            {
+                var dtValue = DateTime.Parse(value);
+                switch (parms[0].Replace("\"", ""))
+                {
+                    case "y":
+                        return current.Append($"{filterColumn}::DATE BETWEEN ?::DATE AND ?::DATE", new DateTime(dtValue.Year, 01, 01), new DateTime(dtValue.Year, 12, 31));
+                    case "M":
+                        return current.Append($"{filterColumn}::DATE BETWEEN ?::DATE AND ?::DATE", new DateTime(dtValue.Year, dtValue.Month, 01), new DateTime(dtValue.Year, dtValue.Month, DateTime.DaysInMonth(dtValue.Year, dtValue.Month)));
+                    case "d":
+                        return current.Append($"{filterColumn}::DATE = ?::DATE", dtValue.Date);
+                    default:
+                        throw new NotSupportedException("Date truncate precision must be y, M, or d");
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("date_trunc requires a precision");
+            }
+        }
+    }
+
     /// <summary>
     /// Provides a date-difference function for Firebird
     /// </summary>
@@ -116,7 +163,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
     /// <example><code>
     /// ?dateOfBirth=:(age)&lt;P3Y2DT4H2M</code>
     /// </example>
-    public class PostgreAgeFunction : IDbFilterFunction
+    public class FirebirdAgeFunction : IDbFilterFunction
     {
         /// <summary>
         /// Get the name for the function

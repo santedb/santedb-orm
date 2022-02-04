@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,10 +16,13 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-5
+ * Date: 2021-8-27
  */
+using SanteDB.Core.Diagnostics;
+using SanteDB.Core.Model.Warehouse;
 using System;
 using System.Data;
+using System.Data.Common;
 
 namespace SanteDB.OrmLite.Providers
 {
@@ -29,11 +32,16 @@ namespace SanteDB.OrmLite.Providers
     public interface IDbProvider
     {
 
+        /// <summary>
+        /// Gets the prove for the provider
+        /// </summary>
+        IDiagnosticsProbe MonitorProbe { get; }
 
         /// <summary>
         /// Gets the features of the database back-end
         /// </summary>
         SqlEngineFeatures Features { get; }
+
         /// <summary>
         /// Trace SQL commands
         /// </summary>
@@ -53,6 +61,11 @@ namespace SanteDB.OrmLite.Providers
         /// Get name of the provider
         /// </summary>
         string Invariant { get; }
+
+        /// <summary>
+        /// Get the name of the database
+        /// </summary>
+        String GetDatabaseName();
 
         /// <summary>
         ///  True if this provider can cancel commands
@@ -120,6 +133,10 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         Object ConvertValue(Object value, Type toType);
 
+        /// <summary>
+        /// Map datatype
+        /// </summary>
+        string MapSchemaDataType(Type netType);
 
         /// <summary>
         /// Map a type to parameter type
@@ -134,9 +151,30 @@ namespace SanteDB.OrmLite.Providers
         IDbFilterFunction GetFilterFunction(String name);
 
         /// <summary>
+        /// Gets the specified indexing function
+        /// </summary>
+        /// <param name="name">The name of the indexing function to retrieve ($default is the default provider)</param>
+        /// <returns>The retrieved indexing function if it is provided by the provider</returns>
+        IDbIndexFunction GetIndexFunction(String name);
+
+        /// <summary>
         /// Gets the reset sequence command
         /// </summary>
         SqlStatement GetResetSequence(string sequenceName, object sequenceValue);
 
+        /// <summary>
+        /// Create the statement to define the index
+        /// </summary>
+        /// <param name="indexName">The index name</param>
+        /// <param name="column">The column to be indexed</param>
+        /// <param name="tableName">The table to be indexed</param>
+        /// <param name="isUnique">True if the index is uique</param>
+        SqlStatement CreateIndex(String indexName, String tableName, String column, bool isUnique);
+
+        /// <summary>
+        /// Create the statement to drop the specified index
+        /// </summary>
+        /// <param name="indexName">The index name</param>
+        SqlStatement DropIndex(String indexName);
     }
 }
