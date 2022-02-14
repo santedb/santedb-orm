@@ -284,6 +284,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 return System.Data.DbType.Binary;
             else if (type.StripNullable() == typeof(float) || type.StripNullable() == typeof(double)) return System.Data.DbType.Double;
             else if (type.StripNullable() == typeof(Decimal)) return System.Data.DbType.Decimal;
+            else if (type.StripNullable() == typeof(TimeSpan)) return System.Data.DbType.Time;
             else if (type.StripNullable() == typeof(Guid)) return DbType.String;
             else if (type.IsEnum) return DbType.Int32;
             else if (type == typeof(DBNull))

@@ -56,6 +56,7 @@ namespace SanteDB.OrmLite
 
         // Trace source
         private Tracer m_tracer = new Tracer(Constants.TracerName);
+        private bool m_opened;
 
 
         /// <summary>
@@ -188,6 +189,9 @@ namespace SanteDB.OrmLite
         {
             if (this.m_connection.State == ConnectionState.Closed)
             {
+                if(this.m_opened)
+                    this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+
                 this.m_connection.Open();
                 this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
             }
@@ -198,10 +202,14 @@ namespace SanteDB.OrmLite
             }
             else if (this.m_connection.State != ConnectionState.Open)
             {
+                if (this.m_opened)
+                    this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+
                 this.m_connection.Open();
                 this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
 
             }
+            this.m_opened = true;
         }
 
         /// <summary>
@@ -232,7 +240,10 @@ namespace SanteDB.OrmLite
                 finally { this.m_lastCommand?.Dispose(); this.m_lastCommand = null; }
             }
 
-            this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+            if (this.m_connection != null && this.m_opened)
+            {
+                this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+            }
 
             this.m_cacheCommit?.Clear();
             this.m_cacheCommit = null;

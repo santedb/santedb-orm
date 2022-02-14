@@ -113,7 +113,7 @@ namespace SanteDB.OrmLite.Diagnostics
             public void SetValue(Int64 value) => Interlocked.Exchange(ref this.m_value, value);
 
             /// <summary>
-            /// Incrememnt the counter
+            /// Increment the counter
             /// </summary>
             public void Increment()
             {
@@ -199,7 +199,7 @@ namespace SanteDB.OrmLite.Diagnostics
                             default:
                                 if (instruction.Value > 0)
                                     this.m_componentValues[(int)instruction.Key].Increment();
-                                else
+                                else if(instruction.Value < 0)
                                     this.m_componentValues[(int)instruction.Key].Decrement();
                                 break;
                         }
