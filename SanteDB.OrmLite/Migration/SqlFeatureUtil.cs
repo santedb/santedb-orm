@@ -138,6 +138,7 @@ namespace SanteDB.OrmLite.Migration
                             continue;
                         cmd.CommandText = dsql;
                         cmd.CommandType = CommandType.Text;
+                        cmd.CommandTimeout = 7200; // Default is 2 hrs to upgrade since some schema updates may take several hours to apply
                         m_traceSource.TraceVerbose("EXEC: {0}", dsql);
 
                         cmd.ExecuteScalar();

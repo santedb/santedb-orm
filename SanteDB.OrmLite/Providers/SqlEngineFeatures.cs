@@ -38,7 +38,7 @@ namespace SanteDB.OrmLite.Providers
         StrictSubQueryColumnNames = 0x40,
         MustNameSubQuery = 0x80,
         SetTimeout = 0x100,
-        ReturnedUpdatesAsReader = 0x200
+        ReturnedUpdatesAsReader = 0x200,
         MaterializedViews = 0x200
     }
 }

@@ -61,7 +61,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
         /// <summary>
         /// Gets the source key
         /// </summary>
-        [Column("ent_id"), ForeignKey(typeof(DbEntityVersion), nameof(DbEntityVersion.Key))]
+        [Column("ent_id"), ForeignKey(typeof(DbEntity), nameof(DbEntity.Key))]
         public override Guid SourceKey { get; set; }
     }
 

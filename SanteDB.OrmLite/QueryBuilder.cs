@@ -372,10 +372,15 @@ namespace SanteDB.OrmLite
                 {
                     var rootCol = tableMap.GetColumn(o.SourceProperty);
                     skipParentJoin &= rootCol != null;
+
                     if (skipParentJoin)
                         return $"{tablePrefix}{rootCol.Table.TableName}.{rootCol.Name}";
                     else
-                        return $"{tablePrefix}{o.Table.TableName}.{o.Name}";
+                    {
+                        // has the column been redirected?
+                        var scopedTable = scopedTables.Find(s => s.OrmType == o.Table.OrmType) ?? o.Table;
+                        return $"{tablePrefix}{scopedTable.TableName}.{o.Name}";
+                    }
                 }));
                 selectStatement = new SqlStatement(this.m_provider, $"SELECT {columnList} ").Append(selectStatement);
             }
