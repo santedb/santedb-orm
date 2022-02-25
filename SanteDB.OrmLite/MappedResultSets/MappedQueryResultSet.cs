@@ -38,6 +38,9 @@ namespace SanteDB.OrmLite.MappedResultSets
         // The key name to use for stateful storage
         private readonly string m_keyName;
 
+        // true if context should be kept open
+        private readonly bool m_keepContextOpen;
+
         /// <summary>
         /// Creates a new persistence collection
         /// </summary>
@@ -58,6 +61,25 @@ namespace SanteDB.OrmLite.MappedResultSets
         }
 
         /// <summary>
+        /// Create mapped query result set
+        /// </summary>
+        public MappedQueryResultSet(IMappedQueryProvider<TElement> dataProvider, DataContext context)
+        {
+            this.m_provider = dataProvider;
+            this.m_context = context;
+            this.m_keepContextOpen = true;
+        }
+
+        /// <summary>
+        /// Create mappe query result set from SQL result set
+        /// </summary>
+        public MappedQueryResultSet(IMappedQueryProvider<TElement> provider, IOrmResultSet resultSet, bool keepContextOpen = false) : this(provider)
+        {
+            this.m_resultSet = resultSet;
+            this.m_keepContextOpen = keepContextOpen;
+
+        }
+        /// <summary>
         /// Create a wrapper persistence collection
         /// </summary>
         private MappedQueryResultSet(MappedQueryResultSet<TElement> copyFrom, IOrmResultSet resultSet) : this(copyFrom.m_provider)
@@ -65,6 +87,8 @@ namespace SanteDB.OrmLite.MappedResultSets
             this.m_resultSet = resultSet;
             this.m_context = copyFrom.m_context;
             this.m_keyName = copyFrom.m_keyName;
+            this.m_keepContextOpen = copyFrom.m_keepContextOpen;
+
         }
 
         /// <summary>
@@ -145,7 +169,10 @@ namespace SanteDB.OrmLite.MappedResultSets
             }
             finally
             {
-                this.m_context.Close();
+                if (!this.m_keepContextOpen)
+                {
+                    this.m_context.Close();
+                }
 #if DEBUG
                 sw.Stop();
                 this.m_tracer.TraceVerbose("Performance: GetEnumerator({0}) took {1}ms", this.m_resultSet, sw.ElapsedMilliseconds);
@@ -194,7 +221,10 @@ namespace SanteDB.OrmLite.MappedResultSets
             }
             finally
             {
-                this.m_context.Close();
+                if (!this.m_keepContextOpen)
+                {
+                    this.m_context.Close();
+                }
 #if DEBUG
                 sw.Stop();
                 this.m_tracer.TraceVerbose("Performance: SingleOrDefault({0}) took {1}ms", this.m_resultSet, sw.ElapsedMilliseconds);
@@ -244,7 +274,10 @@ namespace SanteDB.OrmLite.MappedResultSets
             }
             finally
             {
-                this.m_context.Close();
+                if (!this.m_keepContextOpen)
+                {
+                    this.m_context.Close();
+                }
 #if DEBUG
                 sw.Stop();
                 this.m_tracer.TraceVerbose("Performance: SingleOrDefault({0}) took {1}ms", this.m_resultSet, sw.ElapsedMilliseconds);
@@ -353,7 +386,11 @@ namespace SanteDB.OrmLite.MappedResultSets
             }
             finally
             {
-                this.m_context.Close();
+                if (!this.m_keepContextOpen)
+                {
+
+                    this.m_context.Close();
+                }
 #if DEBUG
                 sw.Stop();
                 this.m_tracer.TraceVerbose("Performance: AsStateful({0}) took {1}ms", stateId, sw.ElapsedMilliseconds);
@@ -381,7 +418,11 @@ namespace SanteDB.OrmLite.MappedResultSets
             }
             finally
             {
-                this.m_context.Close();
+                if (!this.m_keepContextOpen)
+                {
+
+                    this.m_context.Close();
+                }
             }
         }
 
@@ -405,7 +446,11 @@ namespace SanteDB.OrmLite.MappedResultSets
             }
             finally
             {
-                this.m_context.Close();
+                if (!this.m_keepContextOpen)
+                {
+
+                    this.m_context.Close();
+                }
             }
         }
 
@@ -422,7 +467,10 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// </summary>
         public void Dispose()
         {
-            this.m_context.Dispose();
+            if (!this.m_keepContextOpen)
+            {
+                this.m_context.Dispose();
+            }
         }
 
         /// <summary>
@@ -496,7 +544,10 @@ namespace SanteDB.OrmLite.MappedResultSets
             }
             finally
             {
-                this.m_context.Close();
+                if (!this.m_keepContextOpen)
+                {
+                    this.m_context.Close();
+                }
             }
         }
 

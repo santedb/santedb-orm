@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  *
@@ -16,7 +16,7 @@
  * the License.
  *
  * User: fyfej
- * Date: 2021-8-5
+ * Date: 2021-8-27
  */
 
 /*
@@ -53,6 +53,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         // DB provider factory
         private DbProviderFactory m_provider = null;
 
+
         // Parameter regex
         private readonly Regex m_parmRegex = new Regex(@"\?");
 
@@ -61,6 +62,18 @@ namespace SanteDB.OrmLite.Providers.Firebird
 
         // Filter functions
         private static Dictionary<String, IDbFilterFunction> s_filterFunctions = null;
+
+        // Filter functions
+        private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
+
+        private IDiagnosticsProbe m_monitor;
+
+        /// <summary>
+        /// Create a new firebird provider
+        /// </summary>
+        public FirebirdSQLProvider()
+        {
+        }
 
         /// <summary>
         /// Gets or sets the connection string for the provider
@@ -106,6 +119,22 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// Gets or sets whether SQL tracing is supported
         /// </summary>
         public bool TraceSql { get; set; }
+
+        /// <summary>
+        /// Get hte monitoring probe
+        /// </summary>
+        public IDiagnosticsProbe MonitorProbe
+        {
+            get
+            {
+                if (this.m_monitor == null)
+                {
+                    this.m_monitor = Diagnostics.OrmClientProbe.CreateProbe(this);
+                }
+                return this.m_monitor;
+            }
+        }
+
 
         /// <summary>
         /// Clone a connection
@@ -230,6 +259,8 @@ namespace SanteDB.OrmLite.Providers.Firebird
             }
 
             cmd.CommandText = sql;
+
+
 
             return cmd;
         }
@@ -391,6 +422,41 @@ namespace SanteDB.OrmLite.Providers.Firebird
         }
 
         /// <summary>
+        /// Maps the specified data type
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        public string MapSchemaDataType(Type type)
+        {
+            type = type.StripNullable();
+            if (type == typeof(byte[]))
+                return "BLOB";
+            else switch (type.Name)
+                {
+                    case nameof(Boolean):
+                        return "BOOLEAN";
+                    case nameof(DateTime):
+                        return "DATE";
+                    case nameof(DateTimeOffset):
+                        return "TIMESTAMP";
+                    case nameof(Decimal):
+                        return "DECIMAL";
+                    case nameof(Double):
+                        return "FLOAT";
+                    case nameof(Int32):
+                        return "INTEGER";
+                    case nameof(Int64):
+                        return "BIGINT";
+                    case nameof(String):
+                        return "VARCHAR(256)";
+                    case nameof(Guid):
+                        return "UUID";
+                    default:
+                        throw new NotSupportedException($"Schema type {type} not supported by FirebirdSQL provider");
+                }
+        }
+
+        /// <summary>
         /// Perform a returning command
         /// </summary>
         /// <param name="sqlStatement">The SQL statement to "return"</param>
@@ -412,11 +478,29 @@ namespace SanteDB.OrmLite.Providers.Firebird
             {
                 s_filterFunctions = ApplicationServiceContext.Current.GetService<IServiceManager>()
                         .CreateInjectedOfAll<IDbFilterFunction>()
-                        .Where(o => o.Provider == "FirebirdSQL")
+                        .Where(o => o.Provider == this.Invariant)
                         .ToDictionary(o => o.Name, o => o);
             }
             IDbFilterFunction retVal = null;
             s_filterFunctions.TryGetValue(name, out retVal);
+            return retVal;
+        }
+
+
+        /// <summary>
+        /// Gets the index function
+        /// </summary>
+        public IDbIndexFunction GetIndexFunction(string name)
+        {
+            if (s_indexFunctions == null)
+            {
+                s_indexFunctions = ApplicationServiceContext.Current.GetService<IServiceManager>()
+                        .CreateInjectedOfAll<IDbIndexFunction>()
+                        .Where(o => o.Provider == this.Invariant)
+                        .ToDictionary(o => o.Name, o => o);
+            }
+
+            s_indexFunctions.TryGetValue(name, out var retVal);
             return retVal;
         }
 
@@ -453,5 +537,30 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             return new SqlStatement(this, $"ALTER SEQUENCE {sequenceName} RESTART WITH {(int)sequenceValue}");
         }
+
+        /// <inheritdoc/>
+        public SqlStatement CreateIndex(string indexName, string tableName, string column, bool isUnique)
+        {
+            return new SqlStatement(this, $"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} ({column})");
+        }
+
+        /// <inheritdoc/>
+        public SqlStatement DropIndex(string indexName)
+        {
+            return new SqlStatement(this, $"DROP INDEX {indexName}");
+        }
+
+
+        /// <summary>
+        /// Get the name of the database
+        /// </summary>
+        public string GetDatabaseName()
+        {
+            var fact = this.GetProviderFactory().CreateConnectionStringBuilder();
+            fact.ConnectionString = this.ConnectionString;
+            fact.TryGetValue("initial catalog", out var value);
+            return value?.ToString();
+        }
+
     }
 }

@@ -16,46 +16,38 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-1-23
  */
+using System;
+using System.Collections.Generic;
+using System.Text;
+
 namespace SanteDB.OrmLite.Providers
 {
     /// <summary>
-    /// SQL Keywords
+    /// A function which can translate codes to indexing 
     /// </summary>
-    public enum SqlKeyword
+    public interface IDbIndexFunction
     {
+
         /// <summary>
-        /// Represents the lower function
+        /// Gets the name of the index
         /// </summary>
-        Lower,
+        String Name { get; }
+
         /// <summary>
-        /// Represents the upper function
+        /// Gets the provider to which this index function applies
         /// </summary>
-        Upper,
+        String Provider { get; }
+
         /// <summary>
-        /// Represents the like function
+        /// Create the statement to define the index
         /// </summary>
-        Like,
-        /// <summary>
-        /// Represents case insenstivie like
-        /// </summary>
-        ILike,
-        /// <summary>
-        /// Represents False (or 0)
-        /// </summary>
-        False,
-        /// <summary>
-        /// Represents True (or 1)
-        /// </summary>
-        True,
-        /// <summary>
-        /// Create or alter
-        /// </summary>
-        CreateOrAlter,
-        /// <summary>
-        /// Refresh materialized view
-        /// </summary>
-        RefreshMaterializedView
+        /// <param name="indexName">The index name</param>
+        /// <param name="column">The column to be indexed</param>
+        /// <param name="tableName">The table to be indexed</param>
+        SqlStatement CreateIndex(String indexName, String tableName, String column);
+
+
     }
 }

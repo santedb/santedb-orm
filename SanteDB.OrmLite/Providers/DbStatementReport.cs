@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-5
+ * Date: 2021-8-27
  */
 using System;
 
@@ -24,13 +24,25 @@ namespace SanteDB.OrmLite.Providers
 {
 
     /// <summary>
-    /// States of the database statement
+    /// States of the database statements which are returned from <see cref="IDbMonitorProvider.StatActivity"/>
     /// </summary>
     public enum DbStatementStatus
     {
+        /// <summary>
+        /// The connection/statement is idle
+        /// </summary>
         Idle,
+        /// <summary>
+        /// The connection/statement is active
+        /// </summary>
         Active,
+        /// <summary>
+        /// The statement is stalled
+        /// </summary>
         Stalled,
+        /// <summary>
+        /// Another unknown state
+        /// </summary>
         Other
     }
 

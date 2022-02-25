@@ -1,27 +1,27 @@
 ﻿/*
- * Copyright (C) 2021 - 2021, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you
- * may not use this file except in compliance with the License. You may
- * obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
  * the License.
- *
+ * 
  * User: fyfej
- * Date: 2021-8-5
+ * Date: 2021-8-27
  */
-
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
+using SanteDB.OrmLite.Diagnostics;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Concurrent;
@@ -53,6 +53,40 @@ namespace SanteDB.OrmLite
         // Trace source
         private readonly Tracer m_tracer = new Tracer(Constants.TracerName);
 
+
+        /// <summary>
+        /// Increment the value
+        /// </summary>
+        private void IncrementProbe(OrmPerformanceMetric metric)
+        {
+            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            {
+                ocp.Increment(metric);
+            }
+        }
+
+        /// <summary>
+        /// Decrement the value
+        /// </summary>
+        private void DecrementProbe(OrmPerformanceMetric metric)
+        {
+            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            {
+                ocp.Decrement(metric);
+            }
+        }
+
+        /// <summary>
+        /// Average the time
+        /// </summary>
+        private void AddProbeResponseTime(long value)
+        {
+            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            {
+                ocp.AverageWith(OrmPerformanceMetric.AverageTime, value);
+            }
+        }
+
         /// <summary>
         /// Connection
         /// </summary>
@@ -64,6 +98,11 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IDictionary<String, Object> Data
         { get { return this.m_dataDictionary; } }
+
+        /// <summary>
+        /// Overrides the command timeout for any command executed on this data context
+        /// </summary>
+        public int? CommandTimeout { get; set; }
 
         /// <summary>
         /// Internal utility method to get provider
@@ -129,10 +168,16 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Close()
         {
+            this.ThrowIfDisposed();
             if (this.m_transaction != null)
             {
                 this.m_transaction.Rollback();
                 this.m_transaction.Dispose();
+            }
+            if (this.m_opened)
+            {
+                this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+                this.m_opened = false;
             }
             this.m_connection.Close();
         }
@@ -142,18 +187,47 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Open()
         {
-            this.m_tracer.TraceEvent(EventLevel.Verbose, "Connecting to {0}...", this.m_connection.ConnectionString);
-            if (this.m_connection.State == ConnectionState.Closed)
+            this.ThrowIfDisposed();
+
+            if (this.m_opened)
+            {
+                this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+            }
+
+                if (this.m_connection.State == ConnectionState.Closed)
+            {
                 this.m_connection.Open();
+                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+            }
             else if (this.m_connection.State == ConnectionState.Broken)
             {
                 this.m_connection.Close();
                 this.m_connection.Open();
             }
             else if (this.m_connection.State != ConnectionState.Open)
+            {
                 this.m_connection.Open();
+                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+
+            }
+
+            this.m_opened = true;
         }
 
+        /// <summary>
+        /// Opens a cloned context
+        /// </summary>
+        public DataContext OpenClonedContext()
+        {
+            if (this.Transaction != null)
+                throw new InvalidOperationException("Cannot clone connection in transaction");
+            var retVal = this.m_provider.CloneConnection(this);
+            retVal.Open();
+            retVal.m_dataDictionary = this.m_dataDictionary; // share data
+            retVal.LoadState = this.LoadState;
+            //retVal.PrepareStatements = this.PrepareStatements;
+            return retVal;
+        }
 
         /// <summary>
         /// Dispose this object
@@ -168,14 +242,32 @@ namespace SanteDB.OrmLite
                 finally { this.m_lastCommand?.Dispose(); this.m_lastCommand = null; }
             }
 
+            if (this.m_opened)
+            {
+                this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+            }
+
+            this.m_cacheCommit?.Clear();
+            this.m_cacheCommit = null;
             this.m_transaction?.Dispose();
             this.m_transaction = null;
             this.m_connection?.Dispose();
             this.m_connection = null;
             this.m_dataDictionary?.Clear();
             this.m_dataDictionary = null;
+
         }
 
+        /// <summary>
+        /// Throw an exception if this context is disposed
+        /// </summary>
+        private void ThrowIfDisposed()
+        {
+            if(this.m_connection == null)
+            {
+                throw new ObjectDisposedException(nameof(DataContext));
+            }
+        }
         /// <summary>
         /// Create sql statement
         /// </summary>

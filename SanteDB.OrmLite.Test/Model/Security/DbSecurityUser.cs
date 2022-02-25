@@ -37,7 +37,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
 		/// </summary>
 		/// <value><c>true</c> if lockout enabled; otherwise, <c>false</c>.</value>
 		[Column("locked")]
-		public DateTime? Lockout {
+		public DateTimeOffset? Lockout {
 			get;
 			set;
 		}
