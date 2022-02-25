@@ -53,7 +53,6 @@ namespace SanteDB.OrmLite
 
         // Trace source
         private Tracer m_tracer = new Tracer(Constants.TracerName);
-        private bool m_opened;
 
 
         /// <summary>
