@@ -148,11 +148,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 switch(parms[0].Replace("\"",""))
                 {
                     case "y":
-                        return current.Append($"{filterColumn}::DATE BETWEEN ?::DATE AND ?::DATE", new DateTime(dtValue.Year, 01, 01), new DateTime(dtValue.Year, 12, 31));
+                        return current.Append($"{filterColumn} BETWEEN ? AND ?", new DateTime(dtValue.Year, 01, 01), new DateTime(dtValue.Year, 12, 31, 23, 59, 59));
                     case "M":
-                        return current.Append($"{filterColumn}::DATE BETWEEN ?::DATE AND ?::DATE", new DateTime(dtValue.Year, dtValue.Month, 01), new DateTime(dtValue.Year, dtValue.Month, DateTime.DaysInMonth(dtValue.Year, dtValue.Month)));
+                        return current.Append($"{filterColumn} BETWEEN ? AND ?", new DateTime(dtValue.Year, dtValue.Month, 01), new DateTime(dtValue.Year, dtValue.Month, DateTime.DaysInMonth(dtValue.Year, dtValue.Month), 23, 59, 59));
                     case "d":
-                        return current.Append($"{filterColumn}::DATE = ?::DATE", dtValue.Date);
+                        return current.Append($"{filterColumn} BETWEEN ? AND ?", dtValue.Date, dtValue.Date.AddHours(23).AddMinutes(59).AddSeconds(59));
                     default:
                         throw new NotSupportedException("Date truncate precision must be y, M, or d");
                 }

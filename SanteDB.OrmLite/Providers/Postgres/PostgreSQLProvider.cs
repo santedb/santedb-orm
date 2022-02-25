@@ -316,6 +316,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 case nameof(Guid):
                     return DbType.Guid;
 
+                case nameof(TimeSpan):
+                    return DbType.Time;
+
                 default:
                     if (type.StripNullable() == typeof(byte[])) return System.Data.DbType.Binary;
                     else if (type.StripNullable().IsEnum) return DbType.Int32;
