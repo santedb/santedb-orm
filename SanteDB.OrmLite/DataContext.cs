@@ -49,6 +49,7 @@ namespace SanteDB.OrmLite
 
         // Data dictionary
         private ConcurrentDictionary<String, Object> m_dataDictionary = new ConcurrentDictionary<string, object>();
+        private bool m_opened;
 
         // Trace source
         private readonly Tracer m_tracer = new Tracer(Constants.TracerName);
@@ -224,7 +225,6 @@ namespace SanteDB.OrmLite
             var retVal = this.m_provider.CloneConnection(this);
             retVal.Open();
             retVal.m_dataDictionary = this.m_dataDictionary; // share data
-            retVal.LoadState = this.LoadState;
             //retVal.PrepareStatements = this.PrepareStatements;
             return retVal;
         }
@@ -247,8 +247,6 @@ namespace SanteDB.OrmLite
                 this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
             }
 
-            this.m_cacheCommit?.Clear();
-            this.m_cacheCommit = null;
             this.m_transaction?.Dispose();
             this.m_transaction = null;
             this.m_connection?.Dispose();
