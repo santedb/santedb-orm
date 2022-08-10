@@ -105,6 +105,11 @@ namespace SanteDB.OrmLite
         public bool IsSecret { get; private set; }
 
         /// <summary>
+        /// Gets the default value
+        /// </summary>
+        public object DefaultValue { get; private set; }
+
+        /// <summary>
         /// Column mapping ctor
         /// </summary>
         private ColumnMapping()
@@ -126,6 +131,11 @@ namespace SanteDB.OrmLite
             this.Table = table;
             this.IsAlwaysJoin = pi.GetCustomAttribute<AlwaysJoinAttribute>() != null;
             this.JoinFilters = pi.GetCustomAttributes<JoinFilterAttribute>().ToList();
+            this.DefaultValue = pi.GetCustomAttribute<DefaultValueAttribute>()?.DefaultValue;
+            if(this.DefaultValue is String str && Guid.TryParse(str, out Guid defaultGuid))
+            {
+                this.DefaultValue = defaultGuid;
+            }
         }
 
         /// <summary>
@@ -175,5 +185,6 @@ namespace SanteDB.OrmLite
         /// Represent as a string
         /// </summary>
         public override string ToString() => $"{this.Table.TableName}.{this.Name}";
+
     }
 }
