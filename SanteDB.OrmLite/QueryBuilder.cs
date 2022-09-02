@@ -734,6 +734,11 @@ namespace SanteDB.OrmLite
         /// <param name="values">The values to be matched</param>
         public SqlStatement CreateSqlPredicate(String tableAlias, String columnName, PropertyInfo modelProperty, IList values)
         {
+            if(modelProperty == null)
+            {
+                throw new ArgumentNullException(nameof(modelProperty));
+            }
+
             var retVal = new SqlStatement(this.m_provider);
 
             bool noCase = modelProperty.GetCustomAttribute<NoCaseAttribute>() != null;

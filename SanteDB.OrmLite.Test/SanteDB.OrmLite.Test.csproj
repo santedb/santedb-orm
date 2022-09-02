@@ -69,7 +69,7 @@
     <Compile Include="Model\Concepts\DbConceptVersion.cs" />
     <Compile Include="Model\Concepts\DbReferenceTerm.cs" />
     <Compile Include="Model\Concepts\DbReferenceTermName.cs" />
-    <Compile Include="Model\DataType\DbAssigningAuthority.cs" />
+    <Compile Include="Model\DataType\DbIdentityDomain.cs" />
     <Compile Include="Model\DataType\DbIdentifier.cs" />
     <Compile Include="Model\DataType\DbIdentifierType.cs" />
     <Compile Include="Model\DataType\DbPhonetics.cs" />

@@ -117,6 +117,7 @@ namespace SanteDB.OrmLite.Migration
                     catch (Exception e)
                     {
                         m_traceSource.TraceError("Could not install {0} - {1}", itm.Id, e);
+                        throw new DataException($"Could not install {itm.Id}", e);
                     }
                 }
         }

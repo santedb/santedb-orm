@@ -37,7 +37,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
         /// Gets or sets the authority identifier.
         /// </summary>
         /// <value>The authority identifier.</value>
-        [Column("aut_id"), ForeignKey(typeof(DbAssigningAuthority), nameof(DbAssigningAuthority.Key))]
+        [Column("dmn_id"), ForeignKey(typeof(DbAssigningAuthority), nameof(DbAssigningAuthority.Key))]
         public Guid AuthorityKey
         {
             get;

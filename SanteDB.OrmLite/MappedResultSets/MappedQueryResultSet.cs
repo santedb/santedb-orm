@@ -99,7 +99,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             if (this.m_resultSet != null)
             {
                 // This is in effect an intersect
-                return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Where(query));
+                return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Where(this.m_provider.MapExpression<bool>(query)));
             }
             else
             {
@@ -329,7 +329,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
             }
 
-            return new MappedQueryResultSet<TElement>(this, this.m_resultSet.OrderBy(this.m_provider.MapPropertyExpression(sortExpression)));
+            return new MappedQueryResultSet<TElement>(this, this.m_resultSet.OrderBy(this.m_provider.MapExpression(sortExpression)));
         }
 
         /// <summary>
@@ -342,7 +342,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
             }
 
-            return new MappedQueryResultSet<TElement>(this, this.m_resultSet.OrderByDescending(this.m_provider.MapPropertyExpression(sortExpression)));
+            return new MappedQueryResultSet<TElement>(this, this.m_resultSet.OrderByDescending(this.m_provider.MapExpression(sortExpression)));
         }
 
         /// <summary>
@@ -533,7 +533,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
             }
 
-            var member = this.m_provider.MapPropertyExpression(selector).GetMember();
+            var member = this.m_provider.MapExpression(selector).GetMember();
             try
             {
                 this.m_context.Open();
