@@ -23,6 +23,11 @@ namespace SanteDB.OrmLite.MappedResultSets
     public class MappedQueryResultSet<TElement> : IQueryResultSet<TElement>, IOrderableQueryResultSet<TElement>, IDisposable
         where TElement : IdentifiedData
     {
+
+#if DEBUG
+        private int m_expansionCount = 0;
+#endif 
+
         // The data context
         private readonly DataContext m_context;
 
@@ -158,6 +163,11 @@ namespace SanteDB.OrmLite.MappedResultSets
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
+            this.m_expansionCount++;
+            if(this.m_expansionCount > 1)
+            {
+                this.m_tracer.TraceWarning("QUERY RESULT SET {0} HAS BEEN EXPANDED {1} TIMES AT {2}", this.m_resultSet.ToSqlStatement().SQL, this.m_expansionCount, new StackTrace());
+            }
 #endif
             try
             {

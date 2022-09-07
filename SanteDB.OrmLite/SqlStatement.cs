@@ -268,6 +268,15 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Return a delete from
+        /// </summary>
+        public SqlStatement DeleteFrom(Type dataType)
+        {
+            var tableMap = TableMapping.Get(dataType);
+            return this.Append(new SqlStatement(this.m_provider, $"DELETE FROM {tableMap.TableName} "));
+        }
+
+        /// <summary>
         /// Return a select from
         /// </summary>
         public SqlStatement SelectFrom(Type dataType, params ColumnMapping[] columns)
@@ -411,6 +420,15 @@ namespace SanteDB.OrmLite
         public override string ToString()
         {
             return this.Build().SQL;
+        }
+
+        /// <summary>
+        /// Generate an update statement
+        /// </summary>
+        public SqlStatement UpdateSet(Type tableType)
+        {
+            var tableMap = TableMapping.Get(tableType);
+            return this.Append(new SqlStatement(this.m_provider, $"UPDATE {tableMap.TableName} SET "));
         }
     }
 

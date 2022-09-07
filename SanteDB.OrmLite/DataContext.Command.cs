@@ -1109,7 +1109,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Delete from the database
         /// </summary>
-        public void DeleteAll<TModel>(SqlStatement whereClause)
+        public void DeleteAll(Type tmodel, SqlStatement whereClause)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -1117,7 +1117,7 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where(whereClause);
+                var query = this.CreateSqlStatement().DeleteFrom(tmodel).Where(whereClause);
                 lock (this.m_lockObject)
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
@@ -1163,7 +1163,7 @@ namespace SanteDB.OrmLite
             {
 #endif
 
-                var tableMap = TableMapping.Get(typeof(TModel));
+                var tableMap = TableMapping.Get(obj.GetType());
                 SqlStatement whereClause = this.CreateSqlStatement();
                 foreach (var itm in tableMap.PrimaryKey)
                 {
@@ -1171,7 +1171,7 @@ namespace SanteDB.OrmLite
                     whereClause.And($"{itm.Name} = ?", itmValue);
                 }
 
-                var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where(whereClause);
+                var query = this.CreateSqlStatement().DeleteFrom(obj.GetType()).Where(whereClause);
                 lock (this.m_lockObject)
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
@@ -1217,8 +1217,8 @@ namespace SanteDB.OrmLite
             {
 #endif
                 // Build the command
-                var tableMap = TableMapping.Get(typeof(TModel));
-                SqlStatement<TModel> query = this.CreateSqlStatement<TModel>().UpdateSet();
+                var tableMap = TableMapping.Get(value.GetType());
+                SqlStatement query = this.CreateSqlStatement().UpdateSet(value.GetType());
                 SqlStatement whereClause = this.CreateSqlStatement();
                 int nUpdatedColumns = 0;
                 foreach (var itm in tableMap.Columns)
@@ -1299,7 +1299,7 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Update all methods
+        /// Update all data matching <paramref name="whereExpression"/> to <paramref name="updateStatements"/>
         /// </summary>
         /// <typeparam name="TModel">The type of object to update</typeparam>
         /// <typeparam name="TUpdateModel">The type that update statements should be treated as</typeparam>
@@ -1307,26 +1307,34 @@ namespace SanteDB.OrmLite
         /// <param name="updateStatements">The update statements to append to the SQL clause</param>
         public void UpdateAll<TModel, TUpdateModel>(Expression<Func<TModel, bool>> whereExpression, params Expression<Func<TUpdateModel, dynamic>>[] updateStatements)
         {
+            this.UpdateAll(typeof(TModel), whereExpression, updateStatements);
+        }
+
+        /// <summary>
+        /// Update all 
+        /// </summary>
+        public void UpdateAll(Type tmodel, LambdaExpression whereExpression, params LambdaExpression[] updateStatements)
+        { 
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-                // Is TModel assignable from TUpdateMode
-                if (typeof(TModel) != typeof(TUpdateModel) && !typeof(TUpdateModel).IsAssignableFrom(typeof(TModel)))
-                {
-                    throw new InvalidOperationException(String.Format(ErrorMessages.ARGUMENT_INCOMPATIBLE_TYPE, typeof(TUpdateModel), typeof(TModel)));
-                }
-
+              
                 // Build the command
-                var tableMap = TableMapping.Get(typeof(TModel));
-                var updateStatement = this.CreateSqlStatement<TModel>().UpdateSet() as SqlStatement;
-                var whereClause = this.CreateSqlStatement().Where(whereExpression);
+                var tableMap = TableMapping.Get(tmodel);
+                var updateStatement = this.CreateSqlStatement().UpdateSet(tmodel) as SqlStatement;
+
+                // Convert where clause
+                var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
+                queryBuilder.Visit(whereExpression.Body);
+                
+                var whereClause = this.CreateSqlStatement().Where(queryBuilder.SqlStatement);
                 var setClause = this.CreateSqlStatement();
                 foreach (var updateFunc in updateStatements)
                 {
-                    var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
+                    queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
                     queryBuilder.Visit(updateFunc);
                     setClause.Append(queryBuilder.SqlStatement);
                     setClause.Append(",");
@@ -1357,13 +1365,16 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Delete from the database
         /// </summary>
-        public void DeleteAll<TModel>(Expression<Func<TModel, bool>> where)
-        {
-            var tableMap = TableMapping.Get(typeof(TModel));
+        public void DeleteAll<TModel>(Expression<Func<TModel, bool>> where) => this.DeleteAll(typeof(TModel), where);
+
+        /// <summary>
+        /// Delete all objects matching the la
+        /// </summary>
+        public void DeleteAll(Type tmodel, LambdaExpression where) { 
+            var tableMap = TableMapping.Get(tmodel);
             var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
             queryBuilder.Visit(where.Body);
-            this.DeleteAll<TModel>(queryBuilder.SqlStatement);
-
+            this.DeleteAll(tmodel, queryBuilder.SqlStatement);
         }
 
         /// <summary>
