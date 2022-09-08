@@ -78,8 +78,10 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Create mappe query result set from SQL result set
         /// </summary>
-        public MappedQueryResultSet(IMappedQueryProvider<TElement> provider, IOrmResultSet resultSet, bool keepContextOpen = false) : this(provider)
+        public MappedQueryResultSet(IMappedQueryProvider<TElement> provider, IOrmResultSet resultSet, bool keepContextOpen = false)
         {
+            this.m_provider = provider;
+            this.m_context = resultSet.Context;
             this.m_resultSet = resultSet;
             this.m_keepContextOpen = keepContextOpen;
 
@@ -87,8 +89,9 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Create a wrapper persistence collection
         /// </summary>
-        private MappedQueryResultSet(MappedQueryResultSet<TElement> copyFrom, IOrmResultSet resultSet) : this(copyFrom.m_provider)
+        private MappedQueryResultSet(MappedQueryResultSet<TElement> copyFrom, IOrmResultSet resultSet) 
         {
+            this.m_provider = copyFrom.m_provider;
             this.m_resultSet = resultSet;
             this.m_context = copyFrom.m_context;
             this.m_keyName = copyFrom.m_keyName;
