@@ -147,6 +147,9 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\SanteDB.licenseheader">
+      <Link>SanteDB.licenseheader</Link>
+    </None>
     <None Include="App.config" />
     <None Include="test.runsettings" />
   </ItemGroup>
