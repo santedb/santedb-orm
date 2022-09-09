@@ -23,6 +23,7 @@ using SanteDB.Core.Configuration;
 using SanteDB.Core.Configuration.Data;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -112,7 +113,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             connectionString.SetComponent("client library", "fbclient.dll");
             var fbConnectionType = Type.GetType("FirebirdSql.Data.FirebirdClient.FbConnection, FirebirdSql.Data.FirebirdClient");
             if (fbConnectionType == null)
-                throw new InvalidOperationException("Cannot find FirebirdSQL provider");
+                throw new InvalidOperationException($"Cannot find FirebirdSQL provider library, ensure that: \r\n\t - fbclient.dll is present and is compiled for {(Environment.Is64BitProcess ? "x64" : "x86")}\r\n\t - The Firebird provider has been installed in this SanteDB Server");
 
             var createDbMethod = fbConnectionType.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).SingleOrDefault(o => o.Name == "CreateDatabase" && o.GetParameters().Length == 4);
             if (createDbMethod == null)
