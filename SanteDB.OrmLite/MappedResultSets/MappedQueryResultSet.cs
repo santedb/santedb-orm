@@ -104,8 +104,8 @@ namespace SanteDB.OrmLite.MappedResultSets
             this.m_context = resultSet.Context;
             this.m_resultSet = resultSet;
             this.m_keepContextOpen = keepContextOpen;
-
         }
+
         /// <summary>
         /// Create a wrapper persistence collection
         /// </summary>
@@ -132,6 +132,22 @@ namespace SanteDB.OrmLite.MappedResultSets
             else
             {
                 return new MappedQueryResultSet<TElement>(this, this.m_provider.ExecuteQueryOrm(this.m_context, query));
+            }
+        }
+
+        /// <summary>
+        /// Execute the specified SQL statement
+        /// </summary>
+        public IQueryResultSet<TElement> Execute<TDBModel>(SqlStatement statement)
+        {
+            if (this.m_resultSet != null)
+            {
+                // This is in effect an intersect
+                return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Intersect(this.m_context.Query<TDBModel>(statement)));
+            }
+            else
+            {
+                return new MappedQueryResultSet<TElement>(this, this.m_context.Query<TDBModel>(statement));
             }
         }
 

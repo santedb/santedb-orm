@@ -204,7 +204,16 @@ namespace SanteDB.OrmLite
             var tableMap = TableMapping.Get(tableType);
             List<TableMapping> scopedTables = new List<TableMapping>() { tableMap };
 
-            return CreateWhereCondition(typeof(TModel), new SqlStatement(m_provider), nvc, String.Empty, scopedTables, null, out IList<SqlStatement> _);
+            return CreateWhereCondition(typeof(TModel), new SqlStatement(m_provider), nvc.ToDictionary(), String.Empty, scopedTables, null, out IList<SqlStatement> _);
+        }
+
+        /// <summary>
+        /// Create a query from expression without needing type
+        /// </summary>
+        public SqlStatement CreateQuery(Type modelType, LambdaExpression predicate, params ColumnMapping[] selector)
+        {
+            var nvc = QueryExpressionBuilder.BuildQuery(modelType, predicate, true);
+            return CreateQuery(modelType, nvc.ToDictionary(), selector);
         }
 
         /// <summary>
@@ -213,7 +222,7 @@ namespace SanteDB.OrmLite
         public SqlStatement CreateQuery<TModel>(Expression<Func<TModel, bool>> predicate, params ColumnMapping[] selector)
         {
             var nvc = QueryExpressionBuilder.BuildQuery(predicate, true);
-            return CreateQuery(typeof(TModel), nvc, selector);
+            return CreateQuery(typeof(TModel), nvc.ToDictionary(), selector);
         }
 
         /// <summary>
