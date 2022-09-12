@@ -88,7 +88,7 @@ namespace SanteDB.OrmLite.Diagnostics
         /// <summary>
         /// Gets the values of this probe
         /// </summary>
-        public IEnumerable<IDiagnosticsProbe> Value => this.m_componentValues.OfType<IDiagnosticsProbe>();
+        public IEnumerable<IDiagnosticsProbe> Value => this.m_componentValues.ToArray();
 
         /// <summary>
         /// ORM performance probe

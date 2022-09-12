@@ -390,8 +390,16 @@ namespace SanteDB.OrmLite
             var stmt = this.Statement.Build();
             if (whereExpression is Expression<Func<TData, bool>> whereExpressionStrong)
             {
-                return new OrmResultSet<TData>(this.Context,
-                    this.Context.CreateSqlStatement("SELECT * FROM (").Append(stmt).Append(") I ").Where<TData>(whereExpressionStrong));
+                if (typeof(CompositeResult).IsAssignableFrom(typeof(TData)))
+                {
+                    return new OrmResultSet<TData>(this.Context,
+                       this.Context.CreateSqlStatement("SELECT * FROM (").Append(stmt).Append(") I ").Where<TData>(whereExpressionStrong));
+                }
+                else {
+                    var tmap = TableMapping.Get(typeof(TData));
+                    return new OrmResultSet<TData>(this.Context,
+                        this.Context.CreateSqlStatement($"SELECT {String.Join(",", tmap.Columns.Select(o=>o.Name))} FROM (").Append(stmt).Append($") {tmap.TableName} ").Where<TData>(whereExpressionStrong));
+                }
             }
             else
             {

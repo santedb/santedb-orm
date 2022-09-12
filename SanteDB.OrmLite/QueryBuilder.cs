@@ -159,6 +159,9 @@ namespace SanteDB.OrmLite
     /// </example>
     public class QueryBuilder
     {
+
+        private readonly String[] NULL_CLAUSE = { "null" };
+
         // Join cache
         private Dictionary<String, KeyValuePair<SqlStatement, List<TableMapping>>> s_joinCache = new Dictionary<String, KeyValuePair<SqlStatement, List<TableMapping>>>();
 
@@ -228,7 +231,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Create query
         /// </summary>
-        public SqlStatement CreateQuery(Type tmodel, IEnumerable<KeyValuePair<String, Object>> query, params ColumnMapping[] selector)
+        public SqlStatement CreateQuery(Type tmodel, IDictionary<String, String[]> query, params ColumnMapping[] selector)
         {
             return CreateQuery(tmodel, query, null, false, null, selector);
         }
@@ -238,7 +241,7 @@ namespace SanteDB.OrmLite
         /// Query query
         /// </summary>
         /// TODO: Refactor this
-        public SqlStatement CreateQuery(Type tmodel, IEnumerable<KeyValuePair<String, Object>> query, String tablePrefix, bool skipJoins, IEnumerable<TableMapping> parentScopedTables, params ColumnMapping[] selector)
+        public SqlStatement CreateQuery(Type tmodel, IDictionary<String, String[]> query, String tablePrefix, bool skipJoins, IEnumerable<TableMapping> parentScopedTables, params ColumnMapping[] selector)
         {
             var tableType = m_mapper.MapModelType(tmodel);
             var tableMap = TableMapping.Get(tableType);
@@ -265,7 +268,7 @@ namespace SanteDB.OrmLite
                 if (typeof(IVersionedData).IsAssignableFrom(tmodel))
                 {
                     tableMap = TableMapping.Get(tableMap.Columns.FirstOrDefault(o => o.ForeignKey != null && o.IsAlwaysJoin).ForeignKey.Table);
-                    query = query.Where(o => o.Key != "obsoletionTime");
+                    query.Remove("obsoletionTime");
                     scopedTables = new List<TableMapping>() { tableMap };
                 }
                 selectStatement = new SqlStatement(this.m_provider, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
@@ -411,11 +414,11 @@ namespace SanteDB.OrmLite
         /// <param name="scopedTables">The scoped tables</param>
         /// <param name="parentScopedTables">Scoped tables from the parent</param>
         /// <param name="cteStatements">CTE which need to be appended</param>
-        private SqlStatement CreateWhereCondition(Type tmodel, SqlStatement selectStatement, IEnumerable<KeyValuePair<String, object>> query, string tablePrefix, IEnumerable<TableMapping> scopedTables, IEnumerable<TableMapping> parentScopedTables, out IList<SqlStatement> cteStatements)
+        private SqlStatement CreateWhereCondition(Type tmodel, SqlStatement selectStatement, IDictionary<String, String[]> query, string tablePrefix, IEnumerable<TableMapping> scopedTables, IEnumerable<TableMapping> parentScopedTables, out IList<SqlStatement> cteStatements)
         {
             // We want to process each query and build WHERE clauses - these where clauses are based off of the JSON / XML names
             // on the model, so we have to use those for the time being before translating to SQL
-            List<KeyValuePair<String, Object>> workingParameters = new List<KeyValuePair<string, object>>(query);
+            var workingParameters = query.ToList();
 
             // Where clause
             SqlStatement whereClause = new SqlStatement(this.m_provider);
@@ -445,8 +448,7 @@ namespace SanteDB.OrmLite
                         workingParameters.Remove(o);
 
                     // We need to do a sub query
-
-                    IEnumerable<KeyValuePair<String, Object>> queryParms = new List<KeyValuePair<String, Object>>() { parm }.Union(otherParms);
+                    var subQueryParms = new List<KeyValuePair<String, String[]>>() { parm }.Union(otherParms);
 
                     // Grab the appropriate builder
                     var subProp = tmodel.GetQueryProperty(propertyPredicate.Path, true);
@@ -454,7 +456,7 @@ namespace SanteDB.OrmLite
 
                     // Link to this table in the other?
                     // Allow hacking of the query before we get to the auto-generated stuff
-                    if (!m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, tmodel, subProp, tablePrefix, propertyPredicate, parm.Value, scopedTables, queryParms.ToArray())))
+                    if (!m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, tmodel, subProp, tablePrefix, propertyPredicate, parm.Value, scopedTables, subQueryParms.ToDictionary(q=>q.Key, q=>q.Value))))
                     {
                         // Is this a collection?
                         if (typeof(IList).IsAssignableFrom(subProp.PropertyType)) // Other table points at this on
@@ -492,11 +494,11 @@ namespace SanteDB.OrmLite
                             if (String.IsNullOrEmpty(existsClause))
                                 existsClause = $"{tablePrefix}{localTable.TableName}.{localTable.GetColumn(linkColumn.ForeignKey.Column).Name}";
 
-                            var guardConditions = queryParms.GroupBy(o => QueryPredicate.Parse(o.Key).Guard);
+                            var guardConditions = subQueryParms.GroupBy(o => QueryPredicate.Parse(o.Key).Guard);
 
                             foreach (var guardClause in guardConditions)
                             {
-                                var subQuery = guardClause.Select(o => new KeyValuePair<String, Object>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
+                                var subQuery = guardClause.Select(o => new KeyValuePair<String, String[]>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
 
                                 // TODO: GUARD CONDITION HERE!!!!
                                 if (!String.IsNullOrEmpty(guardClause.Key))
@@ -521,11 +523,11 @@ namespace SanteDB.OrmLite
                                                 guardCondition.Append(".");
                                         }
                                     }
-                                    subQuery.Add(new KeyValuePair<string, object>(guardCondition.ToString(), guardClause.Key.Split('|')));
+                                    subQuery.Add(new KeyValuePair<string, string[]>(guardCondition.ToString(), guardClause.Key.Split('|')));
 
                                     // Filter by effective version
                                     if (typeof(IVersionedAssociation).IsAssignableFrom(clsModel))
-                                        subQuery.Add(new KeyValuePair<string, object>("obsoleteVersionSequence", new String[] { "null" }));
+                                        subQuery.Add(new KeyValuePair<string, string[]>("obsoleteVersionSequence", new string[] { "null" }));
                                 }
 
                                 // Generate method
@@ -540,19 +542,10 @@ namespace SanteDB.OrmLite
                                     subQuery.Count <= 2 &&
                                     subQuery.Count(p =>
                                         !p.Key.Contains(".") && (
-                                        (p.Value as String)?.StartsWith("!") == true ||
-                                        (p.Value as List<String>)?.All(v => v.StartsWith("!")) == true)) == 1)
+                                        p.Value.All(v => v.StartsWith("!")) == true)) == 1)
                                 {
                                     subQueryStatement.And($"NOT EXISTS (");
-                                    subQuery = subQuery.Select(a =>
-                                    {
-                                        if ((a.Value as String)?.StartsWith("!") == true)
-                                            return new KeyValuePair<String, Object>(a.Key, (a.Value as String)?.Substring(1));
-                                        else if ((a.Value as List<String>)?.All(v => v.StartsWith("!")) == true)
-                                            return new KeyValuePair<string, object>(a.Key, (a.Value as List<String>)?.Select(o => o.Substring(1)).ToList());
-                                        else
-                                            return a;
-                                    }).ToList();
+                                    subQuery = subQuery.Select(a => new KeyValuePair<string, string[]>(a.Key, a.Value.Select(v => v.StartsWith("!") ? v.Substring(1) : v).ToArray())).ToList();
                                 }
                                 else
                                     subQueryStatement.And($"EXISTS (");
@@ -560,15 +553,15 @@ namespace SanteDB.OrmLite
                                 // Does this query object have obsolete version sequence?
                                 if (typeof(IVersionedAssociation).IsAssignableFrom(propertyType)) // Add obslt guard
                                 {
-                                    subQuery.Add(new KeyValuePair<string, object>(propertyType.GetRuntimeProperty(nameof(IVersionedAssociation.ObsoleteVersionSequenceId)).GetSerializationName(), "null"));
+                                    subQuery.Add(new KeyValuePair<string, string[]>(propertyType.GetRuntimeProperty(nameof(IVersionedAssociation.ObsoleteVersionSequenceId)).GetSerializationName(), NULL_CLAUSE));
                                 }
 
                                 var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { propertyType }, new Type[] { subQuery.GetType(), typeof(String), typeof(bool), typeof(List<TableMapping>), typeof(ModelSort<>).MakeGenericType(propertyType).MakeArrayType(), typeof(ColumnMapping[]) });
 
                                 if (subQuery.Count(p => !p.Key.Contains(".")) == 0)
-                                    subQueryStatement.Append(this.CreateQuery(propertyType, subQuery.Distinct(), prefix, true, scopedTables, new ColumnMapping[] { ColumnMapping.One }));
+                                    subQueryStatement.Append(this.CreateQuery(propertyType, subQuery.ToParameterDictionary(), prefix, true, scopedTables, new ColumnMapping[] { ColumnMapping.One }));
                                 else
-                                    subQueryStatement.Append(this.CreateQuery(propertyType, subQuery.Distinct(), prefix, false, scopedTables, new ColumnMapping[] { ColumnMapping.One }));
+                                    subQueryStatement.Append(this.CreateQuery(propertyType, subQuery.ToParameterDictionary(), prefix, false, scopedTables, new ColumnMapping[] { ColumnMapping.One }));
 
                                 subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{subTableColumn.Name}");
                                 //existsClause = $"{prefix}{subTableColumn.Table.TableName}.{subTableColumn.Name}";
@@ -583,10 +576,10 @@ namespace SanteDB.OrmLite
                         }
                         else  // this table points at other
                         {
-                            var subQuery = queryParms.Select(o => new KeyValuePair<String, Object>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
+                            var subQuery = subQueryParms.Select(o => new KeyValuePair<String, String[]>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
 
                             if (!subQuery.Any(o => o.Key == "obsoletionTime") && typeof(IBaseData).IsAssignableFrom(subProp.PropertyType))
-                                subQuery.Add(new KeyValuePair<string, object>("obsoletionTime", "null"));
+                                subQuery.Add(new KeyValuePair<string, string[]>("obsoletionTime", NULL_CLAUSE));
 
                             TableMapping tableMapping = null;
                             var subPropKey = tmodel.GetQueryProperty(propertyPredicate.Path);
@@ -615,12 +608,12 @@ namespace SanteDB.OrmLite
                             var subSkipJoins = subQuery.Count(o => !o.Key.Contains(".") && o.Key != "obsoletionTime") == 0;
                             if (String.IsNullOrEmpty(propertyPredicate.CastAs))
                             {
-                                subQueryStatement = this.CreateQuery(subProp.PropertyType, subQuery, prefix, subSkipJoins, scopedTables, new ColumnMapping[] { fkColumnDef });
+                                subQueryStatement = this.CreateQuery(subProp.PropertyType, subQuery.ToParameterDictionary(), prefix, subSkipJoins, scopedTables, new ColumnMapping[] { fkColumnDef });
                             }
                             else // we need to cast!
                             {
                                 var castAsType = new SanteDB.Core.Model.Serialization.ModelSerializationBinder().BindToType("SanteDB.Core.Model", propertyPredicate.CastAs);
-                                subQueryStatement = this.CreateQuery(castAsType, subQuery, prefix, false, scopedTables, new ColumnMapping[] { fkColumnDef });
+                                subQueryStatement = this.CreateQuery(castAsType, subQuery.ToParameterDictionary(), prefix, false, scopedTables, new ColumnMapping[] { fkColumnDef });
                             }
 
                             //cteStatements.Add(new SqlStatement(this.m_provider, $"{tablePrefix}cte{cteStatements.Count} AS (").Append(subQueryStatement).Append(")"));
@@ -632,7 +625,7 @@ namespace SanteDB.OrmLite
                         }
                     }
                 }
-                else if (!m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, tmodel, tmodel.GetQueryProperty(propertyPredicate.Path), tablePrefix, propertyPredicate, parm.Value, scopedTables, parm)))
+                else if (!m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, tmodel, tmodel.GetQueryProperty(propertyPredicate.Path), tablePrefix, propertyPredicate, parm.Value, scopedTables, query)))
                     whereClause.And(CreateWhereCondition(tmodel, propertyPredicate.Path, parm.Value, tablePrefix, scopedTables));
             }
 
@@ -752,7 +745,7 @@ namespace SanteDB.OrmLite
             bool noCase = modelProperty.GetCustomAttribute<NoCaseAttribute>() != null;
             string parmValue = noCase ? $"{this.m_provider.CreateSqlKeyword(SqlKeyword.Lower)}(?)" : "?";
             retVal.Append("(");
-            for (var i = 0; i < values.Count; i++)
+            for (var i = 0; i < values.Count;  i++)
             {
                 var itm = values[i];
                 if (noCase)

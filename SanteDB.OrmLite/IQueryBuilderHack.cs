@@ -39,7 +39,7 @@ namespace SanteDB.OrmLite
         /// <param name="predicate">The current predicate</param>
         /// <param name="scopedTables">The tables that are scoped for the current query</param>
         /// <returns></returns>
-        bool HackQuery(QueryBuilder builder, SqlStatement sqlStatement, SqlStatement whereClause, Type tmodel, PropertyInfo property, String queryPrefix, QueryPredicate predicate, Object values, IEnumerable<TableMapping> scopedTables, params KeyValuePair<String, Object>[] queryFilter);
+        bool HackQuery(QueryBuilder builder, SqlStatement sqlStatement, SqlStatement whereClause, Type tmodel, PropertyInfo property, String queryPrefix, QueryPredicate predicate, String[] values, IEnumerable<TableMapping> scopedTables, IDictionary<String, String[]> queryFilter);
 
     }
 }
