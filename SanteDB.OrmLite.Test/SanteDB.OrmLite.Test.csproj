@@ -101,7 +101,6 @@
     <Compile Include="Model\Extensibility\DbTag.cs" />
     <Compile Include="Model\Extensibility\DbTemplateDefinition.cs" />
     <Compile Include="Model\Mail\DbMailMessage.cs" />
-    <Compile Include="Model\Mail\DbMailMessageRcptTo.cs" />
     <Compile Include="Model\Roles\DbPatient.cs" />
     <Compile Include="Model\Roles\DbProvider.cs" />
     <Compile Include="Model\Security\DbSecurityApplication.cs" />

@@ -30,7 +30,6 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Mail
     /// </summary>
     [Table("mail_msg_tbl")]
     [ExcludeFromCodeCoverage]
-	[AssociativeTable(typeof(DbSecurityUser), typeof(DbMailMessageRcptTo))]
 	public class DbMailMessage : DbNonVersionedBaseData
 	{
 		/// <summary>
