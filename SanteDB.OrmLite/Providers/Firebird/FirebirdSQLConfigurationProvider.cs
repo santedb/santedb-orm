@@ -38,7 +38,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Get the invariant name
         /// </summary>
-        public override string Invariant => "FirebirdSQL";
+        public override string Invariant => FirebirdSQLProvider.InvariantName;
 
         /// <summary>
         /// Get the name

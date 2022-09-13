@@ -44,7 +44,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Provider
         /// </summary>
-        public string Provider => "pgsql";
+        public string Provider => PostgreSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement
@@ -127,7 +127,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Get the provider
         /// </summary>
-        public string Provider => "pgsql";
+        public string Provider => PostgreSQLProvider.InvariantName;
 
         /// <summary>
         /// Get the name 
@@ -183,7 +183,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Provider
         /// </summary>
-        public string Provider => "pgsql";
+        public string Provider => PostgreSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement

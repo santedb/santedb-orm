@@ -37,7 +37,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => "FirebirdSQL";
+        public string Provider => FirebirdSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL for first
@@ -62,7 +62,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
     /// <summary>
     /// PostgreSQL RIGHT() function
     /// </summary>
-    public class PostgresLastFunction : IDbFilterFunction
+    public class FirebirdLastFunction : IDbFilterFunction
     {
         /// <summary>
         /// Get the name for the function
@@ -72,7 +72,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => "FirebirdSQL";
+        public string Provider => FirebirdSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement
@@ -90,7 +90,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
     /// <summary>
     /// PostgreSQL RIGHT() function
     /// </summary>
-    public class PostgresNocaseFunction : IDbFilterFunction
+    public class FirebirdNocaseFunction : IDbFilterFunction
     {
         /// <summary>
         /// Get the name for the function
@@ -100,7 +100,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => "FirebirdSQL";
+        public string Provider => FirebirdSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement

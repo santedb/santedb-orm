@@ -35,7 +35,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Get the provider
         /// </summary>
-        public string Provider => "FirebirdSQL";
+        public string Provider => FirebirdSQLProvider.InvariantName;
 
         /// <summary>
         /// Get the name 
@@ -90,7 +90,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider
         /// </summary>
-        public string Provider => "FirebirdSQL";
+        public string Provider => FirebirdSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement
@@ -173,7 +173,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider
         /// </summary>
-        public string Provider => "FirebirdSQL";
+        public string Provider => FirebirdSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement

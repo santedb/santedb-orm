@@ -53,6 +53,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
         // DB provider factory
         private DbProviderFactory m_provider = null;
 
+        /// <summary>
+        /// Gets the name of the provider
+        /// </summary>
+        public const string InvariantName = "FirebirdSQL";
 
         // Parameter regex
         private readonly Regex m_parmRegex = new Regex(@"\?");
@@ -102,13 +106,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Gets the name of the provider
         /// </summary>
-        public string Invariant
-        {
-            get
-            {
-                return "FirebirdSQL";
-            }
-        }
+        public string Invariant => InvariantName;
 
         /// <summary>
         /// Gets or sets the readonly connection string
@@ -342,7 +340,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <returns>The constructed command object</returns>
         public IDbCommand CreateStoredProcedureCommand(DataContext context, string spName, params object[] parms)
         {
-            return this.CreateCommandInternal(context, CommandType.StoredProcedure, spName, parms);
+            if(parms.Length > 0) 
+                return this.CreateCommandInternal(context, CommandType.StoredProcedure, $"EXECUTE PROCEDURE {spName}({String.Join(",", parms.Select(o=>"?"))});", parms);
+            else 
+                return this.CreateCommandInternal(context, CommandType.StoredProcedure, $"EXECUTE PROCEDURE {spName};", parms);
         }
 
         /// <summary>

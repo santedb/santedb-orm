@@ -183,7 +183,9 @@ namespace SanteDB.OrmLite
         /// </summary>
         private TModel MapObject<TModel>(IDataReader rdr)
         {
-            if (typeof(CompositeResult).IsAssignableFrom(typeof(TModel)))
+            if (typeof(Object) == typeof(TModel))
+                return default(TModel);
+            else if (typeof(CompositeResult).IsAssignableFrom(typeof(TModel)))
             {
                 var retVal = Activator.CreateInstance(typeof(TModel));
                 (retVal as CompositeResult).ParseValues(rdr, this.m_provider);

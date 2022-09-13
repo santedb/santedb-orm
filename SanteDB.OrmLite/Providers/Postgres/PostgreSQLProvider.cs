@@ -64,6 +64,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
         private IDiagnosticsProbe m_monitor;
 
         /// <summary>
+        /// Invariant name
+        /// </summary>
+        public const string InvariantName = "npgsql";
+
+        /// <summary>
         /// Create new provider
         /// </summary>
         public PostgreSQLProvider()
@@ -113,7 +118,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Get name of provider
         /// </summary>
-        public string Invariant => "npgsql";
+        public string Invariant => InvariantName;
 
         /// <summary>
         /// Get the monitor probe
@@ -481,7 +486,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             {
                 s_filterFunctions = ApplicationServiceContext.Current.GetService<IServiceManager>()
                         .CreateInjectedOfAll<IDbFilterFunction>()
-                        .Where(o => o.Provider == "pgsql")
+                        .Where(o => o.Provider == InvariantName)
                         .ToDictionary(o => o.Name, o => o);
             }
             IDbFilterFunction retVal = null;

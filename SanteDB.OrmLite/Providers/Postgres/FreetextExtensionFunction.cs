@@ -33,12 +33,12 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Gets the provider
         /// </summary>
-        public string Provider => "pgsql";
+        public string Provider => PostgreSQLProvider.InvariantName;
 
         /// <summary>
         /// Gets the name of the function
         /// </summary>
-        public string Name => "freetext";
+        public string Name => SanteDB.Core.Model.Query.FilterExtension.FreetextQueryFilterExtension.FilterName;
 
         /// <summary>
         /// Create the SQL statement for the extension function

@@ -41,7 +41,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Invariant name
         /// </summary>
-        public override string Invariant => "npgsql";
+        public override string Invariant => PostgreSQLProvider.InvariantName;
 
         /// <summary>
         /// Get the platform that this supports
