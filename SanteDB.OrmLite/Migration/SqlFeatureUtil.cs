@@ -163,7 +163,7 @@ namespace SanteDB.OrmLite.Migration
                         }
                         else
                         {
-                            m_traceSource.TraceWarning("Optional SQL Statement Failed: {0}", cmd.CommandText);
+                            m_traceSource.TraceWarning("Optional SQL Statement Failed due to {0}: {1}", e.Message, cmd.CommandText);
                         }
                     }
                 }
