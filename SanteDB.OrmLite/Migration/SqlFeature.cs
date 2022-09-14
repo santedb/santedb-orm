@@ -19,6 +19,8 @@
  * Date: 2022-5-30
  */
 using SanteDB.Core.Configuration.Data;
+using SanteDB.OrmLite.Providers.Firebird;
+using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -134,15 +136,15 @@ namespace SanteDB.OrmLite.Migration
         {
             if (String.IsNullOrEmpty(this.m_checkSql))
             {
-                var updateRange = this.m_checkRange.Split('-');
-                switch (this.InvariantName.ToLower())
+                var updateRange = this.m_checkRange?.Split('-');
+                switch (this.InvariantName)
                 {
-                    case "npgsql":
+                    case PostgreSQLProvider.InvariantName:
                         if (String.IsNullOrEmpty(this.m_checkRange))
                             return "SELECT TRUE";
                         else
                             return $"select not(string_to_array(get_sch_vrsn(), '.')::int[] between string_to_array('{updateRange[0]}','.')::int[] and string_to_array('{updateRange[1]}', '.')::int[])";
-                    case "FirebirdSQL":
+                    case FirebirdSQLProvider.InvariantName:
                         if (String.IsNullOrEmpty(this.m_checkRange))
                             return "SELECT true FROM rdb$database";
                         else

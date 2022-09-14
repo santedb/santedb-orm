@@ -51,6 +51,7 @@ namespace SanteDB.OrmLite
         private string m_tableAlias = null;
         private SqlStatement m_sqlStatement = null;
         private IDbProvider m_provider;
+        private readonly bool m_prefixColumns;
         private bool m_isFilterExpression = true;
 
         /// <summary>
@@ -61,11 +62,12 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Creates a new postgresql query expression builder
         /// </summary>
-        public SqlQueryExpressionBuilder(String alias, IDbProvider provider)
+        public SqlQueryExpressionBuilder(String alias, IDbProvider provider, bool prefixColumnsWithTableName = true)
         {
             this.m_tableAlias = alias;
             this.m_sqlStatement = new SqlStatement(this.m_provider);
             this.m_provider = provider;
+            this.m_prefixColumns = prefixColumnsWithTableName;
         }
 
         /// <summary>
@@ -500,8 +502,15 @@ namespace SanteDB.OrmLite
                                     // Translate
                                     var tableMap = TableMapping.Get(expr.Type);
                                     var columnMap = tableMap.GetColumn(node.Member);
-                                    this.Visit(expr);
-                                    this.m_sqlStatement.Append($".{columnMap.Name}");
+                                    if (this.m_prefixColumns)
+                                    {
+                                        this.Visit(expr);
+                                        this.m_sqlStatement.Append($".{columnMap.Name}");
+                                    }
+                                    else
+                                    {
+                                        this.m_sqlStatement.Append(columnMap.Name);
+                                    }
                                     break;
 
                                 case ExpressionType.Constant:

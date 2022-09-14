@@ -1335,7 +1335,7 @@ namespace SanteDB.OrmLite
                 var setClause = this.CreateSqlStatement();
                 foreach (var updateFunc in updateStatements)
                 {
-                    queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
+                    queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider, false);
                     queryBuilder.Visit(updateFunc);
                     setClause.Append(queryBuilder.SqlStatement);
                     setClause.Append(",");
