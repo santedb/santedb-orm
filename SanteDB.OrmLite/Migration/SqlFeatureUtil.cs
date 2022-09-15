@@ -26,6 +26,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace SanteDB.OrmLite.Migration
@@ -37,6 +38,8 @@ namespace SanteDB.OrmLite.Migration
     {
         // Features
         private static IEnumerable<IDataFeature> m_features = null;
+
+        private static readonly Regex sr_SqlLogInstruction = new Regex(@"^.*?--\s?INFO:(.*)$", RegexOptions.Multiline);
 
         private static Tracer m_traceSource = Tracer.GetTracer(typeof(SqlFeatureUtil));
 
@@ -142,8 +145,15 @@ namespace SanteDB.OrmLite.Migration
                 {
                     try
                     {
+
                         if (String.IsNullOrEmpty(dsql.Trim()))
                             continue;
+
+                        var infoLog = sr_SqlLogInstruction.Match(dsql);
+                        if(infoLog.Success)
+                        {
+                            m_traceSource.TraceInfo(infoLog.Groups[1].Value);
+                        }
                         cmd.CommandTimeout = 36000;
                         cmd.CommandText = dsql;
                         cmd.CommandType = CommandType.Text;
