@@ -1,18 +1,4 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<!-- <Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"> -->
-  <!-- <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" /> -->
-  <!-- <PropertyGroup> -->
-    <!-- <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration> -->
-    <!-- <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform> -->
-    <!-- <ProjectGuid>{407C87E6-A1F3-45E6-B883-A8176B350817}</ProjectGuid> -->
-    <!-- <OutputType>Library</OutputType> -->
-    <!-- <AppDesignerFolder>Properties</AppDesignerFolder> -->
-    <!-- <RootNamespace>SanteDB.OrmLite</RootNamespace> -->
-    <!-- <AssemblyName>SanteDB.OrmLite</AssemblyName> -->
-    <!-- <TargetFrameworkVersion>v4.7</TargetFrameworkVersion> -->
-    <!-- <FileAlignment>512</FileAlignment> -->
-    <!-- <TargetFrameworkProfile /> -->
-  <!-- </PropertyGroup> -->
   <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
@@ -157,12 +143,4 @@
     <Folder Include="DataProviders\" />
     <Folder Include="Properties\" />
   </ItemGroup>
-  <!-- <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" /> -->
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
 </Project>

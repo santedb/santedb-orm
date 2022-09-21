@@ -1,121 +1,20 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup Condition="'$(VersionNumber)' == ''">
-    <VersionNumber>2.4.0-debug</VersionNumber>
-  </PropertyGroup>
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{833375FE-DA04-4064-A821-921097FB1A38}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>SanteDB.OrmLite.Test</RootNamespace>
-    <AssemblyName>SanteDB.OrmLite.Test</AssemblyName>
-    <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
-    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">15.0</VisualStudioVersion>
-    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
-    <ReferencePath>$(ProgramFiles)\Common Files\microsoft shared\VSTT\$(VisualStudioVersion)\UITestExtensionPackages</ReferencePath>
-    <IsCodedUITest>False</IsCodedUITest>
-    <TestProjectType>UnitTest</TestProjectType>
-    <NuGetPackageImportStamp>
-    </NuGetPackageImportStamp>
-    <TargetFrameworkProfile />
+    <TargetFramework>net48</TargetFramework>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>..\bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+	<PropertyGroup Condition="'$(VersionNumber)' == ''">
+    <VersionNumber>3.0-debug</VersionNumber>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>portable</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
+
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.configuration" />
     <Reference Include="System.Core" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Model\Acts\DbAct.cs" />
-    <Compile Include="Model\Acts\DbActParticipation.cs" />
-    <Compile Include="Model\Acts\DbActProtocol.cs" />
-    <Compile Include="Model\Acts\DbActRelationship.cs" />
-    <Compile Include="Model\Acts\DbActVersion.cs" />
-    <Compile Include="Model\Acts\DbControlAct.cs" />
-    <Compile Include="Model\Acts\DbObservation.cs" />
-    <Compile Include="Model\Acts\DbPatientEncounter.cs" />
-    <Compile Include="Model\Acts\DbProcedure.cs" />
-    <Compile Include="Model\Acts\DbProtocol.cs" />
-    <Compile Include="Model\Acts\DbSubstanceAdministration.cs" />
-    <Compile Include="Model\Concepts\DbCodeSystem.cs" />
-    <Compile Include="Model\Concepts\DbConcept.cs" />
-    <Compile Include="Model\Concepts\DbConceptClass.cs" />
-    <Compile Include="Model\Concepts\DbConceptName.cs" />
-    <Compile Include="Model\Concepts\DbConceptReferenceTerm.cs" />
-    <Compile Include="Model\Concepts\DbConceptRelationship.cs" />
-    <Compile Include="Model\Concepts\DbConceptRelationshipType.cs" />
-    <Compile Include="Model\Concepts\DbConceptSet.cs" />
-    <Compile Include="Model\Concepts\DbConceptVersion.cs" />
-    <Compile Include="Model\Concepts\DbReferenceTerm.cs" />
-    <Compile Include="Model\Concepts\DbReferenceTermName.cs" />
-    <Compile Include="Model\DataType\DbIdentityDomain.cs" />
-    <Compile Include="Model\DataType\DbIdentifier.cs" />
-    <Compile Include="Model\DataType\DbIdentifierType.cs" />
-    <Compile Include="Model\DataType\DbPhonetics.cs" />
-    <Compile Include="Model\DbAssociatedEntity.cs" />
-    <Compile Include="Model\DbBaseData.cs" />
-    <Compile Include="Model\DbIdentified.cs" />
-    <Compile Include="Model\DbSubTable.cs" />
-    <Compile Include="Model\DbVersionedData.cs" />
-    <Compile Include="Model\Entities\DbApplicationEntity.cs" />
-    <Compile Include="Model\Entities\DbDeviceEntity.cs" />
-    <Compile Include="Model\Entities\DbEntity.cs" />
-    <Compile Include="Model\Entities\DbEntityAddress.cs" />
-    <Compile Include="Model\Entities\DbEntityName.cs" />
-    <Compile Include="Model\Entities\DbEntityRelationship.cs" />
-    <Compile Include="Model\Entities\DbEntityVersion.cs" />
-    <Compile Include="Model\Entities\DbGenericNameComponent.cs" />
-    <Compile Include="Model\Entities\DbMaterial.cs" />
-    <Compile Include="Model\Entities\DbOrganization.cs" />
-    <Compile Include="Model\Entities\DbPerson.cs" />
-    <Compile Include="Model\Entities\DbPersonLanguageCommunication.cs" />
-    <Compile Include="Model\Entities\DbPlace.cs" />
-    <Compile Include="Model\Entities\DbPlaceService.cs" />
-    <Compile Include="Model\Entities\DbTelecomAddress.cs" />
-    <Compile Include="Model\Entities\DbUserEntity.cs" />
-    <Compile Include="Model\Error\FunctionErrorCode.cs" />
-    <Compile Include="Model\Extensibility\DbExtension.cs" />
-    <Compile Include="Model\Extensibility\DbExtensionType.cs" />
-    <Compile Include="Model\Extensibility\DbNote.cs" />
-    <Compile Include="Model\Extensibility\DbTag.cs" />
-    <Compile Include="Model\Extensibility\DbTemplateDefinition.cs" />
-    <Compile Include="Model\Mail\DbMailMessage.cs" />
-    <Compile Include="Model\Roles\DbPatient.cs" />
-    <Compile Include="Model\Roles\DbProvider.cs" />
-    <Compile Include="Model\Security\DbSecurityApplication.cs" />
-    <Compile Include="Model\Security\DbSecurityDevice.cs" />
-    <Compile Include="Model\Security\DbSecurityPolicy.cs" />
-    <Compile Include="Model\Security\DbSecurityPolicyInstance.cs" />
-    <Compile Include="Model\Security\DbSecurityProvenance.cs" />
-    <Compile Include="Model\Security\DbSecurityRole.cs" />
-    <Compile Include="Model\Security\DbSecurityUser.cs" />
-    <Compile Include="Model\Security\DbSession.cs" />
-    <Compile Include="Model\Security\DbSessionClaim.cs" />
-    <Compile Include="IQueryableTest.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="QueryBuildingTest.cs" />
-  </ItemGroup>
+  
   <ItemGroup>
     <PackageReference Include="FirebirdSql.Data.FirebirdClient">
       <Version>9.0.2</Version>
@@ -131,11 +30,16 @@
           <Project>{F1A82A4F-4A57-47D7-AE76-444C8A4FF54A}</Project>
           <Name>SanteDB.Core.Model</Name>
         </ProjectReference>
+	  <ProjectReference Include="..\..\santedb-api\SanteDB.Core.TestFramework\SanteDB.Core.TestFramework.csproj">
+          <Name>SanteDB.Core.TestFramework</Name>
+        </ProjectReference>
       </ItemGroup>
+		
     </When>
     <Otherwise>
       <ItemGroup>
         <PackageReference Include="SanteDB.Core.Model" Version="$(VersionNumber)" />
+        <PackageReference Include="SanteDB.Core.TestFramework" Version="$(VersionNumber)" />
       </ItemGroup>
     </Otherwise>
   </Choose>
@@ -152,12 +56,11 @@
     <None Include="App.config" />
     <None Include="test.runsettings" />
   </ItemGroup>
-  <PropertyGroup>
-    <PreBuildEvent>"$(SolutionDir)\Solution Items\FirebirdSQL-3.0.3-Embedded.bat" "$(SolutionDir)\Solution Items" ..\$(OutputPath)</PreBuildEvent>
-  </PropertyGroup>
-  <Target Name="Copy FDB" BeforeTargets="Build">
-    <Copy SourceFiles="..\Solution Items\santedb_test.fdb" DestinationFolder="$(OutputPath)" ContinueOnError="false" />
-  </Target>
-  <Import Project="$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets" Condition="Exists('$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets')" />
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Folder Include="Properties\" />
+  </ItemGroup>
+
+  <!-- Test Framework via Nuget does this automagically -->
+  <Import Condition="$(SolutionName.Contains('-ext'))" Project="$(SolutionDir)\santedb-api\SanteDB.Core.TestFramework\SanteDB.Core.TestFramework.targets"/>
+
 </Project>
