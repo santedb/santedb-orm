@@ -173,5 +173,8 @@ namespace SanteDB.OrmLite.Migration
         {
             return this.m_deploySql;
         }
+
+        /// <inheritdoc/>
+        public override string ToString() => this.Id;
     }
 }

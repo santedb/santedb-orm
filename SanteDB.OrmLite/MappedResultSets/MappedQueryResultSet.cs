@@ -211,9 +211,13 @@ namespace SanteDB.OrmLite.MappedResultSets
             try
             {
                 this.m_context.Open();
-                foreach (var result in this.m_resultSet)
+                using (var subContext = this.m_context.OpenClonedContext()) // Sub context is used for loading of dynamic properties 
                 {
-                    yield return this.m_provider.ToModelInstance(this.m_context, result);
+                    subContext.Open();
+                    foreach (var result in this.m_resultSet)
+                    {
+                        yield return this.m_provider.ToModelInstance(subContext, result);
+                    }
                 }
             }
             finally
