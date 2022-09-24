@@ -74,6 +74,11 @@ namespace SanteDB.OrmLite
         IOrmResultSet Keys<TKey>();
 
         /// <summary>
+        /// Returns only those objects in the result set whos primary keys are listed 
+        /// </summary>
+        IOrmResultSet HavingKeys(IEnumerable keys, String keyColumnName);
+
+        /// <summary>
         /// Convert this result set to an SQL statement
         /// </summary>
         SqlStatement ToSqlStatement();

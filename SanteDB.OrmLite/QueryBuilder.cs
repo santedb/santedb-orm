@@ -723,26 +723,26 @@ namespace SanteDB.OrmLite
             if (lValue == null)
                 lValue = new List<Object>() { value };
 
-            return CreateSqlPredicate(tableAlias, columnData.Name, propertyInfo, lValue);
+            return CreateSqlPredicate(tableAlias, columnData.Name, columnData.SourceProperty, lValue);
         }
 
         /// <summary>
         /// Create the actual SQL predicate
         /// </summary>
         /// <param name="tableAlias">The alias for the table on which the predicate is based</param>
-        /// <param name="modelProperty">The model property information for type information</param>
+        /// <param name="domainProperty">The model property information for type information</param>
         /// <param name="columnName">The column data for the data model</param>
         /// <param name="values">The values to be matched</param>
-        public SqlStatement CreateSqlPredicate(String tableAlias, String columnName, PropertyInfo modelProperty, IList values)
+        public SqlStatement CreateSqlPredicate(String tableAlias, String columnName,  PropertyInfo domainProperty, IList values)
         {
-            if(modelProperty == null)
+            if(domainProperty == null)
             {
-                throw new ArgumentNullException(nameof(modelProperty));
+                throw new ArgumentNullException(nameof(domainProperty));
             }
 
             var retVal = new SqlStatement(this.m_provider);
 
-            bool noCase = modelProperty.GetCustomAttribute<NoCaseAttribute>() != null;
+            bool noCase = domainProperty.GetCustomAttribute<IgnoreCaseAttribute>() != null;
             string parmValue = noCase ? $"{this.m_provider.CreateSqlKeyword(SqlKeyword.Lower)}(?)" : "?";
             retVal.Append("(");
             for (var i = 0; i < values.Count;  i++)
@@ -778,23 +778,23 @@ namespace SanteDB.OrmLite
                                 // Now find the function
                                 var filterFn = this.m_provider.GetFilterFunction(fnName);
                                 if (filterFn == null)
-                                    retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, modelProperty.PropertyType));
+                                    retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, domainProperty.PropertyType));
                                 else
                                 {
                                     retVal.RemoveLast();
-                                    retVal = filterFn.CreateSqlStatement(retVal, $"{tableAlias}.{columnName}", extendedParms.ToArray(), operand, modelProperty.PropertyType).Build();
+                                    retVal = filterFn.CreateSqlStatement(retVal, $"{tableAlias}.{columnName}", extendedParms.ToArray(), operand, domainProperty.PropertyType).Build();
                                 }
                             }
                             else
-                                retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, modelProperty.PropertyType));
+                                retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, domainProperty.PropertyType));
                             break;
 
                         case '<':
                             semantic = " AND ";
                             if (sValue[1] == '=')
-                                retVal.Append($" <= {parmValue}", CreateParameterValue(sValue.Substring(2), modelProperty.PropertyType));
+                                retVal.Append($" <= {parmValue}", CreateParameterValue(sValue.Substring(2), domainProperty.PropertyType));
                             else
-                                retVal.Append($" < {parmValue}", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                                retVal.Append($" < {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             break;
 
                         case '>':
@@ -803,14 +803,14 @@ namespace SanteDB.OrmLite
                             {
                                 object lower = null, upper = null;
                                 if (sValue[1] == '=')
-                                    lower = CreateParameterValue(sValue.Substring(2), modelProperty.PropertyType);
+                                    lower = CreateParameterValue(sValue.Substring(2), domainProperty.PropertyType);
                                 else
-                                    lower = CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType);
+                                    lower = CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType);
                                 sValue = values[++i].ToString();
                                 if (sValue[1] == '=')
-                                    upper = CreateParameterValue(sValue.Substring(2), modelProperty.PropertyType);
+                                    upper = CreateParameterValue(sValue.Substring(2), domainProperty.PropertyType);
                                 else
-                                    upper = CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType);
+                                    upper = CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType);
                                 semantic = " OR ";
                                 retVal.Append($" BETWEEN {parmValue} AND {parmValue}", lower, upper);
                             }
@@ -818,9 +818,9 @@ namespace SanteDB.OrmLite
                             {
                                 semantic = " AND ";
                                 if (sValue[1] == '=')
-                                    retVal.Append($" >= {parmValue}", CreateParameterValue(sValue.Substring(2), modelProperty.PropertyType));
+                                    retVal.Append($" >= {parmValue}", CreateParameterValue(sValue.Substring(2), domainProperty.PropertyType));
                                 else
-                                    retVal.Append($" > {parmValue}", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                                    retVal.Append($" > {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             }
                             break;
 
@@ -829,31 +829,31 @@ namespace SanteDB.OrmLite
                             if (sValue.Equals("!null"))
                                 retVal.Append(" IS NOT NULL");
                             else
-                                retVal.Append($" <> {parmValue}", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                                retVal.Append($" <> {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             break;
 
                         case '~':
-                            retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                            retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             break;
 
                         case '^':
-                            retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                            retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             break;
 
                         case '$':
-                            retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue}", CreateParameterValue(sValue.Substring(1), modelProperty.PropertyType));
+                            retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             break;
 
                         default:
                             if (sValue.Equals("null"))
                                 retVal.Append(" IS NULL");
                             else
-                                retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, modelProperty.PropertyType));
+                                retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, domainProperty.PropertyType));
                             break;
                     }
                 }
                 else
-                    retVal.Append($" = {parmValue} ", CreateParameterValue(iValue, modelProperty.PropertyType));
+                    retVal.Append($" = {parmValue} ", CreateParameterValue(iValue, domainProperty.PropertyType));
 
                 if (i < values.Count - 1)
                     retVal.Append(semantic);
@@ -873,11 +873,15 @@ namespace SanteDB.OrmLite
             {
                 if (str.Length > 1 && str.StartsWith("\"") && str.EndsWith(("\"")))
                 {
-                    value= str.Substring(1, str.Length - 2).Replace("\\\"", "\"");
+                    value = str.Substring(1, str.Length - 2).Replace("\\\"", "\"");
                 }
                 else if (str.Equals("null", StringComparison.OrdinalIgnoreCase))
                 {
                     return DBNull.Value;
+                }
+                else if (toType.StripNullable().Equals(typeof(Guid)) && Guid.TryParse(str, out var uuid))
+                {
+                    return uuid;
                 }
                 
             }

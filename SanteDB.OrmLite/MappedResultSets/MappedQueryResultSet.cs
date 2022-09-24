@@ -109,7 +109,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Create a wrapper persistence collection
         /// </summary>
-        private MappedQueryResultSet(MappedQueryResultSet<TElement> copyFrom, IOrmResultSet resultSet) 
+        private MappedQueryResultSet(MappedQueryResultSet<TElement> copyFrom, IOrmResultSet resultSet)
         {
             this.m_provider = copyFrom.m_provider;
             this.m_resultSet = resultSet;
@@ -203,7 +203,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             var sw = new Stopwatch();
             sw.Start();
             this.m_expansionCount++;
-            if(this.m_expansionCount > 1)
+            if (this.m_expansionCount > 1)
             {
                 this.m_tracer.TraceWarning("QUERY RESULT SET {0} HAS BEEN EXPANDED {1} TIMES AT {2}", this.m_resultSet.ToSqlStatement().SQL, this.m_expansionCount, new StackTrace());
             }
@@ -417,7 +417,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 // Is the query already registered? If so, load
                 if (this.m_provider.QueryPersistence.IsRegistered(stateId))
                 {
-                    return new MappedStatefulQueryResultSet<TElement>(this.m_provider, stateId, (int)this.m_provider.QueryPersistence.QueryResultTotalQuantity(stateId));
+                    return new MappedStatefulQueryResultSet<TElement>(this.m_provider, stateId, (int)this.m_provider.QueryPersistence.QueryResultTotalQuantity(stateId), this.m_resultSet, this.m_keyName);
                 }
                 else
                 {
@@ -434,7 +434,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                         keySet = this.m_resultSet.Keys<Guid>().OfType<Guid>().ToArray();
                     }
                     this.m_provider.QueryPersistence.RegisterQuerySet(stateId, keySet, this.m_resultSet.Statement, keySet.Length);
-                    return new MappedStatefulQueryResultSet<TElement>(this.m_provider, stateId, keySet.Length);
+                    return new MappedStatefulQueryResultSet<TElement>(this.m_provider, stateId, keySet.Length, this.m_resultSet, this.m_keyName);
                 }
             }
             finally
@@ -577,6 +577,26 @@ namespace SanteDB.OrmLite.MappedResultSets
         IQueryResultSet IQueryResultSet.AsStateful(Guid stateId) => this.AsStateful(stateId);
 
         /// <summary>
+        /// Non-generic select method
+        /// </summary>
+        public IEnumerable<TReturn> Select<TReturn>(Expression selector)
+        {
+            if (selector is Expression<Func<TElement, TReturn>> se)
+            {
+                return this.Select(se);
+            }
+            else if (selector is Expression<Func<TElement, dynamic>> de)
+            {
+                // Strip body convert
+                return this.Select(Expression.Lambda<Func<TElement, TReturn>>(Expression.Convert(de.Body, typeof(TReturn)).Reduce(), de.Parameters));
+            }
+            else
+            {
+                throw new NotSupportedException(String.Format(ErrorMessages.ARGUMENT_INCOMPATIBLE_TYPE, typeof(Expression<Func<TElement, TReturn>>), selector.GetType()));
+            }
+        }
+
+        /// <summary>
         /// Select the specified objects from the database
         /// </summary>
         public IEnumerable<TReturn> Select<TReturn>(Expression<Func<TElement, TReturn>> selector)
@@ -637,9 +657,9 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// </summary>
         public IOrderableQueryResultSet OrderByDescending(Expression expression)
         {
-            if (expression is Expression<Func<TElement, dynamic>> le)
+            if (expression is Expression<Func<TElement, dynamic>> strong)
             {
-                return this.OrderBy(le);
+                return this.OrderByDescending(strong);
             }
             else
             {

@@ -193,7 +193,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement Or(SqlStatement clause)
         {
-            if (String.IsNullOrEmpty(this.m_sql) && this.m_rhs == null)
+            if(String.IsNullOrEmpty(this.m_sql) && (this.m_rhs == null || this.m_rhs.Build().SQL.TrimEnd().EndsWith("where", StringComparison.InvariantCultureIgnoreCase))
+                || this.SQL.TrimEnd().EndsWith("where", StringComparison.InvariantCultureIgnoreCase))
                 return this.Append(clause);
             else
                 return this.Append(new SqlStatement(this.m_provider, " OR ")).Append(clause.Build());

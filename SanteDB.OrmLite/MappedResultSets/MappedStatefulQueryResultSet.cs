@@ -52,24 +52,32 @@ namespace SanteDB.OrmLite.MappedResultSets
         // Laste count
         private int m_count;
 
+        // Result set 
+        private readonly IOrmResultSet m_resultSet;
+
+        // The name of the column which has the key
+        private readonly String m_stateKeyName;
+
         // Last offset
         private int m_offset;
 
         /// <summary>
         /// Creates a new persistence collection
         /// </summary>
-        internal MappedStatefulQueryResultSet(IMappedQueryProvider<TData> dataProvider, Guid queryId, int count)
+        internal MappedStatefulQueryResultSet(IMappedQueryProvider<TData> dataProvider, Guid queryId, int count,IOrmResultSet originalResultSet, String originalKeyName)
         {
             this.m_provider = dataProvider;
-            this.m_context = dataProvider.Provider.GetReadonlyConnection();
             this.m_queryId = queryId;
             this.m_count = count;
+            this.m_resultSet = originalResultSet;
+            this.m_context = originalResultSet.Context;
+            this.m_stateKeyName = originalKeyName;
         }
 
         /// <summary>
         /// Create a wrapper persistence collection
         /// </summary>
-        private MappedStatefulQueryResultSet(MappedStatefulQueryResultSet<TData> copyFrom) : this(copyFrom.m_provider, copyFrom.m_queryId, copyFrom.m_count)
+        private MappedStatefulQueryResultSet(MappedStatefulQueryResultSet<TData> copyFrom) : this(copyFrom.m_provider, copyFrom.m_queryId, copyFrom.m_count, copyFrom.m_resultSet, copyFrom.m_stateKeyName)
         {
             this.m_context = copyFrom.m_context;
         }
@@ -157,10 +165,13 @@ namespace SanteDB.OrmLite.MappedResultSets
             {
                 this.m_context.Open();
 
-                // TODO: Infinite rollthrough when there is no upper count bounds
-                foreach (var res in this.FetchKeys())
+                using (var subContext = this.m_context.OpenClonedContext()) // Sub context is used for loading of dynamic properties 
                 {
-                    yield return this.m_provider.Get(this.m_context, res);
+                    subContext.Open();
+                    foreach (var result in this.m_resultSet.HavingKeys(this.FetchKeys(), this.m_stateKeyName))
+                    {
+                        yield return this.m_provider.ToModelInstance(subContext, result);
+                    }
                 }
             }
             finally
@@ -191,7 +202,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 this.m_provider.QueryPersistence.RegisterQuerySet(queryUuid, results, null, results.Count());
                 this.m_provider.QueryPersistence.AbortQuerySet(this.m_queryId);
                 this.m_provider.QueryPersistence.AbortQuerySet(tOther.m_queryId);
-                return new MappedStatefulQueryResultSet<TData>(this.m_provider, queryUuid, results.Count());
+                return new MappedStatefulQueryResultSet<TData>(this.m_provider, queryUuid, results.Count(), this.m_resultSet, this.m_stateKeyName);
             }
             else
             {
@@ -291,7 +302,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 this.m_provider.QueryPersistence.RegisterQuerySet(queryUuid, results, null, results.Count());
                 this.m_provider.QueryPersistence.AbortQuerySet(this.m_queryId);
                 this.m_provider.QueryPersistence.AbortQuerySet(tOther.m_queryId);
-                return new MappedStatefulQueryResultSet<TData>(this.m_provider, queryUuid, results.Count());
+                return new MappedStatefulQueryResultSet<TData>(this.m_provider, queryUuid, results.Count(), this.m_resultSet, this.m_stateKeyName);
             }
             else
             {
@@ -368,6 +379,21 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// Represent as a stateful object
         /// </summary>
         IQueryResultSet IQueryResultSet.AsStateful(Guid stateId) => this.AsStateful(stateId);
+
+        /// <summary>
+        /// Non-generic select method
+        /// </summary>
+        public IEnumerable<TReturn> Select<TReturn>(Expression selector)
+        {
+            if (selector is Expression<Func<TData, TReturn>> se)
+            {
+                return this.Select(se);
+            }
+            else
+            {
+                throw new NotSupportedException(String.Format(ErrorMessages.ARGUMENT_INCOMPATIBLE_TYPE, typeof(Expression<Func<TData, TReturn>>), selector.GetType()));
+            }
+        }
 
         /// <summary>
         /// Select

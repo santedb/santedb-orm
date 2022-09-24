@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model;
 
@@ -35,6 +36,9 @@ namespace SanteDB.OrmLite
     /// <typeparam name="TData">The type of record this result set holds</typeparam>
     public class OrmResultSet<TData> : IEnumerable<TData>, IOrmResultSet
     {
+
+        private readonly Regex m_extractRawSelectStatment = new Regex(@"^SELECT(?!.*?SELECT)\s(.*?)FROM(.*?)WHERE.*$");
+
         /// <summary>
         /// Gets the SQL statement that this result set is based on
         /// </summary>
@@ -159,6 +163,7 @@ namespace SanteDB.OrmLite
                 return this;
         }
 
+        
         /// <summary>
         /// Gets the specified keys from the object
         /// </summary>
@@ -190,6 +195,47 @@ namespace SanteDB.OrmLite
             }
         }
 
+        /// <summary>
+        /// Get only those objects with the specified keys
+        /// </summary>
+        public IOrmResultSet HavingKeys(IEnumerable keyList, string keyColumnName = null)
+        {
+
+            var selectMatch = this.m_extractRawSelectStatment.Match(this.Statement.Build().SQL);
+            if(!selectMatch.Success)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(HavingKeys)));
+            }
+
+            ColumnMapping keyColumn = null;
+            if (typeof(CompositeResult).IsAssignableFrom(typeof(TData)))
+            {
+                if(String.IsNullOrEmpty(keyColumnName))
+                {
+                    keyColumn = TableMapping.Get(typeof(TData).GetGenericArguments().Last()).PrimaryKey.Single();
+                }
+                else
+                {
+                    keyColumn = typeof(TData).GetGenericArguments().Select(o => TableMapping.Get(o).GetColumn(keyColumnName)).OfType<ColumnMapping>().First();
+                }
+            }
+            else
+            {
+                keyColumn = String.IsNullOrEmpty(keyColumnName) ? TableMapping.Get(typeof(TData)).PrimaryKey.First() :
+                    TableMapping.Get(typeof(TData)).GetColumn(keyColumnName);
+            }
+
+            // HACK: Find a better way to dissassembly the query - basically we want to get the SELECT * FROM XXXX WHERE ----- and swap out the WHERE clause to only those keys in our set
+
+            var sqlStatement = this.Context.CreateSqlStatement($"SELECT {selectMatch.Groups[1].Value} FROM {selectMatch.Groups[2].Value} WHERE");
+            foreach(var itm in keyList)
+            {
+                sqlStatement = sqlStatement.Append($" {keyColumn.Table.TableName}.{keyColumn.Name} = ?", itm).Append(" OR ");
+            }
+            sqlStatement.RemoveLast();
+            return new OrmResultSet<TData>(this.Context, sqlStatement); 
+            
+        }
         /// <summary>
         /// Select the specified column
         /// </summary>
