@@ -225,8 +225,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public DataContext OpenClonedContext()
         {
-            if (this.Transaction != null)
-                throw new InvalidOperationException("Cannot clone connection in transaction");
+
             var retVal = this.m_provider.CloneConnection(this);
             retVal.Open();
             retVal.m_dataDictionary = this.m_dataDictionary; // share data

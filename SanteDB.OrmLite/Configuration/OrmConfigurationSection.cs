@@ -88,7 +88,7 @@ namespace SanteDB.OrmLite.Configuration
         /// <summary>
         /// Create a new type with invariant
         /// </summary>
-        public ProviderRegistrationConfiguration(string invariant, Type type) : base(type.AssemblyQualifiedName)
+        public ProviderRegistrationConfiguration(string invariant, Type type) : base(type)
         {
             this.Invariant = invariant;
         }
