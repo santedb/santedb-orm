@@ -226,7 +226,6 @@ namespace SanteDB.OrmLite
             }
 
             // HACK: Find a better way to dissassembly the query - basically we want to get the SELECT * FROM XXXX WHERE ----- and swap out the WHERE clause to only those keys in our set
-
             var sqlStatement = this.Context.CreateSqlStatement($"SELECT {selectMatch.Groups[1].Value} FROM {selectMatch.Groups[2].Value} WHERE");
             foreach(var itm in keyList)
             {

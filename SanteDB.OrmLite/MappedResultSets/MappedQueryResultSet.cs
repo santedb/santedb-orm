@@ -67,6 +67,22 @@ namespace SanteDB.OrmLite.MappedResultSets
         private readonly bool m_keepContextOpen;
 
         /// <summary>
+        /// State key name
+        /// </summary>
+        protected String StateKeyName => this.m_keyName;
+
+        /// <summary>
+        /// Get the result set
+        /// </summary>
+        protected IOrmResultSet ResultSet => this.m_resultSet;
+
+        /// <summary>
+        /// Get the provider for this set
+        /// </summary>
+        protected IMappedQueryProvider<TElement> Provider => this.m_provider;
+
+
+        /// <summary>
         /// Creates a new persistence collection
         /// </summary>
         public MappedQueryResultSet(IMappedQueryProvider<TElement> dataProvider)
@@ -116,96 +132,115 @@ namespace SanteDB.OrmLite.MappedResultSets
             this.m_context = copyFrom.m_context;
             this.m_keyName = copyFrom.m_keyName;
             this.m_keepContextOpen = copyFrom.m_keepContextOpen;
-
         }
 
         /// <summary>
+        /// Clone with the specified result set
+        /// </summary>
+        protected virtual MappedQueryResultSet<TElement> CloneWith(IOrmResultSet resultSet)
+        {
+            return new MappedQueryResultSet<TElement>(this, resultSet);
+        }
+
+        /// <summary>
+        /// Prepare the result set for execution
+        /// </summary>
+        protected virtual IOrmResultSet PrepareResultSet()
+        {
+            if (this.m_resultSet == null)
+            {
+                this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
+            }
+            return this.m_resultSet;
+        }
+        /// <summary>
         /// Where clause for filtering on provider
         /// </summary>
-        public IQueryResultSet<TElement> Where(Expression<Func<TElement, bool>> query)
+        public virtual IQueryResultSet<TElement> Where(Expression<Func<TElement, bool>> query)
         {
             if (this.m_resultSet != null)
             {
                 // This is in effect an intersect
-                return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Where(this.m_provider.MapExpression<bool>(query)));
+                return this.CloneWith(this.m_resultSet.Where(this.m_provider.MapExpression<bool>(query)));
             }
             else
             {
-                return new MappedQueryResultSet<TElement>(this, this.m_provider.ExecuteQueryOrm(this.m_context, query));
+                return this.CloneWith(this.m_provider.ExecuteQueryOrm(this.m_context, query));
             }
         }
 
         /// <summary>
         /// Execute the specified SQL statement
         /// </summary>
-        public IQueryResultSet<TElement> Execute<TDBModel>(SqlStatement statement)
+        public virtual IQueryResultSet<TElement> Execute<TDBModel>(SqlStatement statement)
         {
             if (this.m_resultSet != null)
             {
                 // This is in effect an intersect
-                return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Intersect(this.m_context.Query<TDBModel>(statement)));
+                return this.CloneWith(this.m_resultSet.Intersect(this.m_context.Query<TDBModel>(statement)));
             }
             else
             {
-                return new MappedQueryResultSet<TElement>(this, this.m_context.Query<TDBModel>(statement));
+                return this.CloneWith(this.m_context.Query<TDBModel>(statement));
             }
         }
 
         /// <summary>
         /// Union the results in this query set with those in another
         /// </summary>
-        public IQueryResultSet<TElement> Union(Expression<Func<TElement, bool>> query)
+        public virtual IQueryResultSet<TElement> Union(Expression<Func<TElement, bool>> query)
         {
             if (this.m_resultSet == null) // this is the first
             {
-                return new MappedQueryResultSet<TElement>(this, this.m_provider.ExecuteQueryOrm(this.m_context, query));
+                return this.CloneWith(this.m_provider.ExecuteQueryOrm(this.m_context, query));
             }
             else
             {
-                return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Union(this.m_provider.ExecuteQueryOrm(this.m_context, query)));
+                return this.CloneWith(this.m_resultSet.Union(this.m_provider.ExecuteQueryOrm(this.m_context, query)));
             }
         }
 
         /// <summary>
         /// Intersect with another dataset
         /// </summary>
-        public IQueryResultSet<TElement> Intersect(Expression<Func<TElement, bool>> query)
+        public virtual IQueryResultSet<TElement> Intersect(Expression<Func<TElement, bool>> query)
         {
             if (this.m_resultSet == null) // this is the first
             {
-                return new MappedQueryResultSet<TElement>(this, this.m_provider.ExecuteQueryOrm(this.m_context, query));
+                return this.CloneWith(this.m_provider.ExecuteQueryOrm(this.m_context, query));
             }
             else
             {
-                return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Intersect(this.m_provider.ExecuteQueryOrm(this.m_context, query)));
+                return this.CloneWith(this.m_resultSet.Intersect(this.m_provider.ExecuteQueryOrm(this.m_context, query)));
             }
         }
 
         /// <summary>
         /// Skip the specified number of elements
         /// </summary>
-        public IQueryResultSet<TElement> Skip(int count)
+        public virtual IQueryResultSet<TElement> Skip(int count)
         {
             if (this.m_resultSet == null) // this is the first
             {
                 this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
             }
 
-            return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Skip(count));
+            return this.CloneWith(this.m_resultSet.Skip(count));
         }
 
         /// <summary>
         /// Flattens the object into an enumerator
         /// </summary>
-        public IEnumerator<TElement> GetEnumerator()
+        public virtual IEnumerator<TElement> GetEnumerator()
         {
+            var execResultSet = this.PrepareResultSet();
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             this.m_expansionCount++;
             if (this.m_expansionCount > 1)
             {
-                this.m_tracer.TraceWarning("QUERY RESULT SET {0} HAS BEEN EXPANDED {1} TIMES AT {2}", this.m_resultSet.ToSqlStatement().SQL, this.m_expansionCount, new StackTrace());
+                this.m_tracer.TraceWarning("QUERY RESULT SET {0} HAS BEEN EXPANDED {1} TIMES AT {2}", execResultSet.ToSqlStatement().SQL, this.m_expansionCount, new StackTrace());
             }
 #endif
             try
@@ -214,7 +249,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 using (var subContext = this.m_context.OpenClonedContext()) // Sub context is used for loading of dynamic properties 
                 {
                     subContext.Open();
-                    foreach (var result in this.m_resultSet)
+                    foreach (var result in execResultSet)
                     {
                         yield return this.m_provider.ToModelInstance(subContext, result);
                     }
@@ -228,7 +263,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 }
 #if DEBUG
                 sw.Stop();
-                this.m_tracer.TraceVerbose("Performance: GetEnumerator({0}) took {1}ms", this.m_resultSet, sw.ElapsedMilliseconds);
+                this.m_tracer.TraceVerbose("Performance: GetEnumerator({0}) took {1}ms", execResultSet, sw.ElapsedMilliseconds);
 #endif
             }
         }
@@ -242,7 +277,6 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Get the first instance of results
         /// </summary>
-        /// <returns></returns>
         public TElement First()
         {
             var retVal = this.FirstOrDefault();
@@ -256,12 +290,9 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Get the first or default of the result
         /// </summary>
-        public TElement FirstOrDefault()
+        public virtual TElement FirstOrDefault()
         {
-            if (this.m_resultSet == null)
-            {
-                this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
-            }
+            var execResultSet = this.PrepareResultSet();
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
@@ -270,7 +301,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             {
                 this.m_context.Open();
 
-                return this.m_provider.ToModelInstance(this.m_context, this.m_resultSet.FirstOrDefault());
+                return this.m_provider.ToModelInstance(this.m_context, execResultSet.FirstOrDefault());
             }
             finally
             {
@@ -280,7 +311,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 }
 #if DEBUG
                 sw.Stop();
-                this.m_tracer.TraceVerbose("Performance: SingleOrDefault({0}) took {1}ms", this.m_resultSet, sw.ElapsedMilliseconds);
+                this.m_tracer.TraceVerbose("Performance: SingleOrDefault({0}) took {1}ms", execResultSet, sw.ElapsedMilliseconds);
 #endif
             }
         }
@@ -288,7 +319,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Get only one object
         /// </summary>
-        public TElement Single()
+        public virtual TElement Single()
         {
             var retVal = this.SingleOrDefault();
             if (retVal == null)
@@ -301,12 +332,9 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Get only one of the objects
         /// </summary>
-        public TElement SingleOrDefault()
+        public virtual TElement SingleOrDefault()
         {
-            if (this.m_resultSet == null)
-            {
-                this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
-            }
+            var execResultSet = this.PrepareResultSet();
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
@@ -315,10 +343,10 @@ namespace SanteDB.OrmLite.MappedResultSets
             {
                 this.m_context.Open();
 
-                var resultCount = this.m_resultSet.Count();
+                var resultCount = execResultSet.Count();
                 if (resultCount <= 1)
                 {
-                    return this.m_provider.ToModelInstance(this.m_context, this.m_resultSet.FirstOrDefault());
+                    return this.m_provider.ToModelInstance(this.m_context, execResultSet.FirstOrDefault());
                 }
                 else
                 {
@@ -333,7 +361,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 }
 #if DEBUG
                 sw.Stop();
-                this.m_tracer.TraceVerbose("Performance: SingleOrDefault({0}) took {1}ms", this.m_resultSet, sw.ElapsedMilliseconds);
+                this.m_tracer.TraceVerbose("Performance: SingleOrDefault({0}) took {1}ms", execResultSet, sw.ElapsedMilliseconds);
 #endif
             }
         }
@@ -341,13 +369,13 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Union this dataset with another
         /// </summary>
-        public IQueryResultSet<TElement> Union(IQueryResultSet<TElement> other)
+        public virtual IQueryResultSet<TElement> Union(IQueryResultSet<TElement> other)
         {
             if (other is MappedQueryResultSet<TElement> otherStrong)
             {
                 if (this.m_resultSet != null && otherStrong.m_resultSet != null)
                 {
-                    return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Union(otherStrong.m_resultSet));
+                    return this.CloneWith(this.PrepareResultSet().Union(otherStrong.PrepareResultSet()));
                 }
                 else
                 {
@@ -363,45 +391,45 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Takes the number of objects from the result set
         /// </summary>
-        public IQueryResultSet<TElement> Take(int count)
+        public virtual IQueryResultSet<TElement> Take(int count)
         {
             if (this.m_resultSet == null)
             {
                 this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
             }
-            return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Take(count));
+            return this.CloneWith(this.m_resultSet.Take(count));
         }
 
         /// <summary>
         /// Append the order by statements onto the specifed result set
         /// </summary>
-        public IOrderableQueryResultSet<TElement> OrderBy<TKey>(Expression<Func<TElement, TKey>> sortExpression)
+        public virtual IOrderableQueryResultSet<TElement> OrderBy<TKey>(Expression<Func<TElement, TKey>> sortExpression)
         {
             if (this.m_resultSet == null) // this is the first
             {
                 this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
             }
 
-            return new MappedQueryResultSet<TElement>(this, this.m_resultSet.OrderBy(this.m_provider.MapExpression(sortExpression)));
+            return this.CloneWith(this.m_resultSet.OrderBy(this.m_provider.MapExpression(sortExpression)));
         }
 
         /// <summary>
         /// Order result set by descending order
         /// </summary>
-        public IOrderableQueryResultSet<TElement> OrderByDescending<TKey>(Expression<Func<TElement, TKey>> sortExpression)
+        public virtual IOrderableQueryResultSet<TElement> OrderByDescending<TKey>(Expression<Func<TElement, TKey>> sortExpression)
         {
             if (this.m_resultSet == null) // this is the first
             {
                 this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
             }
 
-            return new MappedQueryResultSet<TElement>(this, this.m_resultSet.OrderByDescending(this.m_provider.MapExpression(sortExpression)));
+            return this.CloneWith(this.m_resultSet.OrderByDescending(this.m_provider.MapExpression(sortExpression)));
         }
 
         /// <summary>
         /// Creates a query set or loads the specified query set
         /// </summary>
-        public IQueryResultSet<TElement> AsStateful(Guid stateId)
+        public virtual IQueryResultSet<TElement> AsStateful(Guid stateId)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -454,20 +482,17 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Return true if there are any matching reuslts
         /// </summary>
-        public bool Any()
+        public virtual bool Any()
         {
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
 #endif
-            if (this.m_resultSet == null)
-            {
-                this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
-            }
+            var execResultSet = this.PrepareResultSet();
             try
             {
                 this.m_context.Open();
-                return this.m_resultSet.Any();
+                return execResultSet.Any();
             }
             finally
             {
@@ -488,14 +513,11 @@ namespace SanteDB.OrmLite.MappedResultSets
             var sw = new Stopwatch();
             sw.Start();
 #endif
-            if (this.m_resultSet == null)
-            {
-                this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
-            }
+            var execResultSet = this.PrepareResultSet();
             try
             {
                 this.m_context.Open();
-                return this.m_resultSet.Count();
+                return execResultSet.Count();
             }
             finally
             {
@@ -510,7 +532,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Intersect with another result set
         /// </summary>
-        public IQueryResultSet<TElement> Intersect(IQueryResultSet<TElement> other)
+        public virtual IQueryResultSet<TElement> Intersect(IQueryResultSet<TElement> other)
         {
             throw new NotImplementedException();
         }
@@ -518,7 +540,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Dispose of this object
         /// </summary>
-        public void Dispose()
+        public virtual void Dispose()
         {
             if (!this.m_keepContextOpen)
             {
@@ -529,7 +551,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Non-generic version of where
         /// </summary>
-        public IQueryResultSet Where(Expression query)
+        public virtual IQueryResultSet Where(Expression query)
         {
             if (query is Expression<Func<TElement, bool>> eq)
             {
@@ -579,7 +601,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Non-generic select method
         /// </summary>
-        public IEnumerable<TReturn> Select<TReturn>(Expression selector)
+        public virtual IEnumerable<TReturn> Select<TReturn>(Expression selector)
         {
             if (selector is Expression<Func<TElement, TReturn>> se)
             {
@@ -601,16 +623,13 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// </summary>
         public IEnumerable<TReturn> Select<TReturn>(Expression<Func<TElement, TReturn>> selector)
         {
-            if (this.m_resultSet == null) // this is the first
-            {
-                this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
-            }
+            var execResultSet = this.PrepareResultSet();
 
             var member = this.m_provider.MapExpression(selector).GetMember();
             try
             {
                 this.m_context.Open();
-                foreach (var element in this.m_resultSet.Select<TReturn>(member.Name))
+                foreach (var element in execResultSet.Select<TReturn>(member.Name))
                 {
                     yield return element;
                 }
@@ -628,7 +647,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// Select the specifed objects with a C# expression
         /// </summary>
         /// <remarks>This flattens or executes the query</remarks>
-        public IEnumerable<TReturn> Select<TReturn>(Func<TElement, TReturn> selector)
+        public virtual IEnumerable<TReturn> Select<TReturn>(Func<TElement, TReturn> selector)
         {
             // Flatten
             foreach (var element in this)
@@ -640,7 +659,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Order by a generic expression
         /// </summary>
-        public IOrderableQueryResultSet OrderBy(Expression expression)
+        public virtual IOrderableQueryResultSet OrderBy(Expression expression)
         {
             if (expression is Expression<Func<TElement, dynamic>> le)
             {
@@ -655,7 +674,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Order by descending order
         /// </summary>
-        public IOrderableQueryResultSet OrderByDescending(Expression expression)
+        public virtual IOrderableQueryResultSet OrderByDescending(Expression expression)
         {
             if (expression is Expression<Func<TElement, dynamic>> strong)
             {
@@ -670,7 +689,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Intersect the other result set - note this can only be of same type of set
         /// </summary>
-        public IQueryResultSet Intersect(IQueryResultSet other)
+        public virtual IQueryResultSet Intersect(IQueryResultSet other)
         {
             if (other is MappedQueryResultSet<TElement> mq)
             {
@@ -685,7 +704,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Union the other result set - note this can only be of the same type of set
         /// </summary>
-        public IQueryResultSet Union(IQueryResultSet other)
+        public virtual IQueryResultSet Union(IQueryResultSet other)
         {
             if (other is MappedQueryResultSet<TElement> mq)
             {
@@ -700,7 +719,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Return only those results in the result set which are of type <typeparamref name="TType"/>
         /// </summary>
-        public IEnumerable<TType> OfType<TType>()
+        public virtual IEnumerable<TType> OfType<TType>()
         {
             foreach (var itm in this)
             {
