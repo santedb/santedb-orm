@@ -170,6 +170,21 @@ namespace SanteDB.OrmLite.MappedResultSets
         }
 
         /// <summary>
+        /// Adds distinct instruction
+        /// </summary>
+        public IQueryResultSet<TElement> Distinct()
+        {
+            if (this.m_resultSet == null)
+            {
+                // This is in effect an intersect
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Distinct)));
+            }
+            else
+            {
+                return new MappedQueryResultSet<TElement>(this, this.m_resultSet.Distinct());
+            }
+        }
+        /// <summary>
         /// Execute the specified SQL statement
         /// </summary>
         public virtual IQueryResultSet<TElement> Execute<TDBModel>(SqlStatement statement)
@@ -597,6 +612,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// Represent as a stateful object
         /// </summary>
         IQueryResultSet IQueryResultSet.AsStateful(Guid stateId) => this.AsStateful(stateId);
+
 
         /// <summary>
         /// Non-generic select method

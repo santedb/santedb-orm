@@ -288,6 +288,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             throw new NotSupportedException();
         }
 
+
         /// <summary>
         /// Union with another result set
         /// </summary>
@@ -464,6 +465,11 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <typeparam name="TType"></typeparam>
         /// <returns></returns>
         public IEnumerable<TType> OfType<TType>()
+        {
+            throw new NotImplementedException();
+        }
+
+        public IQueryResultSet<TData> Distinct()
         {
             throw new NotImplementedException();
         }
