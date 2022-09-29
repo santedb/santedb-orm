@@ -130,5 +130,20 @@ namespace SanteDB.OrmLite
         /// </summary>
         /// <param name="property">The fields to be selected</param>
         OrmResultSet<TElement> Select<TElement>(string property);
+
+        /// <summary>
+        /// Remove the odering instructions
+        /// </summary>
+        IOrmResultSet WithoutOrdering();
+
+        /// <summary>
+        /// Remove the skip instructions
+        /// </summary>
+        IOrmResultSet WithoutSkip(out int originalOffset);
+
+        /// <summary>
+        /// Remove the take instruction
+        /// </summary>
+        IOrmResultSet WithoutTake(out int originalTake);
     }
 }

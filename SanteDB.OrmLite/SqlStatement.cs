@@ -27,6 +27,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using SanteDB.Core.Model;
+using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite
 {
@@ -327,6 +328,22 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Remove the offset instruction
+        /// </summary>
+        public SqlStatement RemoveOffset(out int offset)
+        {
+            var sql = this.Build();
+            var sqlPart = new Regex(@"^(.*?)OFFSET (\d+?)\s(?:ROW)?(.*?)$").Match(sql.SQL);
+            if(sqlPart.Success)
+            {
+                offset = Int32.Parse(sqlPart.Groups[2].Value);
+                return new SqlStatement(this.m_provider, $"{sqlPart.Groups[1].Value} {sqlPart.Groups[3].Value}", sql.Arguments.ToArray());
+            }
+            offset = 0;
+            return sql;
+        }
+
+        /// <summary>
         /// Limit of the
         /// </summary>
         public SqlStatement Limit(int limit)
@@ -337,6 +354,22 @@ namespace SanteDB.OrmLite
                 return this.Append($" FETCH FIRST {limit} ROWS ONLY");
             else
                 throw new InvalidOperationException("SQL Engine does not support FETCH FIRST n ROWS ONLY or LIMIT n functionality");
+        }
+
+        /// <summary>
+        /// Remove the limit instruction
+        /// </summary>
+        public SqlStatement RemoveLimit(out int count)
+        {
+            var sql = this.Build();
+            var sqlPart = new Regex(@"^(.*?)(?:FETCH\sFIRST|LIMIT)\s(\d+)(?:\sROWS\sONLY)?(.*?)$$").Match(sql.SQL);
+            if (sqlPart.Success)
+            {
+                count = Int32.Parse(sqlPart.Groups[2].Value);
+                return new SqlStatement(this.m_provider, $"{sqlPart.Groups[1].Value} {sqlPart.Groups[3].Value}", sql.Arguments.ToArray());
+            }
+            count = -1;
+            return sql;
         }
 
         /// <summary>
@@ -397,6 +430,23 @@ namespace SanteDB.OrmLite
             while (t.m_rhs?.m_rhs != null)
                 t = t.m_rhs;
             return t;
+        }
+
+        /// <summary>
+        /// Remove the ORDER BY clause
+        /// </summary>
+        public SqlStatement RemoveOrderBy(out SqlStatement orderBy)
+        {
+            var sql = this.Build();
+            var sqlPart = new Regex(@"^(.*?)(ORDER BY (?:.*? (?:ASC|DESC),?){0,})(.*)$").Match(sql.SQL);
+            if(sqlPart.Success)
+            {
+                orderBy = new SqlStatement(this.m_provider, sqlPart.Groups[2].Value);
+                return new SqlStatement(this.m_provider, $"{sqlPart.Groups[1].Value} {sqlPart.Groups[3].Value}", sql.Arguments.ToArray());
+            }
+            orderBy = null;
+            return this; 
+
         }
 
         /// <summary>

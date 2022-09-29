@@ -74,7 +74,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Get the result set
         /// </summary>
-        protected IOrmResultSet ResultSet => this.m_resultSet;
+        internal IOrmResultSet ResultSet => this.m_resultSet;
 
         /// <summary>
         /// Get the provider for this set
@@ -125,10 +125,10 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Create a wrapper persistence collection
         /// </summary>
-        private MappedQueryResultSet(MappedQueryResultSet<TElement> copyFrom, IOrmResultSet resultSet)
+        protected MappedQueryResultSet(MappedQueryResultSet<TElement> copyFrom, IOrmResultSet newResultSet)
         {
             this.m_provider = copyFrom.m_provider;
-            this.m_resultSet = resultSet;
+            this.m_resultSet = newResultSet ?? copyFrom.ResultSet;
             this.m_context = copyFrom.m_context;
             this.m_keyName = copyFrom.m_keyName;
             this.m_keepContextOpen = copyFrom.m_keepContextOpen;
@@ -145,13 +145,13 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Prepare the result set for execution
         /// </summary>
-        protected virtual IOrmResultSet PrepareResultSet()
+        protected virtual IOrmResultSet PrepareResultSet(IOrmResultSet resultSet)
         {
-            if (this.m_resultSet == null)
+            if (resultSet == null)
             {
-                this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
+                resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
             }
-            return this.m_resultSet;
+            return resultSet;
         }
         /// <summary>
         /// Where clause for filtering on provider
@@ -248,7 +248,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// </summary>
         public virtual IEnumerator<TElement> GetEnumerator()
         {
-            var execResultSet = this.PrepareResultSet();
+            var execResultSet = this.PrepareResultSet(this.m_resultSet);
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
@@ -307,7 +307,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// </summary>
         public virtual TElement FirstOrDefault()
         {
-            var execResultSet = this.PrepareResultSet();
+            var execResultSet = this.PrepareResultSet(this.m_resultSet.Take(1));
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
@@ -349,7 +349,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// </summary>
         public virtual TElement SingleOrDefault()
         {
-            var execResultSet = this.PrepareResultSet();
+            var execResultSet = this.PrepareResultSet(this.m_resultSet.Take(2));
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
@@ -390,7 +390,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             {
                 if (this.m_resultSet != null && otherStrong.m_resultSet != null)
                 {
-                    return this.CloneWith(this.PrepareResultSet().Union(otherStrong.PrepareResultSet()));
+                    return this.CloneWith(this.m_resultSet.Union(otherStrong.m_resultSet));
                 }
                 else
                 {
@@ -460,7 +460,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 // Is the query already registered? If so, load
                 if (this.m_provider.QueryPersistence.IsRegistered(stateId))
                 {
-                    return new MappedStatefulQueryResultSet<TElement>(this.m_provider, stateId, (int)this.m_provider.QueryPersistence.QueryResultTotalQuantity(stateId), this.m_resultSet, this.m_keyName);
+                    return new MappedStatefulQueryResultSet<TElement>(this, this.ResultSet, stateId);
                 }
                 else
                 {
@@ -477,7 +477,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                         keySet = this.m_resultSet.Keys<Guid>().OfType<Guid>().ToArray();
                     }
                     this.m_provider.QueryPersistence.RegisterQuerySet(stateId, keySet, this.m_resultSet.Statement, keySet.Length);
-                    return new MappedStatefulQueryResultSet<TElement>(this.m_provider, stateId, keySet.Length, this.m_resultSet, this.m_keyName);
+                    return new MappedStatefulQueryResultSet<TElement>(this, this.ResultSet, stateId);
                 }
             }
             finally
@@ -503,7 +503,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             var sw = new Stopwatch();
             sw.Start();
 #endif
-            var execResultSet = this.PrepareResultSet();
+            var execResultSet = this.PrepareResultSet(this.m_resultSet);
             try
             {
                 this.m_context.Open();
@@ -528,7 +528,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             var sw = new Stopwatch();
             sw.Start();
 #endif
-            var execResultSet = this.PrepareResultSet();
+            var execResultSet = this.PrepareResultSet(this.m_resultSet);
             try
             {
                 this.m_context.Open();
@@ -639,7 +639,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// </summary>
         public IEnumerable<TReturn> Select<TReturn>(Expression<Func<TElement, TReturn>> selector)
         {
-            var execResultSet = this.PrepareResultSet();
+            var execResultSet = this.PrepareResultSet(this.m_resultSet);
 
             var member = this.m_provider.MapExpression(selector).GetMember();
             try

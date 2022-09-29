@@ -76,7 +76,13 @@ namespace SanteDB.OrmLite
         /// </summary>
         public OrmResultSet<TData> Skip(int n)
         {
-            return new OrmResultSet<TData>(this.Context, this.Statement.Build().Offset(n));
+            var stmt = this.Statement.Build().RemoveOffset(out _).RemoveLimit(out var limit).Offset(n);
+            // Re-add limit
+            if(limit >= 0)
+            {
+                stmt = stmt.Limit(limit);
+            }
+            return new OrmResultSet<TData>(this.Context, stmt.Build());
         }
 
         /// <summary>
@@ -85,7 +91,8 @@ namespace SanteDB.OrmLite
         /// <param name="n">The number of records to take</param>
         public OrmResultSet<TData> Take(int n)
         {
-            return new OrmResultSet<TData>(this.Context, this.Statement.Build().Limit(n));
+            var stmt = this.Statement.Build().RemoveLimit(out _).Limit(n);
+            return new OrmResultSet<TData>(this.Context, stmt);
         }
 
         /// <summary>
@@ -167,7 +174,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TData FirstOrDefault()
         {
-            return this.Context.FirstOrDefault<TData>(this.Statement);
+            return this.Context.FirstOrDefault<TData>(this.Statement.Build());
         }
 
         /// <summary>
@@ -282,13 +289,14 @@ namespace SanteDB.OrmLite
                     throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(HavingKeys)));
                 }
 
-                var sqlStatement = this.Context.CreateSqlStatement($"SELECT {selectMatch.Groups[SQL_GROUP_DISTINCT].Value} {selectMatch.Groups[SQL_GROUP_COLUMNS].Value} FROM {selectMatch.Groups[SQL_GROUP_FROM].Value} WHERE");
+                var sqlStatement = this.Context.CreateSqlStatement($"SELECT {selectMatch.Groups[SQL_GROUP_DISTINCT].Value} {selectMatch.Groups[SQL_GROUP_COLUMNS].Value} FROM {selectMatch.Groups[SQL_GROUP_FROM].Value} WHERE ").Append("FALSE").Append(" OR ");
+
                 foreach (var itm in keyList)
                 {
                     sqlStatement = sqlStatement.Append($" {keyColumn.Table.TableName}.{keyColumn.Name} = ?", itm).Append(" OR ");
                 }
                 sqlStatement.RemoveLast();
-                return sqlStatement.Append($" {selectMatch.Groups[SQL_GROUP_LIMIT]}");
+                return sqlStatement.Append($" {selectMatch.Groups[SQL_GROUP_LIMIT]}").Build();
             }));
             
         }
@@ -435,7 +443,7 @@ namespace SanteDB.OrmLite
         public OrmResultSet<TData> Union(OrmResultSet<TData> other)
         {
             var sql = this.ToSqlStatement();
-            sql = sql.Append(" UNION ").Append(other.ToSqlStatement());
+            sql = sql.Append(" UNION ").Append(other.ToSqlStatement()).Build();
             return new OrmResultSet<TData>(this.Context, sql);
         }
 
@@ -570,6 +578,33 @@ namespace SanteDB.OrmLite
                     throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, typeof(Expression<Func<TData, bool>>), whereExpression.GetType()));
                 }
             }));
+        }
+
+        /// <summary>
+        /// Remove ordering
+        /// </summary>
+        public IOrmResultSet WithoutOrdering()=>new OrmResultSet<TData>(this.Context, this.TransformAll(stmt => stmt.RemoveOrderBy(out _)));
+
+        /// <summary>
+        /// Remove the skip
+        /// </summary>
+        public IOrmResultSet WithoutSkip(out int originalSkip)
+        {
+            var skip = 0;
+            var retVal = new OrmResultSet<TData>(this.Context, this.TransformAll(stmt=> stmt.RemoveOffset(out skip)));
+            originalSkip = skip;
+            return retVal;
+        }
+
+        /// <summary>
+        /// Remove the take instruction
+        /// </summary>
+        public IOrmResultSet WithoutTake(out int originalTake)
+        {
+            var take = 0;
+            var retVal = new OrmResultSet<TData>(this.Context, this.TransformAll(stmt => stmt.RemoveLimit(out take)));
+            originalTake = take;
+            return retVal;
         }
     }
 }
