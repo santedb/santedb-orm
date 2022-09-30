@@ -129,5 +129,5 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
         [Column("upd_utc")]
         public DateTimeOffset? UpdatedTime { get; set; }
     }
-    
+
 }

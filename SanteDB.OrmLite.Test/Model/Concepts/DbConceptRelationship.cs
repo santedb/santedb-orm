@@ -29,8 +29,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
     /// </summary>
     [ExcludeFromCodeCoverage]
     [Table("cd_rel_assoc_tbl")]
-	public class DbConceptRelationship : DbVersionedAssociation
-	{
+    public class DbConceptRelationship : DbVersionedAssociation
+    {
         /// <summary>
         /// Get the identifier of the key
         /// </summary>
@@ -42,10 +42,11 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
         /// </summary>
         /// <value>The relationship type identifier.</value>
         [Column("rel_typ_id"), ForeignKey(typeof(DbConceptRelationshipType), nameof(DbConceptRelationshipType.Key))]
-		public Guid RelationshipTypeKey {
-			get;
-			set;
-		}
+        public Guid RelationshipTypeKey
+        {
+            get;
+            set;
+        }
 
         /// <summary>
         /// Gets or sets the source act key

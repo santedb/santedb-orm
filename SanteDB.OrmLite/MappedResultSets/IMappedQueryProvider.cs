@@ -18,14 +18,10 @@
  * User: fyfej
  * Date: 2022-9-7
  */
-using SanteDB.Core.Model;
 using SanteDB.Core.Services;
-using SanteDB.OrmLite;
 using SanteDB.OrmLite.Providers;
 using System;
-using System.Collections.Generic;
 using System.Linq.Expressions;
-using System.Text;
 
 namespace SanteDB.OrmLite.MappedResultSets
 {

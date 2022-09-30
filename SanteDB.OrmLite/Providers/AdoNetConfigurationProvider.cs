@@ -116,18 +116,22 @@ namespace SanteDB.OrmLite.Providers
             var provider = this.GetProvider(connectionString);
 
             using (var conn = provider.GetReadonlyConnection())
+            {
                 return SqlFeatureUtil.GetFeatures(this.Invariant).Where(f =>
                 {
                     try
                     {
                         var checkSql = f.GetCheckSql();
                         if (!String.IsNullOrEmpty(checkSql))
+                        {
                             using (var cmd = conn.Connection.CreateCommand())
                             {
                                 cmd.CommandText = checkSql;
                                 cmd.CommandType = System.Data.CommandType.Text;
                                 return (bool)cmd.ExecuteScalar();
                             }
+                        }
+
                         return false;
                     }
                     catch (Exception e)
@@ -136,6 +140,7 @@ namespace SanteDB.OrmLite.Providers
                         return false;
                     }
                 }).ToArray();
+            }
         }
 
         /// <summary>
@@ -153,7 +158,10 @@ namespace SanteDB.OrmLite.Providers
         {
             var retVal = this.Options.Keys.ToDictionary(o => o, p => (Object)null);
             foreach (var itm in retVal)
+            {
                 retVal[itm.Key] = connectionString.GetComponent(itm.Key);
+            }
+
             return retVal;
         }
 
@@ -169,6 +177,7 @@ namespace SanteDB.OrmLite.Providers
         {
             var pvdr = this.GetProvider(connectionString);
             using (var conn = pvdr.GetReadonlyConnection())
+            {
                 try
                 {
                     conn.Open();
@@ -178,6 +187,7 @@ namespace SanteDB.OrmLite.Providers
                 {
                     return false;
                 }
+            }
         }
     }
 }

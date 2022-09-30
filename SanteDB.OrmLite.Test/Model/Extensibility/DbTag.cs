@@ -33,7 +33,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
     /// </summary>
     [ExcludeFromCodeCoverage]
     public abstract class DbTag : DbAssociation, IDbBaseData
-	{
+    {
         /// <summary>
         /// Gets or sets the key
         /// </summary>
@@ -69,20 +69,22 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
         /// </summary>
         /// <value>The key.</value>
         [Column("tag_name")]
-		public String TagKey {
-			get;
-			set;
-		}
+        public String TagKey
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the value.
-		/// </summary>
-		/// <value>The value.</value>
-		[Column("tag_value")]
-		public String Value {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the value.
+        /// </summary>
+        /// <value>The value.</value>
+        [Column("tag_value")]
+        public String Value
+        {
+            get;
+            set;
+        }
 
         /// <summary>
         /// Gets or sets whether obsoleted by key is specified (for undelete)
@@ -95,13 +97,13 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
         public bool ObsoletionTimeSpecified { get; set; }
     }
 
-	/// <summary>
-	/// Represents a tag associated with an enttiy
-	/// </summary>
-	[Table("ent_tag_tbl")]
+    /// <summary>
+    /// Represents a tag associated with an enttiy
+    /// </summary>
+    [Table("ent_tag_tbl")]
     [ExcludeFromCodeCoverage]
     public class DbEntityTag : DbTag
-	{
+    {
 
         /// <summary>
         /// Gets or sets the source.
@@ -115,13 +117,13 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
         }
     }
 
-	/// <summary>
-	/// Represents a tag associated with an act
-	/// </summary>
-	[Table("act_tag_tbl")]
+    /// <summary>
+    /// Represents a tag associated with an act
+    /// </summary>
+    [Table("act_tag_tbl")]
     [ExcludeFromCodeCoverage]
     public class DbActTag : DbTag
-	{
+    {
         /// <summary>
         /// Gets or sets the source.
         /// </summary>

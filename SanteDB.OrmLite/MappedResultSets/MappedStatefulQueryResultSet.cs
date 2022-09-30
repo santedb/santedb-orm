@@ -18,18 +18,13 @@
  * User: fyfej
  * Date: 2022-9-7
  */
+using SanteDB.Core.Diagnostics;
+using SanteDB.Core.i18n;
+using SanteDB.Core.Model;
 using SanteDB.Core.Model.Query;
-using SanteDB.OrmLite;
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
-using SanteDB.Core.Model;
-using SanteDB.Core.Services;
-using SanteDB.Core.i18n;
-using SanteDB.Core.Diagnostics;
 
 namespace SanteDB.OrmLite.MappedResultSets
 {
@@ -137,7 +132,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 throw new InvalidOperationException(String.Format(ErrorMessages.ARGUMENT_INCOMPATIBLE_TYPE, typeof(MappedStatefulQueryResultSet<TData>), other.GetType()));
             }
         }
-        
+
         /// <summary>
         /// Union the query result set
         /// </summary>

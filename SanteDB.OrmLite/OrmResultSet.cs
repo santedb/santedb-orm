@@ -18,15 +18,13 @@
  * User: fyfej
  * Date: 2022-5-30
  */
+using SanteDB.Core.i18n;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
 using System.Text.RegularExpressions;
-using SanteDB.Core.i18n;
-using SanteDB.Core.Model;
 
 namespace SanteDB.OrmLite
 {
@@ -78,7 +76,7 @@ namespace SanteDB.OrmLite
         {
             var stmt = this.Statement.Build().RemoveOffset(out _).RemoveLimit(out var limit).Offset(n);
             // Re-add limit
-            if(limit >= 0)
+            if (limit >= 0)
             {
                 stmt = stmt.Limit(limit);
             }
@@ -128,34 +126,35 @@ namespace SanteDB.OrmLite
                     var secondStatement = unionMatch.Groups[3].Value;
                     unionMatch = this.m_extractUnionIntersects.Match(secondStatement);
                     // If union match is successful we have a UNION b UNION c
-                    if(!unionMatch.Success) // no more intersects
+                    if (!unionMatch.Success) // no more intersects
                     {
                         retVal = retVal.Append(transformer(this.Context.CreateSqlStatement(secondStatement.Trim())));
                     }
                 }
                 return retVal;
             }
-            else {
-                return transformer( innerQuery);
+            else
+            {
+                return transformer(innerQuery);
             }
         }
 
         /// <summary>
         /// Instructs the reader to order by specified records
         /// </summary>
-        /// <param name="selector">The key to order by</param>
-        public OrmResultSet<TData> OrderBy(Expression<Func<TData, dynamic>> keySelector)
+        /// <param name="sortFieldSelector">The field to order the results by</param>
+        public OrmResultSet<TData> OrderBy(Expression<Func<TData, dynamic>> sortFieldSelector)
         {
-            return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy(keySelector, Core.Model.Map.SortOrderType.OrderBy));
+            return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy(sortFieldSelector, Core.Model.Map.SortOrderType.OrderBy));
         }
 
         /// <summary>
         /// Instructs the reader to order by specified records
         /// </summary>
-        /// <param name="selector">The selector to order by </param>
-        public OrmResultSet<TData> OrderByDescending(Expression<Func<TData, dynamic>> keySelector)
+        /// <param name="orderSelector">The selector to order by </param>
+        public OrmResultSet<TData> OrderByDescending(Expression<Func<TData, dynamic>> orderSelector)
         {
-            return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy(keySelector, Core.Model.Map.SortOrderType.OrderByDescending));
+            return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy(orderSelector, Core.Model.Map.SortOrderType.OrderByDescending));
         }
 
         /// <summary>
@@ -165,7 +164,10 @@ namespace SanteDB.OrmLite
         {
             TData retVal = this.FirstOrDefault();
             if (retVal == null)
+            {
                 throw new InvalidOperationException("Sequence contains no elements");
+            }
+
             return retVal;
         }
 
@@ -198,7 +200,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public OrmResultSet<TData> Distinct()
         {
-            return new OrmResultSet<TData>(this.Context,  this.TransformAll(stmt =>
+            return new OrmResultSet<TData>(this.Context, this.TransformAll(stmt =>
             {
                 var innerQuery = stmt.Build();
                 var sqlParts = this.m_extractRawSelectStatment.Match(innerQuery.SQL);
@@ -214,7 +216,9 @@ namespace SanteDB.OrmLite
                         );
                 }
                 else
+                {
                     return this.Statement;
+                }
             }));
         }
 
@@ -225,7 +229,9 @@ namespace SanteDB.OrmLite
         public OrmResultSet<T> Keys<T>(bool qualifyKeyTableName = true)
         {
             if (typeof(T) == typeof(TData))
+            {
                 return new OrmResultSet<T>(this.Context, this.Statement);
+            }
             else
             {
                 return new OrmResultSet<T>(this.Context, this.TransformAll(stmt =>
@@ -237,7 +243,9 @@ namespace SanteDB.OrmLite
                         tm = TableMapping.Get(typeof(TData).GetGenericArguments().Last());
                     }
                     if (tm.PrimaryKey.Count() != 1)
+                    {
                         throw new InvalidOperationException("Cannot execute KEY query on object with no keys");
+                    }
 
                     // HACK: Swap out SELECT * if query starts with it
                     var sqlParts = this.m_extractRawSelectStatment.Match(innerQuery.SQL);
@@ -260,11 +268,11 @@ namespace SanteDB.OrmLite
         public IOrmResultSet HavingKeys(IEnumerable keyList, string keyColumnName = null)
         {
 
-            
+
             ColumnMapping keyColumn = null;
             if (typeof(CompositeResult).IsAssignableFrom(typeof(TData)))
             {
-                if(String.IsNullOrEmpty(keyColumnName))
+                if (String.IsNullOrEmpty(keyColumnName))
                 {
                     keyColumn = TableMapping.Get(typeof(TData).GetGenericArguments().Last()).PrimaryKey.Single();
                 }
@@ -298,7 +306,7 @@ namespace SanteDB.OrmLite
                 sqlStatement.RemoveLast();
                 return sqlStatement.Append($" {selectMatch.Groups[SQL_GROUP_LIMIT]}").Build();
             }));
-            
+
         }
         /// <summary>
         /// Select the specified column
@@ -363,7 +371,7 @@ namespace SanteDB.OrmLite
         public OrmResultSet<dynamic> Select(params Expression<Func<TData, dynamic>>[] columns)
         {
 
-            var mapping = columns.Select(o=> TableMapping.Get(typeof(TData)).GetColumn(o.Body.GetMember()));
+            var mapping = columns.Select(o => TableMapping.Get(typeof(TData)).GetColumn(o.Body.GetMember()));
 
             return new OrmResultSet<dynamic>(this.Context, this.TransformAll(stmt =>
             {
@@ -391,7 +399,9 @@ namespace SanteDB.OrmLite
                 var tm = TableMapping.Get(typeof(TKeyTable));
 
                 if (tm.PrimaryKey.Count() != 1)
+                {
                     throw new InvalidOperationException("Cannot execute KEY query on object with no keys");
+                }
 
                 var sqlParts = this.m_extractRawSelectStatment.Match(innerQuery.SQL);
                 if (!sqlParts.Success)
@@ -474,16 +484,20 @@ namespace SanteDB.OrmLite
         public IOrmResultSet OrderBy(Expression orderExpression)
         {
             if (orderExpression is Expression<Func<TData, dynamic>> expr)
+            {
                 return this.OrderBy(expr);
+            }
             else if (orderExpression is LambdaExpression le &&
                 (typeof(CompositeResult).IsAssignableFrom(typeof(TData)) &&
                 typeof(TData).GetGenericArguments().Contains(le.Parameters[0].Type) ||
                 typeof(TData) == le.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
             {
-                return new OrmResultSet<TData>(this.Context, this.TransformAll(stmt=>stmt.OrderBy(le, Core.Model.Map.SortOrderType.OrderBy)));
+                return new OrmResultSet<TData>(this.Context, this.TransformAll(stmt => stmt.OrderBy(le, Core.Model.Map.SortOrderType.OrderBy)));
             }
             else
+            {
                 throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, orderExpression.GetType(), typeof(Expression<Func<TData, Boolean>>)));
+            }
         }
 
         /// <summary>
@@ -492,8 +506,10 @@ namespace SanteDB.OrmLite
         public IOrmResultSet OrderByDescending(Expression orderExpression)
         {
             if (orderExpression is Expression<Func<TData, dynamic>> expr)
+            {
                 return this.OrderByDescending(expr);
-            else if(orderExpression is LambdaExpression le &&
+            }
+            else if (orderExpression is LambdaExpression le &&
                 (typeof(CompositeResult).IsAssignableFrom(typeof(TData)) &&
                 typeof(TData).GetGenericArguments().Contains(le.Parameters[0].Type) ||
                 typeof(TData) == le.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
@@ -501,7 +517,9 @@ namespace SanteDB.OrmLite
                 return new OrmResultSet<TData>(this.Context, this.TransformAll(stmt => stmt.OrderBy(le, Core.Model.Map.SortOrderType.OrderByDescending)));
             }
             else
+            {
                 throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, orderExpression.GetType(), typeof(Expression<Func<TData, dynamic>>)));
+            }
         }
 
         /// <summary>
@@ -538,7 +556,7 @@ namespace SanteDB.OrmLite
            }));
         }
 
-         
+
 
         /// <summary>
         /// Distinct objects only
@@ -583,7 +601,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Remove ordering
         /// </summary>
-        public IOrmResultSet WithoutOrdering()=>new OrmResultSet<TData>(this.Context, this.TransformAll(stmt => stmt.RemoveOrderBy(out _)));
+        public IOrmResultSet WithoutOrdering() => new OrmResultSet<TData>(this.Context, this.TransformAll(stmt => stmt.RemoveOrderBy(out _)));
 
         /// <summary>
         /// Remove the skip
@@ -591,7 +609,7 @@ namespace SanteDB.OrmLite
         public IOrmResultSet WithoutSkip(out int originalSkip)
         {
             var skip = 0;
-            var retVal = new OrmResultSet<TData>(this.Context, this.TransformAll(stmt=> stmt.RemoveOffset(out skip)));
+            var retVal = new OrmResultSet<TData>(this.Context, this.TransformAll(stmt => stmt.RemoveOffset(out skip)));
             originalSkip = skip;
             return retVal;
         }

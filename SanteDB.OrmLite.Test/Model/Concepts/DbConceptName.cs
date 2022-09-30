@@ -25,54 +25,58 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
 {
-	/// <summary>
-	/// Represents a concept name
-	/// </summary>
+    /// <summary>
+    /// Represents a concept name
+    /// </summary>
     [Table("cd_name_tbl")]
     [ExcludeFromCodeCoverage]
-	public class DbConceptName : DbConceptVersionedAssociation
-	{
-	
-		/// <summary>
-		/// Gets or sets the language.
-		/// </summary>
-		/// <value>The language.</value>
-		[Column("lang_cs")]
-		public String Language {
-			get;
-			set;
-		}
+    public class DbConceptName : DbConceptVersionedAssociation
+    {
 
-		/// <summary>
-		/// Gets or sets the name.
-		/// </summary>
-		/// <value>The name.</value>
-		[Column("val")]
-		public String Name {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the language.
+        /// </summary>
+        /// <value>The language.</value>
+        [Column("lang_cs")]
+        public String Language
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the phonetic code.
-		/// </summary>
-		/// <value>The phonetic code.</value>
-		[Column("phon_cs")]
-		public String PhoneticCode {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the name.
+        /// </summary>
+        /// <value>The name.</value>
+        [Column("val")]
+        public String Name
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the phonetic algorithm identifier.
-		/// </summary>
-		/// <value>The phonetic algorithm identifier.</value>
-		[Column("phon_alg_id")]
-		public Guid PhoneticAlgorithmKey {
-			get;
-			set;
-		}
-        
+        /// <summary>
+        /// Gets or sets the phonetic code.
+        /// </summary>
+        /// <value>The phonetic code.</value>
+        [Column("phon_cs")]
+        public String PhoneticCode
+        {
+            get;
+            set;
+        }
+
+        /// <summary>
+        /// Gets or sets the phonetic algorithm identifier.
+        /// </summary>
+        /// <value>The phonetic algorithm identifier.</value>
+        [Column("phon_alg_id")]
+        public Guid PhoneticAlgorithmKey
+        {
+            get;
+            set;
+        }
+
         /// <summary>
         /// Gets or sets the id of the name
         /// </summary>

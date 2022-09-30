@@ -19,9 +19,7 @@
  * Date: 2022-5-30
  */
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace SanteDB.OrmLite.Providers.Postgres
 {
@@ -45,8 +43,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
         {
-            
-            if(parms.Length == 1)
+
+            if (parms.Length == 1)
             {
                 if (!String.IsNullOrEmpty(parms[0]))
                 {
@@ -70,7 +68,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 }
                 else
                 {
-                    return current.Append( $"{filterColumn} IS NULL"); // Return no results
+                    return current.Append($"{filterColumn} IS NULL"); // Return no results
                 }
             }
             else

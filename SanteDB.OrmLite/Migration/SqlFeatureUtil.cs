@@ -27,7 +27,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading;
 
 namespace SanteDB.OrmLite.Migration
 {
@@ -54,6 +53,7 @@ namespace SanteDB.OrmLite.Migration
         private static IEnumerable<IDataConfigurationProvider> GetConfigurationProviders()
         {
             if (m_providers == null)
+            {
                 m_providers = AppDomain.CurrentDomain.GetAssemblies()
                     .Where(a => !a.IsDynamic)
                     .SelectMany(a =>
@@ -71,6 +71,8 @@ namespace SanteDB.OrmLite.Migration
                     .Select(t => Activator.CreateInstance(t))
                     .OfType<IDataConfigurationProvider>()
                     .ToList();
+            }
+
             return m_providers;
         }
 
@@ -107,28 +109,30 @@ namespace SanteDB.OrmLite.Migration
             var updates = GetFeatures(provider.Invariant).OfType<SqlFeature>().Where(o => o.Scope == scopeOfContext).OrderBy(o => o.Id).ToArray();
 
             // Some of the updates from V2 to V3 can take hours to complete - this timer allows us to report progress on the log
-                foreach(var itm in updates)
+            foreach (var itm in updates)
+            {
+                try
                 {
-                    try
+                    using (var conn = provider.GetWriteConnection())
                     {
-                        using (var conn = provider.GetWriteConnection())
+                        if (!conn.IsInstalled(itm))
                         {
-                            if (!conn.IsInstalled(itm))
-                            {
-                                m_traceSource.TraceInfo("Installing {0} ({1})...", itm.Id, itm.Description);
-                                conn.Install(itm);
-                            }
-                            else
-                                m_traceSource.TraceInfo("Skipping {0}...", itm.Id);
+                            m_traceSource.TraceInfo("Installing {0} ({1})...", itm.Id, itm.Description);
+                            conn.Install(itm);
+                        }
+                        else
+                        {
+                            m_traceSource.TraceInfo("Skipping {0}...", itm.Id);
                         }
                     }
-                    catch (Exception e)
-                    {
-                        m_traceSource.TraceError("Could not install {0} - {1}", itm.Id, e);
-                        throw new DataException($"Could not install {itm.Id}", e);
-                    }
-
                 }
+                catch (Exception e)
+                {
+                    m_traceSource.TraceError("Could not install {0} - {1}", itm.Id, e);
+                    throw new DataException($"Could not install {itm.Id}", e);
+                }
+
+            }
         }
 
         /// <summary>
@@ -139,7 +143,7 @@ namespace SanteDB.OrmLite.Migration
             conn.Open();
 
             var stmts = migration.GetDeploySql().Split(new string[] { "--#!" }, StringSplitOptions.RemoveEmptyEntries);
-            foreach(var dsql in stmts)
+            foreach (var dsql in stmts)
             {
                 using (var cmd = conn.Connection.CreateCommand())
                 {
@@ -147,10 +151,12 @@ namespace SanteDB.OrmLite.Migration
                     {
 
                         if (String.IsNullOrEmpty(dsql.Trim()))
+                        {
                             continue;
+                        }
 
                         var infoLog = sr_SqlLogInstruction.Match(dsql);
-                        if(infoLog.Success)
+                        if (infoLog.Success)
                         {
                             m_traceSource.TraceInfo(infoLog.Groups[1].Value);
                         }
@@ -193,20 +199,27 @@ namespace SanteDB.OrmLite.Migration
                         preConditionSql = migration.GetPreCheckSql();
 
             if (!String.IsNullOrEmpty(preConditionSql))
+            {
                 using (var cmd = conn.Connection.CreateCommand())
                 {
                     cmd.CommandText = preConditionSql;
                     cmd.CommandType = System.Data.CommandType.Text;
                     if ((bool?)cmd.ExecuteScalar() != true) // can't install
+                    {
                         throw new ConstraintException($"Pre-check for {migration.Id} failed");
+                    }
                 }
+            }
+
             if (!String.IsNullOrEmpty(checkSql))
+            {
                 using (var cmd = conn.Connection.CreateCommand())
                 {
                     cmd.CommandText = checkSql;
                     cmd.CommandType = System.Data.CommandType.Text;
                     return (bool?)cmd.ExecuteScalar() == true;
                 }
+            }
 
             return true;
         }
@@ -217,6 +230,7 @@ namespace SanteDB.OrmLite.Migration
         public static IEnumerable<IDataFeature> GetFeatures(String invariantName)
         {
             if (m_features == null)
+            {
                 m_features = AppDomain.CurrentDomain.GetAssemblies()
                     .Where(a => !a.IsDynamic)
                     .SelectMany(a => a.GetManifestResourceNames().Where(n => n.ToLower().EndsWith(".sql")).Select(n =>
@@ -233,6 +247,8 @@ namespace SanteDB.OrmLite.Migration
                             return (SqlFeature)null;
                         }
                     })).OfType<IDataFeature>().ToList();
+            }
+
             return m_features.Where(o => o.InvariantName == invariantName);
         }
     }

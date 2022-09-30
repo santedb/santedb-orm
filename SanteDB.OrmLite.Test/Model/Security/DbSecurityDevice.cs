@@ -31,17 +31,18 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     [Table("sec_dev_tbl")]
     [ExcludeFromCodeCoverage]
     public class DbSecurityDevice : DbBaseData
-	{
-		
-		/// <summary>
-		/// Gets or sets the public identifier.
-		/// </summary>
-		/// <value>The public identifier.</value>
-		[Column("dev_pub_id")]
-		public String PublicId {
-			get;
-			set;
-		}
+    {
+
+        /// <summary>
+        /// Gets or sets the public identifier.
+        /// </summary>
+        /// <value>The public identifier.</value>
+        [Column("dev_pub_id")]
+        public String PublicId
+        {
+            get;
+            set;
+        }
 
         /// <summary>
         /// Device secret

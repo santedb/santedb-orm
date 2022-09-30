@@ -29,36 +29,39 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
     /// </summary>
     [Table("cd_vrsn_tbl")]
     [ExcludeFromCodeCoverage]
-	public class DbConceptVersion : DbVersionedData
-	{
+    public class DbConceptVersion : DbVersionedData
+    {
 
-		/// <summary>
-		/// Gets or sets the object mnemonic
-		/// </summary>
-		/// <value>The mnemonic.</value>
-		[Column("mnemonic")]
-		public string Mnemonic {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the object mnemonic
+        /// </summary>
+        /// <value>The mnemonic.</value>
+        [Column("mnemonic")]
+        public string Mnemonic
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the status concept id
-		/// </summary>
-		[Column("sts_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
-		public Guid StatusKey {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the status concept id
+        /// </summary>
+        [Column("sts_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
+        public Guid StatusKey
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the concept classification
-		/// </summary>
-		[Column("cls_id"), ForeignKey(typeof(DbConceptClass), nameof(DbConceptClass.Key))]
-		public Guid ClassKey {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the concept classification
+        /// </summary>
+        [Column("cls_id"), ForeignKey(typeof(DbConceptClass), nameof(DbConceptClass.Key))]
+        public Guid ClassKey
+        {
+            get;
+            set;
+        }
 
         /// <summary>
         /// The version identifier

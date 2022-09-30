@@ -64,7 +64,10 @@ namespace SanteDB.OrmLite.Configuration
         {
             var provider = this.Providers.FirstOrDefault(o => o.Invariant.Equals(invariant, StringComparison.InvariantCultureIgnoreCase));
             if (provider == null)
+            {
                 throw new KeyNotFoundException($"Provider {invariant} not registered");
+            }
+
             return Activator.CreateInstance(provider.Type) as IDbProvider;
         }
     }

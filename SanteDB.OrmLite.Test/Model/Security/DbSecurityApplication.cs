@@ -31,7 +31,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     [Table("sec_app_tbl")]
     [ExcludeFromCodeCoverage]
     public class DbSecurityApplication : DbBaseData
-	{
+    {
 
         /// <summary>
         /// Gets or sets the application id
@@ -44,10 +44,11 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
         /// </summary>
         /// <value>The public identifier.</value>
         [Column("app_pub_id")]
-		public String PublicId {
-			get;
-			set;
-		}
+        public String PublicId
+        {
+            get;
+            set;
+        }
 
         /// <summary>
         /// Application authentication secret

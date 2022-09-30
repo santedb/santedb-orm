@@ -75,7 +75,9 @@ namespace SanteDB.OrmLite.Migration
 
             // Get deployment sql
             using (var sr = new StreamReader(source))
+            {
                 retVal.m_deploySql = sr.ReadToEnd();
+            }
 
             var xmlSql = m_metaRegx.Match(retVal.m_deploySql.Replace("\r", "").Replace("\n", ""));
             if (xmlSql.Success)
@@ -97,7 +99,9 @@ namespace SanteDB.OrmLite.Migration
 
             }
             else
+            {
                 throw new InvalidOperationException("Invalid SQL update file");
+            }
 
             return retVal;
         }
@@ -141,20 +145,32 @@ namespace SanteDB.OrmLite.Migration
                 {
                     case PostgreSQLProvider.InvariantName:
                         if (String.IsNullOrEmpty(this.m_checkRange))
+                        {
                             return "SELECT TRUE";
+                        }
                         else
+                        {
                             return $"select not(string_to_array(get_sch_vrsn(), '.')::int[] between string_to_array('{updateRange[0]}','.')::int[] and string_to_array('{updateRange[1]}', '.')::int[])";
+                        }
+
                     case FirebirdSQLProvider.InvariantName:
                         if (String.IsNullOrEmpty(this.m_checkRange))
+                        {
                             return "SELECT true FROM rdb$database";
+                        }
                         else
+                        {
                             throw new NotSupportedException($"This update provider does not support {this.InvariantName}");
+                        }
+
                     default:
                         throw new InvalidOperationException($"This update provider does not support {this.InvariantName}");
                 }
             }
             else
+            {
                 return this.m_checkSql;
+            }
         }
 
 

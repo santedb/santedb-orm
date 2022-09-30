@@ -20,7 +20,6 @@
  */
 using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
-using SanteDB.Persistence.Data.ADO.Data.Model.DataType;
 using System;
 using System.Diagnostics.CodeAnalysis;
 

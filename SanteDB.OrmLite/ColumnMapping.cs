@@ -131,7 +131,7 @@ namespace SanteDB.OrmLite
             this.IsAlwaysJoin = pi.GetCustomAttribute<AlwaysJoinAttribute>() != null;
             this.JoinFilters = pi.GetCustomAttributes<JoinFilterAttribute>().ToList();
             this.DefaultValue = pi.GetCustomAttribute<DefaultValueAttribute>()?.DefaultValue;
-            if(this.DefaultValue is String str && Guid.TryParse(str, out Guid defaultGuid))
+            if (this.DefaultValue is String str && Guid.TryParse(str, out Guid defaultGuid))
             {
                 this.DefaultValue = defaultGuid;
             }
@@ -152,12 +152,17 @@ namespace SanteDB.OrmLite
         {
             ColumnMapping retVal = null;
             if (!s_columnCache.TryGetValue(pi, out retVal))
+            {
                 lock (s_columnCache)
                 {
                     retVal = new ColumnMapping(pi, ownerTable);
                     if (!s_columnCache.ContainsKey(pi))
+                    {
                         s_columnCache.Add(pi, retVal);
+                    }
                 }
+            }
+
             return retVal;
         }
 
@@ -167,7 +172,10 @@ namespace SanteDB.OrmLite
         public bool SourceSpecified(Object value)
         {
             if (m_specifiedProperty == null)
+            {
                 this.m_specifiedProperty = this.SourceProperty.DeclaringType.GetRuntimeProperty($"{this.SourceProperty.Name}Specified");
+            }
+
             return (bool)(this.m_specifiedProperty?.GetValue(value) ?? false);
         }
 

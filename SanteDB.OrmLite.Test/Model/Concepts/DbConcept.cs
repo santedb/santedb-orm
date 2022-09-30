@@ -30,8 +30,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
     [Table("cd_tbl")]
     [ExcludeFromCodeCoverage]
     [AssociativeTable(typeof(DbConceptSet), typeof(DbConceptSetConceptAssociation))]
-	public class DbConcept : DbIdentified
-	{
+    public class DbConcept : DbIdentified
+    {
 
         /// <summary>
         /// Gets or sets the code identifier

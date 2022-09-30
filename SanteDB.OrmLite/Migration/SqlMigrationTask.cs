@@ -82,7 +82,9 @@ namespace SanteDB.OrmLite.Migration
             try
             {
                 if (!this.VerifyState(configuration))
+                {
                     return true;
+                }
 
                 var config = this.Feature.Configuration as OrmConfigurationBase;
                 using (var conn = config.Provider.GetWriteConnection())

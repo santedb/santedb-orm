@@ -89,7 +89,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 !String.IsNullOrEmpty(connectionString.GetComponent("password")) &&
                 !String.IsNullOrEmpty(connectionString.GetComponent("database")) &&
                 !String.IsNullOrEmpty(connectionString.GetComponent("user id")))
+            {
                 return base.TestConnectionString(connectionString);
+            }
+
             return false;
         }
 
@@ -123,8 +126,13 @@ namespace SanteDB.OrmLite.Providers.Postgres
                         cmd.CommandText = "SELECT datname FROM pg_database;";
                         List<String> retVal = new List<string>(10);
                         using (var reader = cmd.ExecuteReader())
+                        {
                             while (reader.Read())
+                            {
                                 retVal.Add(Convert.ToString(reader[0]));
+                            }
+                        }
+
                         return retVal.ToArray();
                     }
                 }

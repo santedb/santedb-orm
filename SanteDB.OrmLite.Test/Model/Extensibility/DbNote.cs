@@ -32,7 +32,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
     /// </summary>
     [ExcludeFromCodeCoverage]
     public abstract class DbNote : DbVersionedAssociation
-	{
+    {
         /// <summary>
         /// Gets or sets the key
         /// </summary>
@@ -44,29 +44,31 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
 		/// </summary>
 		/// <value>The author identifier.</value>
 		[Column("auth_ent_id"), ForeignKey(typeof(DbEntity), nameof(DbEntity.Key))]
-		public Guid AuthorKey {
-			get;
-			set;
-		}
+        public Guid AuthorKey
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the text.
-		/// </summary>
-		/// <value>The text.</value>
-		[Column("note_txt")]
-		public String Text {
-			get;
-			set;
-		}
-	}
+        /// <summary>
+        /// Gets or sets the text.
+        /// </summary>
+        /// <value>The text.</value>
+        [Column("note_txt")]
+        public String Text
+        {
+            get;
+            set;
+        }
+    }
 
-	/// <summary>
-	/// Entity note.
-	/// </summary>
-	[Table("ent_note_tbl")]
+    /// <summary>
+    /// Entity note.
+    /// </summary>
+    [Table("ent_note_tbl")]
     [ExcludeFromCodeCoverage]
     public class DbEntityNote : DbNote
-	{
+    {
 
         /// <summary>
         /// Gets or sets the source identifier.
@@ -87,7 +89,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
     [Table("act_note_tbl")]
     [ExcludeFromCodeCoverage]
     public class DbActNote : DbNote
-	{
+    {
         /// <summary>
         /// Gets or sets the source identifier.
         /// </summary>

@@ -19,7 +19,6 @@
  * Date: 2022-5-30
  */
 using SanteDB.Core.Diagnostics;
-using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
 using System;
 using System.Collections.Generic;
@@ -152,7 +151,9 @@ namespace SanteDB.OrmLite.Providers
             cmd.Transaction = context.Transaction;
 
             if (this.TraceSql)
+            {
                 this.m_tracer.TraceEvent(EventLevel.Verbose, "[{0}] {1}", type, sql);
+            }
 
             foreach (var itm in parms)
             {
@@ -163,22 +164,34 @@ namespace SanteDB.OrmLite.Providers
                 parm.DbType = this.MapParameterType(value?.GetType());
 
                 if (value is DateTime && itm != null)
+                {
                     parm.Value = this.ConvertValue(itm, typeof(Int32));
+                }
                 else if (value is DateTimeOffset && itm != null)
+                {
                     parm.Value = this.ConvertValue(itm, typeof(Int32));
+                }
                 else if ((value is Guid || value is Guid?) && itm != null)
+                {
                     parm.Value = ((Guid)itm).ToByteArray();
+                }
 
                 // Set value
                 if (itm == null)
+                {
                     parm.Value = DBNull.Value;
+                }
                 else if (parm.Value == null)
+                {
                     parm.Value = itm;
+                }
 
                 parm.Direction = ParameterDirection.Input;
 
                 if (this.TraceSql)
+                {
                     this.m_tracer.TraceEvent(EventLevel.Verbose, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
+                }
 
                 cmd.Parameters.Add(parm);
             }
@@ -191,19 +204,50 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         public DbType MapParameterType(Type type)
         {
-            if (type == null) return DbType.Object;
-            else if (type.StripNullable() == typeof(String)) return System.Data.DbType.String;
-            else if (type.StripNullable() == typeof(DateTime)) return System.Data.DbType.Int32;
-            else if (type.StripNullable() == typeof(DateTimeOffset)) return DbType.Int32;
-            else if (type.StripNullable() == typeof(Int32)) return System.Data.DbType.Int32;
-            else if (type.StripNullable() == typeof(Boolean)) return System.Data.DbType.Boolean;
+            if (type == null)
+            {
+                return DbType.Object;
+            }
+            else if (type.StripNullable() == typeof(String))
+            {
+                return System.Data.DbType.String;
+            }
+            else if (type.StripNullable() == typeof(DateTime))
+            {
+                return System.Data.DbType.Int32;
+            }
+            else if (type.StripNullable() == typeof(DateTimeOffset))
+            {
+                return DbType.Int32;
+            }
+            else if (type.StripNullable() == typeof(Int32))
+            {
+                return System.Data.DbType.Int32;
+            }
+            else if (type.StripNullable() == typeof(Boolean))
+            {
+                return System.Data.DbType.Boolean;
+            }
             else if (type.StripNullable() == typeof(byte[]))
+            {
                 return System.Data.DbType.Binary;
-            else if (type.StripNullable() == typeof(float) || type.StripNullable() == typeof(double)) return System.Data.DbType.Double;
-            else if (type.StripNullable() == typeof(Decimal)) return System.Data.DbType.Decimal;
-            else if (type.StripNullable() == typeof(Guid)) return DbType.Binary;
+            }
+            else if (type.StripNullable() == typeof(float) || type.StripNullable() == typeof(double))
+            {
+                return System.Data.DbType.Double;
+            }
+            else if (type.StripNullable() == typeof(Decimal))
+            {
+                return System.Data.DbType.Decimal;
+            }
+            else if (type.StripNullable() == typeof(Guid))
+            {
+                return DbType.Binary;
+            }
             else
+            {
                 throw new ArgumentOutOfRangeException(nameof(type), "Can't map parameter type");
+            }
         }
 
         /// <summary>
@@ -212,7 +256,10 @@ namespace SanteDB.OrmLite.Providers
         public virtual DataContext GetReadonlyConnection()
         {
             if (this.m_provider == null)
+            {
                 this.m_provider = Activator.CreateInstance(Type.GetType("System.Data.SQLite.SQLiteProviderFactory, System.Data.SQLite, Culture=nuetral")) as DbProviderFactory;
+            }
+
             var conn = this.m_provider.CreateConnection();
             conn.ConnectionString = this.ReadonlyConnectionString;
             return new DataContext(this, conn);
@@ -225,7 +272,10 @@ namespace SanteDB.OrmLite.Providers
         public virtual DataContext GetWriteConnection()
         {
             if (this.m_provider == null)
+            {
                 this.m_provider = Activator.CreateInstance(Type.GetType("System.Data.SQLite.SQLiteProviderFactory, System.Data.SQLite, Culture=nuetral")) as DbProviderFactory;
+            }
+
             var conn = this.m_provider.CreateConnection();
             conn.ConnectionString = this.ConnectionString;
             return new DataContext(this, conn);
@@ -249,10 +299,16 @@ namespace SanteDB.OrmLite.Providers
             {
                 _lock = new object();
                 lock (this.m_locks)
+                {
                     if (!this.m_locks.ContainsKey(connection.ConnectionString))
+                    {
                         this.m_locks.Add(connection.ConnectionString, _lock);
+                    }
                     else
+                    {
                         return this.m_locks[connection.ConnectionString];
+                    }
+                }
             }
             return _lock;
         }
@@ -264,21 +320,34 @@ namespace SanteDB.OrmLite.Providers
         {
             object retVal = null;
             if (value == null)
+            {
                 return null;
+            }
             else if (typeof(DateTime) == toType.StripNullable() &&
                 (value is Int32 || value is Int64))
+            {
                 retVal = SanteDBConvert.ParseDateTime(Convert.ToInt32(value));
+            }
             else if (typeof(DateTimeOffset) == toType.StripNullable() &&
                 (value is Int32 || value is Int64))
+            {
                 retVal = SanteDBConvert.ParseDateTimeOffset(Convert.ToInt32(value));
+            }
             else if (typeof(Int32) == toType.StripNullable() &&
                 value is DateTime)
+            {
                 retVal = SanteDBConvert.ToDateTime((DateTime)value);
+            }
             else if (typeof(Int32) == toType.StripNullable() &&
                 value is DateTimeOffset)
+            {
                 retVal = SanteDBConvert.ToDateTimeOffset((DateTimeOffset)value);
+            }
             else
+            {
                 MapUtil.TryConvert(value, toType, out retVal);
+            }
+
             return retVal;
         }
 
@@ -288,7 +357,10 @@ namespace SanteDB.OrmLite.Providers
         public DataContext CloneConnection(DataContext source)
         {
             if (this.m_provider == null)
+            {
                 this.m_provider = Activator.CreateInstance(Type.GetType("System.Data.SQLite.SQLiteProviderFactory, System.Data.SQLite, Culture=nuetral")) as DbProviderFactory;
+            }
+
             var conn = this.m_provider.CreateConnection();
             conn.ConnectionString = source.Connection.ConnectionString;
             return new DataContext(this, conn) { ContextId = source.ContextId };
@@ -323,8 +395,12 @@ namespace SanteDB.OrmLite.Providers
         {
             type = type.StripNullable();
             if (type == typeof(byte[]))
+            {
                 return "blob";
-            else switch (type.Name)
+            }
+            else
+            {
+                switch (type.Name)
                 {
                     case nameof(Boolean):
                         return "boolean";
@@ -338,7 +414,7 @@ namespace SanteDB.OrmLite.Providers
                         return "FLOAT";
                     case nameof(Int32):
                         return "INTEGER";
-                    
+
                     case nameof(String):
                         return "VARCHAR(256)";
                     case nameof(Guid):
@@ -346,7 +422,7 @@ namespace SanteDB.OrmLite.Providers
                     default:
                         throw new NotSupportedException($"Schema type {type} not supported by SQLite provider");
                 }
-
+            }
         }
 
         /// <summary>
