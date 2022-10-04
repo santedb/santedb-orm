@@ -85,9 +85,7 @@ namespace SanteDB.OrmLite.Migration
             m_traceSource.TraceInfo("Ensure context {0} is updated...", scopeOfContext);
             var configProvider = GetConfigurationProviders().FirstOrDefault(o => o.DbProviderType == provider.GetType());
             var connectionString = new ConnectionString(provider.Invariant, provider.ConnectionString);
-            var dbNameSetting = configProvider.Options.First(o => o.Value == Core.Configuration.ConfigurationOptionType.DatabaseName).Key;
-            var dbUserSetting = configProvider.Options.First(o => o.Value == Core.Configuration.ConfigurationOptionType.User).Key;
-            var dbName = connectionString.GetComponent(dbNameSetting);
+            var dbName = connectionString.GetComponent(configProvider.Capabilities.NameSetting);
             // TODO: Move this to a common location
             if (AppDomain.CurrentDomain.GetData("DataDirectory") != null)
             {
@@ -98,7 +96,7 @@ namespace SanteDB.OrmLite.Migration
                 try
                 {
                     m_traceSource.TraceInfo("Will create database {0}...", dbName);
-                    configProvider.CreateDatabase(connectionString, dbName, connectionString.GetComponent(dbUserSetting));
+                    configProvider.CreateDatabase(connectionString, dbName, connectionString.GetComponent(configProvider.Capabilities.UserNameSetting));
                 }
                 catch (Exception e)
                 {
@@ -217,7 +215,7 @@ namespace SanteDB.OrmLite.Migration
                 {
                     cmd.CommandText = checkSql;
                     cmd.CommandType = System.Data.CommandType.Text;
-                    return (bool?)cmd.ExecuteScalar() == true;
+                    return conn.Provider.ConvertValue<bool?>(cmd.ExecuteScalar()) == true;
                 }
             }
 

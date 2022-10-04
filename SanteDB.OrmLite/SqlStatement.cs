@@ -35,7 +35,7 @@ namespace SanteDB.OrmLite
     public class SqlStatement
     {
         // Provider
-        protected IDbProvider m_provider = null;
+        protected IDbStatementFactory m_statementFactory = null;
 
         /// <summary>
         /// The SQL statement
@@ -60,7 +60,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Get the DB provider
         /// </summary>
-        public IDbProvider DbProvider => this.m_provider;
+        public IDbStatementFactory DbProvider => this.m_statementFactory;
 
         /// <summary>
         /// Arguments for the SQL Statement
@@ -82,15 +82,15 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Creates a new empty SQL statement
         /// </summary>
-        public SqlStatement(IDbProvider provider)
+        public SqlStatement(IDbStatementFactory statementFactory)
         {
-            this.m_provider = provider;
+            this.m_statementFactory = statementFactory;
         }
 
         /// <summary>
         /// Create a new sql statement from the specified sql
         /// </summary>
-        public SqlStatement(IDbProvider provider, string sql, params object[] parms) : this(provider)
+        public SqlStatement(IDbStatementFactory statementFactory, string sql, params object[] parms) : this(statementFactory)
         {
             var sqlParms = this.m_sql?.Count(o => o == '?') ?? 0;
             if (sqlParms > parms.Length)
@@ -129,7 +129,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement Append(string sql, params object[] parms)
         {
-            return this.Append(new SqlStatement(this.m_provider, sql, parms));
+            return this.Append(new SqlStatement(this.m_statementFactory, sql, parms));
         }
 
         /// <summary>
@@ -156,7 +156,7 @@ namespace SanteDB.OrmLite
                 focus = focus.m_rhs;
             } while (focus != null);
 
-            return new SqlStatement(this.m_provider, sb.ToString(), parameters.ToArray());
+            return new SqlStatement(this.m_statementFactory, sb.ToString(), parameters.ToArray());
         }
 
         /// <summary>
@@ -171,7 +171,7 @@ namespace SanteDB.OrmLite
                 return this;
             }
 
-            return this.Append(new SqlStatement(this.m_provider, "WHERE ").Append(clause));
+            return this.Append(new SqlStatement(this.m_statementFactory, "WHERE ").Append(clause));
         }
 
         /// <summary>
@@ -179,7 +179,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement Where(String whereClause, params object[] args)
         {
-            return this.Where(new SqlStatement(this.m_provider, whereClause, args));
+            return this.Where(new SqlStatement(this.m_statementFactory, whereClause, args));
         }
 
         /// <summary>
@@ -202,7 +202,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement And(String clause, params object[] args)
         {
-            return this.And(new SqlStatement(this.m_provider, clause, args));
+            return this.And(new SqlStatement(this.m_statementFactory, clause, args));
         }
 
         /// <summary>
@@ -217,7 +217,7 @@ namespace SanteDB.OrmLite
             }
             else
             {
-                return this.Append(new SqlStatement(this.m_provider, " OR ")).Append(clause.Build());
+                return this.Append(new SqlStatement(this.m_statementFactory, " OR ")).Append(clause.Build());
             }
         }
 
@@ -226,7 +226,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement Or(String clause, params object[] args)
         {
-            return this.Or(new SqlStatement(this.m_provider, clause, args));
+            return this.Or(new SqlStatement(this.m_statementFactory, clause, args));
         }
 
         /// <summary>
@@ -290,7 +290,7 @@ namespace SanteDB.OrmLite
         public SqlStatement SelectFrom(Type dataType)
         {
             var tableMap = TableMapping.Get(dataType);
-            return this.Append(new SqlStatement(this.m_provider, $"SELECT * FROM {tableMap.TableName} AS {tableMap.TableName} "));
+            return this.Append(new SqlStatement(this.m_statementFactory, $"SELECT * FROM {tableMap.TableName} AS {tableMap.TableName} "));
         }
 
         /// <summary>
@@ -299,7 +299,7 @@ namespace SanteDB.OrmLite
         public SqlStatement DeleteFrom(Type dataType)
         {
             var tableMap = TableMapping.Get(dataType);
-            return this.Append(new SqlStatement(this.m_provider, $"DELETE FROM {tableMap.TableName} "));
+            return this.Append(new SqlStatement(this.m_statementFactory, $"DELETE FROM {tableMap.TableName} "));
         }
 
         /// <summary>
@@ -308,7 +308,7 @@ namespace SanteDB.OrmLite
         public SqlStatement SelectFrom(Type dataType, params ColumnMapping[] columns)
         {
             var tableMap = TableMapping.Get(dataType);
-            return this.Append(new SqlStatement(this.m_provider, $"SELECT {String.Join(",", columns.Select(o => $"{o.Table.TableName}.{o.Name}"))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
+            return this.Append(new SqlStatement(this.m_statementFactory, $"SELECT {String.Join(",", columns.Select(o => $"{o.Table.TableName}.{o.Name}"))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
         }
 
         /// <summary>
@@ -317,9 +317,9 @@ namespace SanteDB.OrmLite
         public SqlStatement Where<TExpression>(Expression<Func<TExpression, bool>> expression)
         {
             var tableMap = TableMapping.Get(typeof(TExpression));
-            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
+            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_statementFactory);
             queryBuilder.Visit(expression.Body);
-            return this.Append(new SqlStatement(this.m_provider, "WHERE ").Append(queryBuilder.SqlStatement.Build()));
+            return this.Append(new SqlStatement(this.m_statementFactory, "WHERE ").Append(queryBuilder.SqlStatement.Build()));
         }
 
         internal void Append(object like)
@@ -333,7 +333,7 @@ namespace SanteDB.OrmLite
         public SqlStatement And<TExpression>(Expression<Func<TExpression, bool>> expression)
         {
             var tableMap = TableMapping.Get(typeof(TExpression));
-            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
+            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_statementFactory);
             queryBuilder.Visit(expression.Body);
             return this.And(queryBuilder.SqlStatement.Build());
         }
@@ -343,13 +343,14 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement Offset(int offset)
         {
-            if (this.m_provider.Features.HasFlag(SqlEngineFeatures.LimitOffset))
+            if (this.m_statementFactory.Features.HasFlag(SqlEngineFeatures.LimitOffset))
             {
-                return this.Append($" OFFSET {offset} ");
+                // Need a limit before this statement
+                return this.RemoveOffset(out _).Append($" OFFSET {offset} ");
             }
-            else if (this.m_provider.Features.HasFlag(SqlEngineFeatures.FetchOffset))
+            else if (this.m_statementFactory.Features.HasFlag(SqlEngineFeatures.FetchOffset))
             {
-                return this.Append($" OFFSET {offset} ROW ");
+                return this.RemoveOffset(out _).Append($" OFFSET {offset} ROW ");
             }
             else
             {
@@ -363,11 +364,11 @@ namespace SanteDB.OrmLite
         public SqlStatement RemoveOffset(out int offset)
         {
             var sql = this.Build();
-            var sqlPart = new Regex(@"^(.*?)OFFSET (\d+?)\s(?:ROW)?(.*?)$").Match(sql.SQL);
+            var sqlPart = new Regex(@"OFFSET (\d+?)\s?(?:ROW)?").Match(sql.SQL);
             if (sqlPart.Success)
             {
-                offset = Int32.Parse(sqlPart.Groups[2].Value);
-                return new SqlStatement(this.m_provider, $"{sqlPart.Groups[1].Value} {sqlPart.Groups[3].Value}", sql.Arguments.ToArray());
+                offset = Int32.Parse(sqlPart.Groups[1].Value);
+                return new SqlStatement(this.m_statementFactory, $"{sql.SQL.Substring(0, sqlPart.Index)} {sql.SQL.Substring(sqlPart.Index + sqlPart.Length)}", sql.Arguments.ToArray());
             }
             offset = 0;
             return sql;
@@ -378,13 +379,14 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement Limit(int limit)
         {
-            if (this.m_provider.Features.HasFlag(SqlEngineFeatures.LimitOffset))
+            if (this.m_statementFactory.Features.HasFlag(SqlEngineFeatures.LimitOffset))
             {
-                return this.Append($" LIMIT {limit} ");
+
+                return this.RemoveLimit(out _).Append($" LIMIT {limit} ")  ;
             }
-            else if (this.m_provider.Features.HasFlag(SqlEngineFeatures.FetchOffset))
+            else if (this.m_statementFactory.Features.HasFlag(SqlEngineFeatures.FetchOffset))
             {
-                return this.Append($" FETCH FIRST {limit} ROWS ONLY");
+                return this.RemoveLimit(out _).Append($" FETCH FIRST {limit} ROWS ONLY");
             }
             else
             {
@@ -398,11 +400,11 @@ namespace SanteDB.OrmLite
         public SqlStatement RemoveLimit(out int count)
         {
             var sql = this.Build();
-            var sqlPart = new Regex(@"^(.*?)(?:FETCH\sFIRST|LIMIT)\s(\d+)(?:\sROWS\sONLY)?(.*?)$$").Match(sql.SQL);
+            var sqlPart = new Regex(@"(?:FETCH\sFIRST|LIMIT)\s(\d+?)\s?(?:\sROWS\sONLY)?").Match(sql.SQL);
             if (sqlPart.Success)
             {
-                count = Int32.Parse(sqlPart.Groups[2].Value);
-                return new SqlStatement(this.m_provider, $"{sqlPart.Groups[1].Value} {sqlPart.Groups[3].Value}", sql.Arguments.ToArray());
+                count = Int32.Parse(sqlPart.Groups[1].Value);
+                return new SqlStatement(this.m_statementFactory, $"{sql.SQL.Substring(0, sqlPart.Index)} {sql.SQL.Substring(sqlPart.Index + sqlPart.Length)}", sql.Arguments.ToArray());
             }
             count = -1;
             return sql;
@@ -480,8 +482,8 @@ namespace SanteDB.OrmLite
             var sqlPart = new Regex(@"^(.*?)(ORDER BY (?:.*? (?:ASC|DESC),?){0,})(.*)$").Match(sql.SQL);
             if (sqlPart.Success)
             {
-                orderBy = new SqlStatement(this.m_provider, sqlPart.Groups[2].Value);
-                return new SqlStatement(this.m_provider, $"{sqlPart.Groups[1].Value} {sqlPart.Groups[3].Value}", sql.Arguments.ToArray());
+                orderBy = new SqlStatement(this.m_statementFactory, sqlPart.Groups[2].Value);
+                return new SqlStatement(this.m_statementFactory, $"{sqlPart.Groups[1].Value} {sqlPart.Groups[3].Value}", sql.Arguments.ToArray());
             }
             orderBy = null;
             return this;
@@ -520,7 +522,7 @@ namespace SanteDB.OrmLite
         public SqlStatement UpdateSet(Type tableType)
         {
             var tableMap = TableMapping.Get(tableType);
-            return this.Append(new SqlStatement(this.m_provider, $"UPDATE {tableMap.TableName} SET "));
+            return this.Append(new SqlStatement(this.m_statementFactory, $"UPDATE {tableMap.TableName} SET "));
         }
     }
 
@@ -542,14 +544,14 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Creates a new empty SQL statement
         /// </summary>
-        public SqlStatement(IDbProvider provider) : base(provider)
+        public SqlStatement(IDbStatementFactory factory) : base(factory)
         {
         }
 
         /// <summary>
         /// Create a new sql statement from the specified sql
         /// </summary>
-        public SqlStatement(IDbProvider provider, string sql, params object[] parms) : base(provider, sql, parms)
+        public SqlStatement(IDbStatementFactory factory, string sql, params object[] parms) : base(factory, sql, parms)
         {
         }
 
@@ -585,7 +587,7 @@ namespace SanteDB.OrmLite
             var joinStatement = this.Append($"INNER JOIN {rightMap.TableName} ON ");
             var rhsPk = rightMap.GetColumn(rightColumn.Body.GetMember());
             var lhsPk = leftMap.GetColumn(leftColumn.Body.GetMember());
-            var retVal = new SqlStatement<T>(this.m_provider);
+            var retVal = new SqlStatement<T>(this.m_statementFactory);
             retVal.Append(joinStatement).Append($"({lhsPk.Table.TableName}.{lhsPk.Name} = {rhsPk.Table.TableName}.{rhsPk.Name}) ");
             return retVal;
         }
@@ -596,9 +598,9 @@ namespace SanteDB.OrmLite
         public SqlStatement Where(Expression<Func<T, bool>> expression)
         {
             var tableMap = TableMapping.Get(typeof(T));
-            var queryBuilder = new SqlQueryExpressionBuilder(this.m_alias ?? tableMap.TableName, this.m_provider);
+            var queryBuilder = new SqlQueryExpressionBuilder(this.m_alias ?? tableMap.TableName, this.m_statementFactory);
             queryBuilder.Visit(expression.Body);
-            return this.Append(new SqlStatement(this.m_provider, "WHERE ").Append(queryBuilder.SqlStatement));
+            return this.Append(new SqlStatement(this.m_statementFactory, "WHERE ").Append(queryBuilder.SqlStatement));
         }
 
         /// <summary>
@@ -606,7 +608,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement<TReturn> AutoJoin<TJoinTable, TReturn>()
         {
-            var retVal = new SqlStatement<TReturn>(this.m_provider);
+            var retVal = new SqlStatement<TReturn>(this.m_statementFactory);
             retVal.Append(this).InnerJoin(typeof(T), typeof(TJoinTable));
             return retVal;
         }
@@ -617,7 +619,7 @@ namespace SanteDB.OrmLite
         public SqlStatement<T> DeleteFrom()
         {
             var tableMap = TableMapping.Get(typeof(T));
-            return this.Append(new SqlStatement<T>(this.m_provider, $"DELETE FROM {tableMap.TableName} "));
+            return this.Append(new SqlStatement<T>(this.m_statementFactory, $"DELETE FROM {tableMap.TableName} "));
         }
 
         /// <summary>
@@ -626,23 +628,23 @@ namespace SanteDB.OrmLite
         public SqlStatement<T> SelectFrom()
         {
             var tableMap = TableMapping.Get(typeof(T));
-            SqlStatement<T> retVal = new SqlStatement<T>(this.m_provider, "SELECT ");
-            if (this.m_provider.Features.HasFlag(SqlEngineFeatures.StrictSubQueryColumnNames))
+            SqlStatement<T> retVal = new SqlStatement<T>(this.m_statementFactory, "SELECT ");
+            if (this.m_statementFactory.Features.HasFlag(SqlEngineFeatures.StrictSubQueryColumnNames))
             {
-                retVal.Append(new SqlStatement<T>(this.m_provider, $"{String.Join(",", tableMap.Columns.Select(c => $"{tableMap.TableName}.{c.Name}").ToArray())}")
+                retVal.Append(new SqlStatement<T>(this.m_statementFactory, $"{String.Join(",", tableMap.Columns.Select(c => $"{tableMap.TableName}.{c.Name}").ToArray())}")
                 {
                     m_alias = tableMap.TableName
                 });
             }
             else
             {
-                retVal.Append(new SqlStatement<T>(this.m_provider, $"*")
+                retVal.Append(new SqlStatement<T>(this.m_statementFactory, $"*")
                 {
                     m_alias = tableMap.TableName
                 });
             }
 
-            retVal.Append(new SqlStatement<T>(this.m_provider, $" FROM {tableMap.TableName} AS {tableMap.TableName} "));
+            retVal.Append(new SqlStatement<T>(this.m_statementFactory, $" FROM {tableMap.TableName} AS {tableMap.TableName} "));
             return retVal;
         }
 
@@ -654,7 +656,7 @@ namespace SanteDB.OrmLite
         public SqlStatement<T> SelectFrom(params ColumnMapping[] columns)
         {
             var tableMap = TableMapping.Get(typeof(T));
-            return this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {String.Join(",", columns.Select(o => o.Table == null ? o.Name : $"{o.Table.TableName}.{o.Name}"))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
+            return this.Append(new SqlStatement<T>(this.m_statementFactory, $"SELECT {String.Join(",", columns.Select(o => o.Table == null ? o.Name : $"{o.Table.TableName}.{o.Name}"))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
         }
 
         /// <summary>
@@ -678,7 +680,7 @@ namespace SanteDB.OrmLite
               }).Select(o => $"{(!o.Table.HasName ? "" : o.Table.TableName + ".")}{o.Name}"));
 
             // Append the result to query
-            var retVal = this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {columnList} ")
+            var retVal = this.Append(new SqlStatement<T>(this.m_statementFactory, $"SELECT {columnList} ")
             {
                 m_alias = tableMap.TableName
             });
@@ -694,7 +696,7 @@ namespace SanteDB.OrmLite
         public SqlStatement<T> UpdateSet()
         {
             var tableMap = TableMapping.Get(typeof(T));
-            return this.Append(new SqlStatement<T>(this.m_provider, $"UPDATE {tableMap.TableName} SET "));
+            return this.Append(new SqlStatement<T>(this.m_statementFactory, $"UPDATE {tableMap.TableName} SET "));
         }
     }
 }

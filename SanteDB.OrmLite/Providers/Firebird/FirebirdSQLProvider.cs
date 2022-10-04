@@ -62,19 +62,19 @@ namespace SanteDB.OrmLite.Providers.Firebird
         // UUID regex
         private readonly Regex m_uuidRegex = new Regex(@"(\'[A-Za-z0-9]{8}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{12}\')");
 
-        // Filter functions
-        private static Dictionary<String, IDbFilterFunction> s_filterFunctions = null;
-
-        // Filter functions
-        private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
-
         private IDiagnosticsProbe m_monitor;
+
+        /// <summary>
+        /// Gets the statement factory
+        /// </summary>
+        public IDbStatementFactory StatementFactory { get; }
 
         /// <summary>
         /// Create a new firebird provider
         /// </summary>
         public FirebirdSQLProvider()
         {
+            this.StatementFactory = new FirebirdStatementFactory();
         }
 
         /// <summary>
@@ -86,20 +86,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// True if commands can be cancel
         /// </summary>
         public bool CanCancelCommands => false;
-
-        /// <summary>
-        /// Gets the features that this provider
-        /// </summary>
-        public SqlEngineFeatures Features
-        {
-            get
-            {
-                return SqlEngineFeatures.AutoGenerateTimestamps |
-                    SqlEngineFeatures.FetchOffset |
-                    SqlEngineFeatures.ReturnedInsertsAsParms |
-                    SqlEngineFeatures.StrictSubQueryColumnNames;
-            }
-        }
 
         /// <summary>
         /// Gets the name of the provider
@@ -144,6 +130,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
             return retVal;
         }
 
+
+        /// <inheritdoc/>
+        public T ConvertValue<T>(object value) => (T)this.ConvertValue(value, typeof(T));
+
         /// <summary>
         /// Convert a value to the specified type
         /// </summary>
@@ -173,16 +163,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 }
             }
             return retVal;
-        }
-
-        /// <summary>
-        /// Turn the specified SQL statement into a count statement
-        /// </summary>
-        /// <param name="sqlStatement">The SQL statement to be counted</param>
-        /// <returns>The count statement</returns>
-        public SqlStatement Count(SqlStatement sqlStatement)
-        {
-            return new SqlStatement(this, "SELECT COUNT(*) FROM (").Append(sqlStatement.Build()).Append(") Q0");
         }
 
         /// <summary>
@@ -364,37 +344,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
         }
 
         /// <summary>
-        /// Create SQL keyword
-        /// </summary>
-        /// <param name="keywordType">The type of keyword</param>
-        /// <returns>The SQL equivalent</returns>
-        public string CreateSqlKeyword(SqlKeyword keywordType)
-        {
-            switch (keywordType)
-            {
-                case SqlKeyword.ILike:
-                case SqlKeyword.Like:
-                    return " LIKE ";
-
-                case SqlKeyword.Lower:
-                    return " LOWER ";
-
-                case SqlKeyword.Upper:
-                    return " UPPER ";
-
-                case SqlKeyword.False:
-                    return " FALSE ";
-
-                case SqlKeyword.True:
-                    return " TRUE ";
-                case SqlKeyword.CreateOrAlter:
-                    return "CREATE OR ALTER ";
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(keywordType));
-            }
-        }
-
-        /// <summary>
         /// Create a stored procedure execution
         /// </summary>
         /// <param name="context">The context of the command</param>
@@ -413,15 +362,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
             }
         }
 
-        /// <summary>
-        /// Create an EXISTS statement
-        /// </summary>
-        /// <param name="sqlStatement">The statement to determine EXISTS on</param>
-        /// <returns>The constructed statement</returns>
-        public SqlStatement Exists(SqlStatement sqlStatement)
-        {
-            return new SqlStatement(this, "SELECT CASE WHEN EXISTS (").Append(sqlStatement.Build()).Append(") THEN true ELSE false END FROM RDB$DATABASE");
-        }
 
         /// <summary>
         /// Get provider factory
@@ -502,6 +442,48 @@ namespace SanteDB.OrmLite.Providers.Firebird
         }
 
         /// <summary>
+        /// Stat the activity
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerable<DbStatementReport> StatActivity()
+        {
+            using (var conn = this.GetReadonlyConnection())
+            {
+                conn.Open();
+                using (var cmd = conn.Connection.CreateCommand())
+                {
+                    cmd.CommandType = CommandType.Text;
+                    cmd.CommandText = "select mon$statement_id as pid, mon$state as state, mon$timestamp as query_start, cast(left(mon$sql_text, 128) as varchar(128)) as query from mon$statements;";
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        while (rdr.Read())
+                        {
+                            yield return new DbStatementReport()
+                            {
+                                StatementId = rdr["pid"].ToString(),
+                                Start = DateTime.Parse(rdr["query_start"].ToString()),
+                                Status = rdr["state"].ToString() == "1" ? DbStatementStatus.Active : DbStatementStatus.Idle,
+                                Query = rdr["query"].ToString()
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get the name of the database
+        /// </summary>
+        public string GetDatabaseName()
+        {
+            var fact = this.GetProviderFactory().CreateConnectionStringBuilder();
+            fact.ConnectionString = this.ConnectionString;
+            fact.TryGetValue("initial catalog", out var value);
+            return value?.ToString();
+        }
+
+
+        /// <summary>
         /// Maps the specified data type
         /// </summary>
         /// <param name="type"></param>
@@ -541,118 +523,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
             }
         }
 
-        /// <summary>
-        /// Perform a returning command
-        /// </summary>
-        /// <param name="sqlStatement">The SQL statement to "return"</param>
-        /// <param name="returnColumns">The columns to return</param>
-        /// <returns>The returned colums</returns>
-        public SqlStatement Returning(SqlStatement sqlStatement, params ColumnMapping[] returnColumns)
-        {
-            if (returnColumns.Length == 0)
-            {
-                return sqlStatement;
-            }
-
-            return sqlStatement.Append($" RETURNING {String.Join(",", returnColumns.Select(o => o.Name))}");
-        }
-
-        /// <summary>
-        /// Gets the filter function
-        /// </summary>
-        public IDbFilterFunction GetFilterFunction(string name)
-        {
-            if (s_filterFunctions == null)
-            {
-                s_filterFunctions = ApplicationServiceContext.Current.GetService<IServiceManager>()
-                        .CreateInjectedOfAll<IDbFilterFunction>()
-                        .Where(o => o.Provider == this.Invariant)
-                        .ToDictionary(o => o.Name, o => o);
-            }
-            IDbFilterFunction retVal = null;
-            s_filterFunctions.TryGetValue(name, out retVal);
-            return retVal;
-        }
-
-
-        /// <summary>
-        /// Gets the index function
-        /// </summary>
-        public IDbIndexFunction GetIndexFunction(string name)
-        {
-            if (s_indexFunctions == null)
-            {
-                s_indexFunctions = ApplicationServiceContext.Current.GetService<IServiceManager>()
-                        .CreateInjectedOfAll<IDbIndexFunction>()
-                        .Where(o => o.Provider == this.Invariant)
-                        .ToDictionary(o => o.Name, o => o);
-            }
-
-            s_indexFunctions.TryGetValue(name, out var retVal);
-            return retVal;
-        }
-
-        /// <summary>
-        /// Stat the activity
-        /// </summary>
-        /// <returns></returns>
-        public IEnumerable<DbStatementReport> StatActivity()
-        {
-            using (var conn = this.GetReadonlyConnection())
-            {
-                conn.Open();
-                using (var cmd = conn.Connection.CreateCommand())
-                {
-                    cmd.CommandType = CommandType.Text;
-                    cmd.CommandText = "select mon$statement_id as pid, mon$state as state, mon$timestamp as query_start, cast(left(mon$sql_text, 128) as varchar(128)) as query from mon$statements;";
-                    using (var rdr = cmd.ExecuteReader())
-                    {
-                        while (rdr.Read())
-                        {
-                            yield return new DbStatementReport()
-                            {
-                                StatementId = rdr["pid"].ToString(),
-                                Start = DateTime.Parse(rdr["query_start"].ToString()),
-                                Status = rdr["state"].ToString() == "1" ? DbStatementStatus.Active : DbStatementStatus.Idle,
-                                Query = rdr["query"].ToString()
-                            };
-                        }
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Get reset sequence command
-        /// </summary>
-        public SqlStatement GetResetSequence(string sequenceName, object sequenceValue)
-        {
-            return new SqlStatement(this, $"ALTER SEQUENCE {sequenceName} RESTART WITH {(int)sequenceValue}");
-        }
-
-        /// <inheritdoc/>
-        public SqlStatement CreateIndex(string indexName, string tableName, string column, bool isUnique)
-        {
-            return new SqlStatement(this, $"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} ({column})");
-        }
-
-        /// <inheritdoc/>
-        public SqlStatement DropIndex(string indexName)
-        {
-            return new SqlStatement(this, $"DROP INDEX {indexName}");
-        }
-
-
-        /// <summary>
-        /// Get the name of the database
-        /// </summary>
-        public string GetDatabaseName()
-        {
-            var fact = this.GetProviderFactory().CreateConnectionStringBuilder();
-            fact.ConnectionString = this.ConnectionString;
-            fact.TryGetValue("initial catalog", out var value);
-            return value?.ToString();
-        }
 
     }
 }

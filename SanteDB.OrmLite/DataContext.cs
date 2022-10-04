@@ -119,7 +119,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public QueryBuilder GetQueryBuilder(ModelMapper map)
         {
-            return new QueryBuilder(map, this.m_provider);
+            return new QueryBuilder(map, this.m_provider.StatementFactory);
         }
 
         /// <summary>
@@ -286,7 +286,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement CreateSqlStatement()
         {
-            return new SqlStatement(this.m_provider);
+            return new SqlStatement(this.m_provider.StatementFactory);
         }
 
         /// <summary>
@@ -294,7 +294,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement CreateSqlStatement(String sql, params object[] args)
         {
-            return new SqlStatement(this.m_provider, sql, args);
+            return new SqlStatement(this.m_provider.StatementFactory, sql, args);
         }
 
         /// <summary>
@@ -302,7 +302,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement<T> CreateSqlStatement<T>()
         {
-            return new SqlStatement<T>(this.m_provider);
+            return new SqlStatement<T>(this.m_provider.StatementFactory);
         }
 
         /// <summary>

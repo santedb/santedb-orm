@@ -185,12 +185,12 @@ namespace SanteDB.OrmLite
         // Mapper
         private ModelMapper m_mapper;
 
-        private IDbProvider m_provider;
+        private IDbStatementFactory m_factory;
 
         /// <summary>
         /// Provider
         /// </summary>
-        public IDbProvider Provider => this.m_provider;
+        public IDbStatementFactory StatementFactory => this.m_factory;
 
         /// <summary>
         /// Add query builder hacks
@@ -205,10 +205,10 @@ namespace SanteDB.OrmLite
         /// </summary>
         /// <param name="mapper">The mapper which is used to map types</param>
         /// <param name="provider">The provider which built this query provider</param>
-        public QueryBuilder(ModelMapper mapper, IDbProvider provider)
+        public QueryBuilder(ModelMapper mapper, IDbStatementFactory provider)
         {
             this.m_mapper = mapper;
-            this.m_provider = provider;
+            this.m_factory = provider;
         }
 
         /// <summary>
@@ -221,7 +221,7 @@ namespace SanteDB.OrmLite
             var tableMap = TableMapping.Get(tableType);
             List<TableMapping> scopedTables = new List<TableMapping>() { tableMap };
 
-            return CreateWhereCondition(typeof(TModel), new SqlStatement(m_provider), nvc.ToDictionary(), String.Empty, scopedTables, null, out IList<SqlStatement> _);
+            return CreateWhereCondition(typeof(TModel), new SqlStatement(m_factory), nvc.ToDictionary(), String.Empty, scopedTables, null, out IList<SqlStatement> _);
         }
 
         /// <summary>
@@ -289,13 +289,13 @@ namespace SanteDB.OrmLite
                     query.Remove("obsoletionTime");
                     scopedTables = new List<TableMapping>() { tableMap };
                 }
-                selectStatement = new SqlStatement(this.m_provider, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
+                selectStatement = new SqlStatement(this.m_factory, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
             }
             else
             {
                 //if (!s_joinCache.TryGetValue($"{tablePrefix}.{typeof(TModel).Name}", out cacheHit))
                 //{
-                selectStatement = new SqlStatement(this.m_provider, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
+                selectStatement = new SqlStatement(this.m_factory, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
 
                 Stack<TableMapping> fkStack = new Stack<TableMapping>();
                 fkStack.Push(tableMap);
@@ -369,7 +369,7 @@ namespace SanteDB.OrmLite
             {
                 // The SQL Engine being used does not permit duplicate column names that may come from
                 // SELECT * in a sub-query, so we should explicitly call out the columns to be safe
-                if (this.m_provider.Features.HasFlag(SqlEngineFeatures.StrictSubQueryColumnNames))
+                if (this.m_factory.Features.HasFlag(SqlEngineFeatures.StrictSubQueryColumnNames))
                 {
                     var existingCols = new List<String>();
 
@@ -383,17 +383,17 @@ namespace SanteDB.OrmLite
                         }
                         return false;
                     }).Select(o => $"{tablePrefix}{o.Table.TableName}.{o.Name}"));
-                    selectStatement = new SqlStatement(this.m_provider, $"SELECT {columnList} ").Append(selectStatement);
+                    selectStatement = new SqlStatement(this.m_factory, $"SELECT {columnList} ").Append(selectStatement);
                 }
                 else
                 {
-                    selectStatement = new SqlStatement(this.m_provider, $"SELECT *").Append(selectStatement);
+                    selectStatement = new SqlStatement(this.m_factory, $"SELECT *").Append(selectStatement);
                 }
                 // columnSelector = scopedTables.SelectMany(o => o.Columns).ToArray();
             }
             else if (columnSelector.All(o => o.SourceProperty == null)) // Fake / constants
             {
-                selectStatement = new SqlStatement(this.m_provider, $"SELECT {String.Join(",", columnSelector.Select(o => o.Name))} ").Append(selectStatement);
+                selectStatement = new SqlStatement(this.m_factory, $"SELECT {String.Join(",", columnSelector.Select(o => o.Name))} ").Append(selectStatement);
             }
             else
             {
@@ -413,12 +413,12 @@ namespace SanteDB.OrmLite
                         return $"{tablePrefix}{scopedTable.TableName}.{o.Name}";
                     }
                 }));
-                selectStatement = new SqlStatement(this.m_provider, $"SELECT {columnList} ").Append(selectStatement);
+                selectStatement = new SqlStatement(this.m_factory, $"SELECT {columnList} ").Append(selectStatement);
             }
 
             var whereClause = this.CreateWhereCondition(tmodel, selectStatement, query, tablePrefix, scopedTables, parentScopedTables, out IList<SqlStatement> cteStatements);
             // Return statement
-            SqlStatement retVal = new SqlStatement(this.m_provider);
+            SqlStatement retVal = new SqlStatement(this.m_factory);
             if (cteStatements.Count > 0)
             {
                 retVal.Append("WITH ");
@@ -453,7 +453,7 @@ namespace SanteDB.OrmLite
             var workingParameters = query.ToList();
 
             // Where clause
-            SqlStatement whereClause = new SqlStatement(this.m_provider);
+            SqlStatement whereClause = new SqlStatement(this.m_factory);
             cteStatements = new List<SqlStatement>();
 
             // Construct
@@ -513,7 +513,7 @@ namespace SanteDB.OrmLite
                             var linkColumn = linkColumns.Count() > 1 ? linkColumns.FirstOrDefault(o => propertyPredicate.SubPath.StartsWith("source") ? o.SourceProperty.Name != "SourceKey" : o.SourceProperty.Name == "SourceKey") : linkColumns.FirstOrDefault();
 
                             // Link column is null, is there an assoc attrib?
-                            SqlStatement subQueryStatement = new SqlStatement(this.m_provider);
+                            SqlStatement subQueryStatement = new SqlStatement(this.m_factory);
 
                             var subTableColumn = linkColumn;
                             string existsClause = String.Empty;
@@ -731,7 +731,7 @@ namespace SanteDB.OrmLite
                     var propertyInfo = mexpr.Member as PropertyInfo;
                     PropertyInfo domainProperty = scopedTables.Select(o => { tableMapping = o; return m_mapper.MapModelProperty(tmodel, o.OrmType, propertyInfo); }).FirstOrDefault(o => o != null);
                     var columnData = tableMapping.GetColumn(domainProperty);
-                    return new SqlStatement(this.m_provider, $" {columnData.Name} {(order == SortOrderType.OrderBy ? "ASC" : "DESC")}");
+                    return new SqlStatement(this.m_factory, $" {columnData.Name} {(order == SortOrderType.OrderBy ? "ASC" : "DESC")}");
 
                 default:
                     throw new InvalidOperationException("Cannot sort by this property expression");
@@ -827,17 +827,17 @@ namespace SanteDB.OrmLite
                 throw new ArgumentNullException(nameof(domainProperty));
             }
 
-            var retVal = new SqlStatement(this.m_provider);
+            var retVal = new SqlStatement(this.m_factory);
 
             bool noCase = domainProperty.GetCustomAttribute<IgnoreCaseAttribute>() != null;
-            string parmValue = noCase ? $"{this.m_provider.CreateSqlKeyword(SqlKeyword.Lower)}(?)" : "?";
+            string parmValue = noCase ? $"{this.m_factory.CreateSqlKeyword(SqlKeyword.Lower)}(?)" : "?";
             retVal.Append("(");
             for (var i = 0; i < values.Count; i++)
             {
                 var itm = values[i];
                 if (noCase)
                 {
-                    retVal.Append($"{this.m_provider.CreateSqlKeyword(SqlKeyword.Lower)}({tableAlias}.{columnName})");
+                    retVal.Append($"{this.m_factory.CreateSqlKeyword(SqlKeyword.Lower)}({tableAlias}.{columnName})");
                 }
                 else
                 {
@@ -868,7 +868,7 @@ namespace SanteDB.OrmLite
                                     parmExtract = QueryFilterExtensions.ParameterExtractRegex.Match(parmExtract.Groups[2].Value);
                                 }
                                 // Now find the function
-                                var filterFn = this.m_provider.GetFilterFunction(fnName);
+                                var filterFn = this.m_factory.GetFilterFunction(fnName);
                                 if (filterFn == null)
                                 {
                                     retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, domainProperty.PropertyType));
@@ -954,15 +954,15 @@ namespace SanteDB.OrmLite
                             break;
 
                         case '~':
-                            retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                            retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             break;
 
                         case '^':
-                            retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                            retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             break;
 
                         case '$':
-                            retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                            retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             break;
 
                         default:

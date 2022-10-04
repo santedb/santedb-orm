@@ -24,6 +24,7 @@ using SanteDB.Core.Model.Map;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -53,9 +54,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
         // DB provider factory
         private DbProviderFactory m_provider = null;
 
-        // Filter functions
-        private static Dictionary<String, IDbFilterFunction> s_filterFunctions = null;
-
         // Index functions
         private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
         // Monitor
@@ -66,11 +64,15 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public const string InvariantName = "npgsql";
 
+        /// <inheritdoc/>
+        public IDbStatementFactory StatementFactory { get; }
+
         /// <summary>
         /// Create new provider
         /// </summary>
         public PostgreSQLProvider()
         {
+            this.StatementFactory = new PostgreSQLStatementFactory();
         }
 
         /// <summary>
@@ -92,26 +94,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// Gets or sets the connection string
         /// </summary>
         public String ConnectionString { get; set; }
-
-        /// <summary>
-        /// SQL Engine features
-        /// </summary>
-        public SqlEngineFeatures Features
-        {
-            get
-            {
-                return SqlEngineFeatures.AutoGenerateGuids |
-                    SqlEngineFeatures.AutoGenerateTimestamps |
-                    SqlEngineFeatures.ReturnedInsertsAsReader |
-                    SqlEngineFeatures.ReturnedUpdatesAsReader |
-                    SqlEngineFeatures.StrictSubQueryColumnNames |
-                    SqlEngineFeatures.LimitOffset |
-                    SqlEngineFeatures.FetchOffset |
-                    SqlEngineFeatures.MustNameSubQuery |
-                    SqlEngineFeatures.SetTimeout |
-                    SqlEngineFeatures.MaterializedViews;
-            }
-        }
 
         /// <summary>
         /// Get name of provider
@@ -381,42 +363,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
             return this.CreateCommandInternal(context, CommandType.Text, sql, parms);
         }
 
-        /// <summary>
-        /// Return exists
-        /// </summary>
-        public SqlStatement Count(SqlStatement sqlStatement)
-        {
-            return new SqlStatement(this, "SELECT COUNT(*) FROM (").Append(sqlStatement.Build()).Append(") Q0");
-        }
 
-        /// <summary>
-        /// Return exists
-        /// </summary>
-        public SqlStatement Exists(SqlStatement sqlStatement)
-        {
-            return new SqlStatement(this, "SELECT CASE WHEN EXISTS (").Append(sqlStatement.Build()).Append(") THEN true ELSE false END");
-        }
-
-        /// <summary>
-        /// Append a returning statement
-        /// </summary>
-        public SqlStatement Returning(SqlStatement sqlStatement, params ColumnMapping[] returnColumns)
-        {
-            if (returnColumns.Length == 0)
-            {
-                return sqlStatement;
-            }
-
-            return sqlStatement.Append($" RETURNING {String.Join(",", returnColumns.Select(o => o.Name))}");
-        }
-
-        /// <summary>
-        /// Gets a lock
-        /// </summary>
-        public object Lock(IDbConnection conn)
-        {
-            return new object();
-        }
+        /// <inheritdoc/>
+        public T ConvertValue<T>(object value) => (T)this.ConvertValue(value, typeof(T));
 
         /// <summary>
         /// Convert value just uses the mapper if needed
@@ -448,41 +397,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             return retVal;
         }
 
-        /// <summary>
-        /// Create SQL keyword
-        /// </summary>
-        public string CreateSqlKeyword(SqlKeyword keywordType)
-        {
-            switch (keywordType)
-            {
-                case SqlKeyword.ILike:
-                    return " ILIKE ";
 
-                case SqlKeyword.Like:
-                    return " LIKE ";
-
-                case SqlKeyword.Lower:
-                    return " LOWER ";
-
-                case SqlKeyword.Upper:
-                    return " UPPER ";
-
-                case SqlKeyword.False:
-                    return " FALSE ";
-
-                case SqlKeyword.True:
-                    return " TRUE ";
-
-                case SqlKeyword.CreateOrAlter:
-                    return "CREATE OR REPLACE ";
-
-                case SqlKeyword.RefreshMaterializedView:
-                    return "REFRESH MATERIALIZED VIEW ";
-
-                default:
-                    throw new NotImplementedException();
-            }
-        }
 
         /// <summary>
         /// Map datatype
@@ -522,39 +437,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
             }
         }
 
-        /// <summary>
-        /// Gets the filter function
-        /// </summary>
-        public IDbFilterFunction GetFilterFunction(string name)
-        {
-            if (s_filterFunctions == null)
-            {
-                s_filterFunctions = ApplicationServiceContext.Current.GetService<IServiceManager>()
-                        .CreateInjectedOfAll<IDbFilterFunction>()
-                        .Where(o => o.Provider == InvariantName)
-                        .ToDictionary(o => o.Name, o => o);
-            }
-            IDbFilterFunction retVal = null;
-            s_filterFunctions.TryGetValue(name, out retVal);
-            return retVal;
-        }
-
-        /// <summary>
-        /// Gets the index function
-        /// </summary>
-        public IDbIndexFunction GetIndexFunction(string name)
-        {
-            if (s_indexFunctions == null)
-            {
-                s_indexFunctions = ApplicationServiceContext.Current.GetService<IServiceManager>()
-                        .CreateInjectedOfAll<IDbIndexFunction>()
-                        .Where(o => o.Provider == this.Invariant)
-                        .ToDictionary(o => o.Name, o => o);
-            }
-
-            s_indexFunctions.TryGetValue(name, out var retVal);
-            return retVal;
-        }
 
         /// <summary>
         /// Get status of server connection
@@ -583,26 +465,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     }
                 }
             }
-        }
-
-        /// <summary>
-        /// Get reset sequence command
-        /// </summary>
-        public SqlStatement GetResetSequence(string sequenceName, object sequenceValue)
-        {
-            return new SqlStatement(this, $"SELECT setval('{sequenceName}', {sequenceValue})");
-        }
-
-        /// <inheritdoc/>
-        public SqlStatement CreateIndex(string indexName, string tableName, string column, bool isUnique)
-        {
-            return new SqlStatement(this, $"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} USING BTREE ({column})");
-        }
-
-        /// <inheritdoc/>
-        public SqlStatement DropIndex(string indexName)
-        {
-            return new SqlStatement(this, $"DROP INDEX {indexName};");
         }
 
         /// <summary>

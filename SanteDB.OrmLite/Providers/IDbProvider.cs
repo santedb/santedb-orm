@@ -36,9 +36,9 @@ namespace SanteDB.OrmLite.Providers
         IDiagnosticsProbe MonitorProbe { get; }
 
         /// <summary>
-        /// Gets the features of the database back-end
+        /// Gets the statement factory for this provider
         /// </summary>
-        SqlEngineFeatures Features { get; }
+        IDbStatementFactory StatementFactory { get; }
 
         /// <summary>
         /// Trace SQL commands
@@ -71,11 +71,6 @@ namespace SanteDB.OrmLite.Providers
         bool CanCancelCommands { get; }
 
         /// <summary>
-        /// Create SQL keyword
-        /// </summary>
-        String CreateSqlKeyword(SqlKeyword keywordType);
-
-        /// <summary>
         /// Retrieves a readonly connection
         /// </summary>
         DataContext GetReadonlyConnection();
@@ -106,25 +101,9 @@ namespace SanteDB.OrmLite.Providers
         IDbCommand CreateCommand(DataContext context, String sql, params object[] parms);
 
         /// <summary>
-        /// Creates an Exists statement
+        /// Convert value
         /// </summary>
-        SqlStatement Count(SqlStatement sqlStatement);
-
-        /// <summary>
-        /// Creates an Exists statement
-        /// </summary>
-        SqlStatement Exists(SqlStatement sqlStatement);
-
-        /// <summary>
-        /// Appends a RETURNING statement
-        /// </summary>
-        SqlStatement Returning(SqlStatement sqlStatement, params ColumnMapping[] returnColumns);
-
-
-        /// <summary>
-        /// Get a lock for the database
-        /// </summary>
-        Object Lock(IDbConnection connection);
+        T ConvertValue<T>(object value);
 
         /// <summary>
         /// Convert value
@@ -141,38 +120,7 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         DbType MapParameterType(Type type);
 
-        /// <summary>
-        /// Gets the specified filter function
-        /// </summary>
-        /// <param name="name">The name of the filter function to retrieve</param>
-        /// <returns>The retrieved filter function if it is provided by the provider</returns>
-        IDbFilterFunction GetFilterFunction(String name);
 
-        /// <summary>
-        /// Gets the specified indexing function
-        /// </summary>
-        /// <param name="name">The name of the indexing function to retrieve ($default is the default provider)</param>
-        /// <returns>The retrieved indexing function if it is provided by the provider</returns>
-        IDbIndexFunction GetIndexFunction(String name);
 
-        /// <summary>
-        /// Gets the reset sequence command
-        /// </summary>
-        SqlStatement GetResetSequence(string sequenceName, object sequenceValue);
-
-        /// <summary>
-        /// Create the statement to define the index
-        /// </summary>
-        /// <param name="indexName">The index name</param>
-        /// <param name="column">The column to be indexed</param>
-        /// <param name="tableName">The table to be indexed</param>
-        /// <param name="isUnique">True if the index is uique</param>
-        SqlStatement CreateIndex(String indexName, String tableName, String column, bool isUnique);
-
-        /// <summary>
-        /// Create the statement to drop the specified index
-        /// </summary>
-        /// <param name="indexName">The index name</param>
-        SqlStatement DropIndex(String indexName);
     }
 }

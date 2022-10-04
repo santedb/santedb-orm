@@ -56,6 +56,14 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Refresh materialized view
         /// </summary>
-        RefreshMaterializedView
+        RefreshMaterializedView,
+        /// <summary>
+        /// Create a view
+        /// </summary>
+        CreateView,
+        /// <summary>
+        /// Create a materialized view
+        /// </summary>
+        CreateMaterializedView
     }
 }

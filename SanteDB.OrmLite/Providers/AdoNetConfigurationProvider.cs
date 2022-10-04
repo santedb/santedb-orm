@@ -35,6 +35,8 @@ namespace SanteDB.OrmLite.Providers
     /// </summary>
     public abstract class AdoNetConfigurationProvider : IDataConfigurationProvider
     {
+
+        
         /// <summary>
         /// Gets the provider
         /// </summary>
@@ -58,7 +60,7 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Gets the host type
         /// </summary>
-        public SanteDBHostType HostType => SanteDBHostType.Server;
+        public virtual SanteDBHostType HostType => SanteDBHostType.Server;
 
         /// <summary>
         /// Gets the options
@@ -80,6 +82,11 @@ namespace SanteDB.OrmLite.Providers
         /// Get the provider type
         /// </summary>
         public abstract Type DbProviderType { get; }
+
+        /// <summary>
+        /// Gets the capabilities of the database
+        /// </summary>
+        public abstract DataConfigurationCapabilities Capabilities { get; }
 
         /// <summary>
         /// Fired when progress is being made
@@ -175,18 +182,19 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         public virtual bool TestConnectionString(ConnectionString connectionString)
         {
-            var pvdr = this.GetProvider(connectionString);
-            using (var conn = pvdr.GetReadonlyConnection())
+            try
             {
-                try
+                var pvdr = this.GetProvider(connectionString);
+                using (var conn = pvdr.GetReadonlyConnection())
                 {
+
                     conn.Open();
                     return true;
                 }
-                catch
-                {
-                    return false;
-                }
+            }
+            catch
+            {
+                return false;
             }
         }
     }

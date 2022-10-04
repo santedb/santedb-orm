@@ -274,50 +274,6 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Resets the specified sequence according to the logic in the provider
-        /// </summary>
-        public void ResetSequence(string sequenceName, object sequenceValue)
-        {
-#if DEBUG
-            var sw = new Stopwatch();
-            sw.Start();
-            try
-            {
-#endif
-                lock (this.m_lockObject)
-                {
-                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, this.m_provider.GetResetSequence(sequenceName, sequenceValue)))
-                    {
-                        try
-                        {
-                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                            dbc.ExecuteNonQuery();
-                        }
-                        catch (TimeoutException)
-                        {
-                            try { dbc.Cancel(); } catch { }
-                            throw;
-                        }
-                        finally
-                        {
-                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        }
-                    }
-                }
-#if DEBUG
-            }
-            finally
-            {
-                sw.Stop();
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "RESET SEQUENCE{0} to {1}", sequenceName, sequenceValue);
-                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-            }
-#endif
-        }
-
-        /// <summary>
         /// First or default returns only the first object or null if not found
         /// </summary>
         public Object FirstOrDefault(Type returnType, SqlStatement stmt)
@@ -643,7 +599,7 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.m_provider.Exists(this.CreateSqlStatement<TModel>().SelectFrom(ColumnMapping.One).Where(querySpec));
+                var stmt = this.m_provider.StatementFactory.Exists(this.CreateSqlStatement<TModel>().SelectFrom(ColumnMapping.One).Where(querySpec));
                 lock (this.m_lockObject)
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
@@ -656,7 +612,7 @@ namespace SanteDB.OrmLite
                             {
                                 dbc.CommandTimeout = this.CommandTimeout.Value;
                             }
-                            return (bool)dbc.ExecuteScalar();
+                            return this.Provider.ConvertValue<bool>(dbc.ExecuteScalar());
                         }
                         catch (TimeoutException)
                         {
@@ -693,7 +649,7 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.m_provider.Exists(querySpec);
+                var stmt = this.m_provider.StatementFactory.Exists(querySpec);
                 lock (this.m_lockObject)
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
@@ -707,7 +663,7 @@ namespace SanteDB.OrmLite
                                 dbc.CommandTimeout = this.CommandTimeout.Value;
                             }
 
-                            return (bool)dbc.ExecuteScalar();
+                            return this.m_provider.ConvertValue<bool>(dbc.ExecuteScalar());
                         }
                         catch (TimeoutException)
                         {
@@ -744,7 +700,7 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.m_provider.Count(this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec));
+                var stmt = this.m_provider.StatementFactory.Count(this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec));
                 lock (this.m_lockObject)
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
@@ -795,7 +751,7 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.m_provider.Count(querySpec);
+                var stmt = this.m_provider.StatementFactory.Count(querySpec);
                 lock (this.m_lockObject)
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
@@ -1008,10 +964,18 @@ namespace SanteDB.OrmLite
                     {
                         // Uh-oh, the column is auto-gen, the type of uuid and the engine can't do it!
                         if (col.SourceProperty.PropertyType.StripNullable() == typeof(Guid) &&
-                            !this.m_provider.Features.HasFlag(SqlEngineFeatures.AutoGenerateGuids))
+                            !this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.AutoGenerateGuids))
                         {
                             val = Guid.NewGuid();
                             col.SourceProperty.SetValue(value, val);
+                        }
+                        else if((col.SourceProperty.PropertyType.StripNullable() == typeof(long) ||
+                            col.SourceProperty.PropertyType.StripNullable() == typeof(int)) && 
+                            !this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.AutoGenerateSequences))
+                        {
+                            columnNames.Append($"{col.Name}").Append(",");
+                            values.Append("(").Append(this.Provider.StatementFactory.GetNextSequenceValue(tableMap.TableName)).Append(")").Append(",");
+                            continue;
                         }
                         else
                         {
@@ -1033,7 +997,7 @@ namespace SanteDB.OrmLite
                 var returnKeys = tableMap.Columns.Where(o => o.IsAutoGenerated);
 
                 // Return arrays
-                var stmt = this.m_provider.Returning(
+                var stmt = this.m_provider.StatementFactory.Returning(
                     this.CreateSqlStatement($"INSERT INTO {tableMap.TableName} (").Append(columnNames).Append(") VALUES (").Append(values).Append(")"),
                     returnKeys.ToArray()
                 );
@@ -1053,7 +1017,7 @@ namespace SanteDB.OrmLite
                             }
 
                             // There are returned keys and we support simple mode returned inserts
-                            if (returnKeys.Any() && this.m_provider.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsReader))
+                            if (returnKeys.Any() && this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsReader))
                             {
                                 using (var rdr = dbc.ExecuteReader())
                                 {
@@ -1071,7 +1035,7 @@ namespace SanteDB.OrmLite
                                 }
                             }
                             // There are returned keys and the provider requires an output parameter to hold the keys
-                            else if (returnKeys.Any() && this.m_provider.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsParms))
+                            else if (returnKeys.Any() && this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsParms))
                             {
                                 // Define output parameters
                                 foreach (var rt in returnKeys)
@@ -1111,13 +1075,13 @@ namespace SanteDB.OrmLite
 
 
                                     var pkcols = tableMap.Columns.Where(o => o.IsPrimaryKey);
-                                    var where = new SqlStatement<TModel>(this.m_provider);
+                                    var where = new SqlStatement<TModel>(this.m_provider.StatementFactory);
                                     foreach (var pk in pkcols)
                                     {
                                         where.And($"{pk.Name} = ?", pk.SourceProperty.GetValue(value));
                                     }
 
-                                    stmt = new SqlStatement<TModel>(this.m_provider).SelectFrom().Where(where);
+                                    stmt = new SqlStatement<TModel>(this.m_provider.StatementFactory).SelectFrom().Where(where);
 
                                     // Create command and exec
                                     using (var dbcSelect = this.m_provider.CreateCommand(this, stmt))
@@ -1404,14 +1368,14 @@ namespace SanteDB.OrmLite
                 var updateStatement = this.CreateSqlStatement().UpdateSet(tmodel) as SqlStatement;
 
                 // Convert where clause
-                var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
+                var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
                 queryBuilder.Visit(whereExpression.Body);
 
                 var whereClause = this.CreateSqlStatement().Where(queryBuilder.SqlStatement);
                 var setClause = this.CreateSqlStatement();
                 foreach (var updateFunc in updateStatements)
                 {
-                    queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider, false);
+                    queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory, false);
                     queryBuilder.Visit(updateFunc);
                     setClause.Append(queryBuilder.SqlStatement);
                     setClause.Append(",");
@@ -1450,7 +1414,7 @@ namespace SanteDB.OrmLite
         public void DeleteAll(Type tmodel, LambdaExpression where)
         {
             var tableMap = TableMapping.Get(tmodel);
-            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
+            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
             queryBuilder.Visit(where.Body);
             this.DeleteAll(tmodel, queryBuilder.SqlStatement);
         }

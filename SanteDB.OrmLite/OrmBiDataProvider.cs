@@ -108,20 +108,7 @@ namespace SanteDB.OrmLite
                 {
                     context.Open();
                     context.CommandTimeout = 360000;
-                    if (provider.Features.HasFlag(SqlEngineFeatures.MaterializedViews))
-                    {
-                        context.ExecuteNonQuery(new SqlStatement(provider, "CREATE MATERIALIZED VIEW ")
-                            .Append(rdbmsQueryDefinition.Materialize.Name)
-                            .Append(" AS ")
-                            .Append(rdbmsQueryDefinition.Materialize.Sql));
-                    }
-                    else
-                    {
-                        context.ExecuteNonQuery(new SqlStatement(provider, "CREATE VIEW ")
-                            .Append(rdbmsQueryDefinition.Materialize.Name)
-                            .Append(" AS ")
-                            .Append(rdbmsQueryDefinition.Materialize.Sql));
-                    }
+                    context.ExecuteNonQuery(new SqlStatement(provider.StatementFactory, provider.StatementFactory.CreateSqlKeyword(SqlKeyword.CreateMaterializedView)).Append(rdbmsQueryDefinition.Materialize.Name).Append(" AS ").Append(rdbmsQueryDefinition.Materialize.Sql));
                 }
                 catch (Exception e)
                 {
@@ -309,7 +296,7 @@ namespace SanteDB.OrmLite
                     colGroupings = agg.Groupings.Select(g => $"{g.ColumnSelector} AS {g.Name}").ToArray();
                 // Aggregate
                 stmt = $"SELECT {String.Join(",", colGroupings.Concat(selector))} " +
-                        $"FROM ({stmt}) {(provider.Features.HasFlag(SqlEngineFeatures.MustNameSubQuery) ? " AS _inner" : "")} " +
+                        $"FROM ({stmt})  AS _inner" +
                     $"GROUP BY {String.Join(",", groupings)}";
             }
 
@@ -320,7 +307,7 @@ namespace SanteDB.OrmLite
                 {
                     context.Open();
                     DateTime startTime = DateTime.Now;
-                    var sqlStmt = new SqlStatement(provider, stmt, values.ToArray());
+                    var sqlStmt = new SqlStatement(provider.StatementFactory, stmt, values.ToArray());
                     this.m_tracer.TraceInfo("Executing BI Query: {0}", context.GetQueryLiteral(sqlStmt.Build()));
                     var results = context.Query<ExpandoObject>(sqlStmt).Skip(offset).Take(count ?? 10000).ToArray();
                     return new BisResultContext(
@@ -450,7 +437,7 @@ namespace SanteDB.OrmLite
             }
 
             // Get connection and execute
-            if (provider.Features.HasFlag(SqlEngineFeatures.MaterializedViews))
+            if (provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.MaterializedViews))
             {
 
                 using (var context = provider.GetWriteConnection())
@@ -459,7 +446,7 @@ namespace SanteDB.OrmLite
                     {
                         context.Open();
                         context.CommandTimeout = 360000;
-                        context.ExecuteNonQuery(new SqlStatement(provider, provider.CreateSqlKeyword(SqlKeyword.RefreshMaterializedView))
+                        context.ExecuteNonQuery(new SqlStatement(provider.StatementFactory, provider.StatementFactory.CreateSqlKeyword(SqlKeyword.RefreshMaterializedView))
                             .Append(rdbmsQueryDefinition.Materialize.Name));
                     }
                     catch (Exception e)

@@ -185,5 +185,9 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             ConnectionString = this.CorrectConnectionString(connectionString).Value
         };
+
+        /// <inheritdoc/>
+        public override DataConfigurationCapabilities Capabilities => new DataConfigurationCapabilities("initial catalog", "user id", "password", null, true);
+
     }
 }

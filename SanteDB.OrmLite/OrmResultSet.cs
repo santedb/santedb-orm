@@ -74,12 +74,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public OrmResultSet<TData> Skip(int n)
         {
-            var stmt = this.Statement.Build().RemoveOffset(out _).RemoveLimit(out var limit).Offset(n);
-            // Re-add limit
-            if (limit >= 0)
-            {
-                stmt = stmt.Limit(limit);
-            }
+            var stmt = this.Statement.Build().Offset(n);
             return new OrmResultSet<TData>(this.Context, stmt.Build());
         }
 
@@ -89,7 +84,7 @@ namespace SanteDB.OrmLite
         /// <param name="n">The number of records to take</param>
         public OrmResultSet<TData> Take(int n)
         {
-            var stmt = this.Statement.Build().RemoveLimit(out _).Limit(n);
+            var stmt = this.Statement.Build().Limit(n);
             return new OrmResultSet<TData>(this.Context, stmt);
         }
 
@@ -118,7 +113,7 @@ namespace SanteDB.OrmLite
             var unionMatch = this.m_extractUnionIntersects.Match(innerQuery.SQL);
             if (unionMatch.Success)
             {
-                SqlStatement retVal = new SqlStatement(this.Context.Provider, "", innerQuery.Arguments.ToArray());
+                SqlStatement retVal = new SqlStatement(this.Context.Provider.StatementFactory, "", innerQuery.Arguments.ToArray());
                 while (unionMatch.Success)
                 {
                     // Transform the first match

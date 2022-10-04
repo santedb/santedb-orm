@@ -36,7 +36,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Gets the invariant
         /// </summary>
-        public override string Name => "ADO.NET PostgreSQL 9 & 10";
+        public override string Name => "ADO.NET PostgreSQL 10+";
 
         /// <summary>
         /// Invariant name
@@ -194,5 +194,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
             return connectionString;
         }
+
+        /// <inheritdoc/>
+        public override DataConfigurationCapabilities Capabilities => new DataConfigurationCapabilities("database", "user id", "password", "host", true);
+
     }
 }

@@ -50,7 +50,7 @@ namespace SanteDB.OrmLite
     {
         private string m_tableAlias = null;
         private SqlStatement m_sqlStatement = null;
-        private IDbProvider m_provider;
+        private IDbStatementFactory m_provider;
         private readonly bool m_prefixColumns;
         private bool m_isFilterExpression = true;
 
@@ -62,7 +62,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Creates a new postgresql query expression builder
         /// </summary>
-        public SqlQueryExpressionBuilder(String alias, IDbProvider provider, bool prefixColumnsWithTableName = true)
+        public SqlQueryExpressionBuilder(String alias, IDbStatementFactory provider, bool prefixColumnsWithTableName = true)
         {
             this.m_tableAlias = alias;
             this.m_sqlStatement = new SqlStatement(this.m_provider);
@@ -570,7 +570,7 @@ namespace SanteDB.OrmLite
                                             }
                                             else if (stmt == "(")
                                             {
-                                                this.m_sqlStatement.Append("(NULL", value);
+                                                this.m_sqlStatement.Append("(NULL");
                                             }
                                             else
                                             {
