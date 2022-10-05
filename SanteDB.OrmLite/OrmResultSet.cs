@@ -391,7 +391,7 @@ namespace SanteDB.OrmLite
                 var tm = TableMapping.Get(typeof(TKeyTable));
 
                 if (tm.PrimaryKey.Count() != 1)
-                    throw new InvalidOperationException("Cannot execute KEY query on object with no keys");
+                    throw new InvalidOperationException(String.Format(ErrorMessages.DATA_STRUCTURE_NOT_APPROPRIATE, nameof(Keys), "nokeys"));
 
                 var sqlParts = this.m_extractRawSelectStatment.Match(innerQuery.SQL);
                 if (!sqlParts.Success)
