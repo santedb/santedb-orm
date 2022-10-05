@@ -30,28 +30,30 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Concepts
     /// </summary>
     [Table("cd_cls_tbl")]
     [ExcludeFromCodeCoverage]
-	public class DbConceptClass : DbNonVersionedBaseData
-	{
+    public class DbConceptClass : DbNonVersionedBaseData
+    {
 
-		/// <summary>
-		/// Gets or sets the name.
-		/// </summary>
-		/// <value>The name.</value>
-		[Column("cls_name")]
-		public string Name {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the name.
+        /// </summary>
+        /// <value>The name.</value>
+        [Column("cls_name")]
+        public string Name
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the mnemonic.
-		/// </summary>
-		/// <value>The mnemonic.</value>
-		[Column("mnemonic")]
-		public String Mnemonic {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the mnemonic.
+        /// </summary>
+        /// <value>The mnemonic.</value>
+        [Column("mnemonic")]
+        public String Mnemonic
+        {
+            get;
+            set;
+        }
 
         /// <summary>
         /// Gets or sets the key

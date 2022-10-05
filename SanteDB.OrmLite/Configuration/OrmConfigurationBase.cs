@@ -86,7 +86,11 @@ namespace SanteDB.OrmLite.Configuration
                 if (this.m_dbProvider == null)
                 {
                     this.m_dbProvider = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().GetProvider(this.ProviderType);
-                    if (this.m_dbProvider == null) throw new InvalidOperationException($"Type {this.ProviderType} does not implement IDbProvider");
+                    if (this.m_dbProvider == null)
+                    {
+                        throw new InvalidOperationException($"Type {this.ProviderType} does not implement IDbProvider");
+                    }
+
                     this.m_dbProvider.ReadonlyConnectionString = this.ResolveConnectionString(this.ReadonlyConnectionString);
                     this.m_dbProvider.ConnectionString = this.ResolveConnectionString(this.ReadWriteConnectionString);
                     this.m_dbProvider.TraceSql = this.TraceSql;

@@ -35,6 +35,8 @@ namespace SanteDB.OrmLite.Providers
     /// </summary>
     public abstract class AdoNetConfigurationProvider : IDataConfigurationProvider
     {
+
+        
         /// <summary>
         /// Gets the provider
         /// </summary>
@@ -58,7 +60,7 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Gets the host type
         /// </summary>
-        public SanteDBHostType HostType => SanteDBHostType.Server;
+        public virtual SanteDBHostType HostType => SanteDBHostType.Server;
 
         /// <summary>
         /// Gets the options
@@ -80,6 +82,11 @@ namespace SanteDB.OrmLite.Providers
         /// Get the provider type
         /// </summary>
         public abstract Type DbProviderType { get; }
+
+        /// <summary>
+        /// Gets the capabilities of the database
+        /// </summary>
+        public abstract DataConfigurationCapabilities Capabilities { get; }
 
         /// <summary>
         /// Fired when progress is being made
@@ -116,18 +123,22 @@ namespace SanteDB.OrmLite.Providers
             var provider = this.GetProvider(connectionString);
 
             using (var conn = provider.GetReadonlyConnection())
+            {
                 return SqlFeatureUtil.GetFeatures(this.Invariant).Where(f =>
                 {
                     try
                     {
                         var checkSql = f.GetCheckSql();
                         if (!String.IsNullOrEmpty(checkSql))
+                        {
                             using (var cmd = conn.Connection.CreateCommand())
                             {
                                 cmd.CommandText = checkSql;
                                 cmd.CommandType = System.Data.CommandType.Text;
                                 return (bool)cmd.ExecuteScalar();
                             }
+                        }
+
                         return false;
                     }
                     catch (Exception e)
@@ -136,6 +147,7 @@ namespace SanteDB.OrmLite.Providers
                         return false;
                     }
                 }).ToArray();
+            }
         }
 
         /// <summary>
@@ -153,7 +165,10 @@ namespace SanteDB.OrmLite.Providers
         {
             var retVal = this.Options.Keys.ToDictionary(o => o, p => (Object)null);
             foreach (var itm in retVal)
+            {
                 retVal[itm.Key] = connectionString.GetComponent(itm.Key);
+            }
+
             return retVal;
         }
 
@@ -167,17 +182,20 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         public virtual bool TestConnectionString(ConnectionString connectionString)
         {
-            var pvdr = this.GetProvider(connectionString);
-            using (var conn = pvdr.GetReadonlyConnection())
-                try
+            try
+            {
+                var pvdr = this.GetProvider(connectionString);
+                using (var conn = pvdr.GetReadonlyConnection())
                 {
+
                     conn.Open();
                     return true;
                 }
-                catch
-                {
-                    return false;
-                }
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

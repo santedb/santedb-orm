@@ -19,16 +19,17 @@
  * Date: 2022-5-30
  */
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 
-namespace SanteDB.OrmLite.Providers.Firebird
+namespace SanteDB.OrmLite.Providers.Sqlite
 {
     /// <summary>
     /// PostgreSQL LEFT() function
     /// </summary>
-    public class FirebirdSubstringFunction : IDbFilterFunction
+    [ExcludeFromCodeCoverage]
+    public class SqliteSubstringFunction : IDbFilterFunction
     {
-
         /// <summary>
         /// Get the name for the function
         /// </summary>
@@ -37,12 +38,13 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => FirebirdSQLProvider.InvariantName;
+        public string Provider => SqliteProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL for first
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type type)
+        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms,
+            string operand, Type type)
         {
             var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
@@ -54,18 +56,25 @@ namespace SanteDB.OrmLite.Providers.Firebird
             switch (parms.Length)
             {
                 case 1:
-                    return current.Append($"SUBSTRING({filterColumn} FROM {parms[0]}) {op} SUBSTRING(? FROM {parms[0]})", QueryBuilder.CreateParameterValue(value, type));
+                    return current.Append(
+                        $"substring({filterColumn}, {parms[0]}) {op} substring(?, {parms[0]})",
+                        QueryBuilder.CreateParameterValue(value, type));
                 case 2:
-                    return current.Append($"SUBSTRING({filterColumn} FROM {parms[0]} FOR {parms[1]}) {op} SUBSTRING(? FROM {parms[0]} FOR {parms[1]})", QueryBuilder.CreateParameterValue(value, type));
+                    return current.Append(
+                        $"substring({filterColumn}, {parms[0]} , {parms[1]}) {op} substring(? , {parms[0]} , {parms[1]})",
+                        QueryBuilder.CreateParameterValue(value, type));
             }
-            return current.Append($"SUBSTRING({filterColumn}, {parms[0]}) {op} LEFT(?, {parms[0]})", QueryBuilder.CreateParameterValue(value, type));
+
+            return current.Append($"substring({filterColumn}, {parms[0]}) {op} substring(?, {parms[0]})",
+                QueryBuilder.CreateParameterValue(value, type));
         }
     }
 
     /// <summary>
     /// PostgreSQL RIGHT() function
     /// </summary>
-    public class FirebirdLastFunction : IDbFilterFunction
+    [ExcludeFromCodeCoverage]
+    public class SqliteLastFunction : IDbFilterFunction
     {
         /// <summary>
         /// Get the name for the function
@@ -73,14 +82,15 @@ namespace SanteDB.OrmLite.Providers.Firebird
         public string Name => "last";
 
         /// <summary>
-        /// Provider 
+        /// Provider    
         /// </summary>
-        public string Provider => FirebirdSQLProvider.InvariantName;
+        public string Provider => SqliteProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type type)
+        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms,
+            string operand, Type type)
         {
             var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
@@ -89,15 +99,16 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 op = "=";
             }
 
-            return current.Append($"RIGHT({filterColumn}, {parms[0]}) {op} RIGHT(?, {parms[0]})", QueryBuilder.CreateParameterValue(value, type));
+            return current.Append($"substring({filterColumn}, length({filterColumn}) - {parms[0]} + 1) {op} substring(?, length(?) - {parms[0]} + 1)",
+                QueryBuilder.CreateParameterValue(value, type), QueryBuilder.CreateParameterValue(value, type));
         }
-
     }
 
     /// <summary>
     /// PostgreSQL RIGHT() function
     /// </summary>
-    public class FirebirdNocaseFunction : IDbFilterFunction
+    [ExcludeFromCodeCoverage]
+    public class PostgresNocaseFunction : IDbFilterFunction
     {
         /// <summary>
         /// Get the name for the function
@@ -107,15 +118,16 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => FirebirdSQLProvider.InvariantName;
+        public string Provider => SqliteProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type type)
+        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms,
+            string operand, Type type)
         {
-            return current.Append($"LOWER({filterColumn}) = LOWER(?)", QueryBuilder.CreateParameterValue(operand, type));
+            return current.Append($"LOWER({filterColumn}) = LOWER(?)",
+                QueryBuilder.CreateParameterValue(operand, type));
         }
-
     }
 }

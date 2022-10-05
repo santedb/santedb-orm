@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace SanteDB.OrmLite.Providers.Firebird
 {
@@ -30,7 +28,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             {
                 if (!String.IsNullOrEmpty(parms[0]))
                 {
-                    var terms = parms[0].Split(' ').Select(o=>o.Replace("\"", "").ToLowerInvariant()).Where(o=>!"and".Equals(o.Trim(), StringComparison.CurrentCultureIgnoreCase)).ToArray();
+                    var terms = parms[0].Split(' ').Select(o => o.Replace("\"", "").ToLowerInvariant()).Where(o => !"and".Equals(o.Trim(), StringComparison.CurrentCultureIgnoreCase)).ToArray();
                     current.Append($"{filterColumn} IN (");
                     switch (filterColumn.Split('.').Last())
                     {

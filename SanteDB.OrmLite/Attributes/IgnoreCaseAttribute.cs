@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SanteDB.OrmLite.Attributes
 {
@@ -11,4 +9,3 @@ namespace SanteDB.OrmLite.Attributes
     {
     }
 }
- 

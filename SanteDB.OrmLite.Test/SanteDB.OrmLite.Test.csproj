@@ -5,7 +5,7 @@
     <TargetFramework>net48</TargetFramework>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
-	<PropertyGroup Condition="'$(VersionNumber)' == ''">
+  <PropertyGroup Condition="'$(VersionNumber)' == ''">
     <VersionNumber>3.0-debug</VersionNumber>
   </PropertyGroup>
 
@@ -14,7 +14,7 @@
     <Reference Include="System.configuration" />
     <Reference Include="System.Core" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <PackageReference Include="FirebirdSql.Data.FirebirdClient">
       <Version>9.0.2</Version>
@@ -30,16 +30,19 @@
           <Project>{F1A82A4F-4A57-47D7-AE76-444C8A4FF54A}</Project>
           <Name>SanteDB.Core.Model</Name>
         </ProjectReference>
-	  <ProjectReference Include="..\..\santedb-api\SanteDB.Core.TestFramework\SanteDB.Core.TestFramework.csproj">
+        <ProjectReference Include="..\..\santedb-api\SanteDB.Core.TestFramework\SanteDB.Core.TestFramework.csproj">
           <Name>SanteDB.Core.TestFramework</Name>
         </ProjectReference>
+        <ProjectReference Include="..\..\santedb-data\SanteDB.Core.TestFramework.FirebirdSQL\SanteDB.Core.TestFramework.FirebirdSQL.csproj"/>
       </ItemGroup>
-		
+
     </When>
     <Otherwise>
       <ItemGroup>
         <PackageReference Include="SanteDB.Core.Model" Version="$(VersionNumber)" />
         <PackageReference Include="SanteDB.Core.TestFramework" Version="$(VersionNumber)" />
+        <PackageReference Include="SanteDB.Core.TestFramework.FirebirdSQL" Version="$(VersionNumber)" />
+
       </ItemGroup>
     </Otherwise>
   </Choose>
@@ -61,6 +64,6 @@
   </ItemGroup>
 
   <!-- Test Framework via Nuget does this automagically -->
-  <Import Condition="$(SolutionName.Contains('-ext'))" Project="$(SolutionDir)\santedb-api\SanteDB.Core.TestFramework\SanteDB.Core.TestFramework.targets"/>
+  <Import Condition="$(SolutionName.Contains('-ext'))" Project="$(SolutionDir)\santedb-data\SanteDB.Core.TestFramework.FirebirdSQL\SanteDB.Core.TestFramework.FirebirdSQL.targets"/>
 
 </Project>

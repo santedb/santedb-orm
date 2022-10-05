@@ -48,7 +48,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
+            if (String.IsNullOrEmpty(op))
+            {
+                op = "=";
+            }
 
             switch (parms.Length)
             {
@@ -91,7 +94,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
+            if (String.IsNullOrEmpty(op))
+            {
+                op = "=";
+            }
+
             return current.Append($"RIGHT({filterColumn}, {parms[0]}) {op} RIGHT(?, {parms[0]})",
                 QueryBuilder.CreateParameterValue(value, type));
         }

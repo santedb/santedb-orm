@@ -32,7 +32,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     [ExcludeFromCodeCoverage]
     public class DbEntityRelationship : DbVersionedAssociation
     {
-        
+
         /// <summary>
         /// Gets or sets the link type concept
         /// </summary>

@@ -89,7 +89,10 @@ namespace SanteDB.OrmLite
         public static QueryPredicate Parse(String condition)
         {
             var matches = ExtractionRegex.Match(condition);
-            if (!matches.Success) return null;
+            if (!matches.Success)
+            {
+                return null;
+            }
 
             return new QueryPredicate()
             {
@@ -108,13 +111,24 @@ namespace SanteDB.OrmLite
             StringBuilder sb = new StringBuilder();
 
             if ((parts & QueryPredicatePart.Path) != 0)
+            {
                 sb.Append(this.Path);
+            }
+
             if ((parts & QueryPredicatePart.Guard) != 0 && !String.IsNullOrEmpty(this.Guard))
+            {
                 sb.AppendFormat("[{0}]", this.Guard);
+            }
+
             if ((parts & QueryPredicatePart.Cast) != 0 && !String.IsNullOrEmpty(this.CastAs))
+            {
                 sb.AppendFormat("@{0}", this.CastAs);
+            }
+
             if ((parts & QueryPredicatePart.SubPath) != 0 && !String.IsNullOrEmpty(this.SubPath))
+            {
                 sb.AppendFormat("{0}{1}", sb.Length > 0 ? "." : "", this.SubPath);
+            }
 
             return sb.ToString();
         }
@@ -171,12 +185,12 @@ namespace SanteDB.OrmLite
         // Mapper
         private ModelMapper m_mapper;
 
-        private IDbProvider m_provider;
+        private IDbStatementFactory m_factory;
 
         /// <summary>
         /// Provider
         /// </summary>
-        public IDbProvider Provider => this.m_provider;
+        public IDbStatementFactory StatementFactory => this.m_factory;
 
         /// <summary>
         /// Add query builder hacks
@@ -191,10 +205,10 @@ namespace SanteDB.OrmLite
         /// </summary>
         /// <param name="mapper">The mapper which is used to map types</param>
         /// <param name="provider">The provider which built this query provider</param>
-        public QueryBuilder(ModelMapper mapper, IDbProvider provider)
+        public QueryBuilder(ModelMapper mapper, IDbStatementFactory provider)
         {
             this.m_mapper = mapper;
-            this.m_provider = provider;
+            this.m_factory = provider;
         }
 
         /// <summary>
@@ -207,7 +221,7 @@ namespace SanteDB.OrmLite
             var tableMap = TableMapping.Get(tableType);
             List<TableMapping> scopedTables = new List<TableMapping>() { tableMap };
 
-            return CreateWhereCondition(typeof(TModel), new SqlStatement(m_provider), nvc.ToDictionary(), String.Empty, scopedTables, null, out IList<SqlStatement> _);
+            return CreateWhereCondition(typeof(TModel), new SqlStatement(m_factory), nvc.ToDictionary(), String.Empty, scopedTables, null, out IList<SqlStatement> _);
         }
 
         /// <summary>
@@ -257,9 +271,13 @@ namespace SanteDB.OrmLite
                 {
                     var mPath = this.m_mapper.MapModelProperty(tmodel, tmodel.GetQueryProperty(QueryPredicate.Parse(o.Key).Path));
                     if (mPath == null || mPath.Name == "ObsoletionTime" && o.Value.Equals("null"))
+                    {
                         return false;
+                    }
                     else
+                    {
                         return tableMap.Columns.Any(c => c.SourceProperty == mPath);
+                    }
                 });
 
             if (skipJoins && !useKeys)
@@ -271,13 +289,13 @@ namespace SanteDB.OrmLite
                     query.Remove("obsoletionTime");
                     scopedTables = new List<TableMapping>() { tableMap };
                 }
-                selectStatement = new SqlStatement(this.m_provider, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
+                selectStatement = new SqlStatement(this.m_factory, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
             }
             else
             {
                 //if (!s_joinCache.TryGetValue($"{tablePrefix}.{typeof(TModel).Name}", out cacheHit))
                 //{
-                selectStatement = new SqlStatement(this.m_provider, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
+                selectStatement = new SqlStatement(this.m_factory, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
 
                 Stack<TableMapping> fkStack = new Stack<TableMapping>();
                 fkStack.Push(tableMap);
@@ -297,9 +315,10 @@ namespace SanteDB.OrmLite
                         if (fkTbl.Columns.Count() <= 1)
                         {
                             scopedTables.Add(TableMapping.Redirect(fkAtt.Table.OrmType, jt.Table.OrmType));
-                            for(int i = 0; i < selector.Length; i++)
+                            for (int i = 0; i < selector.Length; i++)
                             {
-                                if (selector[i].Table?.OrmType == fkTbl.OrmType) {
+                                if (selector[i].Table?.OrmType == fkTbl.OrmType)
+                                {
                                     selector[i] = ColumnMapping.Get(selector[i].Name);
                                 }
                             }
@@ -312,7 +331,9 @@ namespace SanteDB.OrmLite
                             {
                                 var fltCol = fkTbl.GetColumn(flt.Key);
                                 if (fltCol == null)
+                                {
                                     joinFilters.AddRange(flt);
+                                }
                                 else
                                 {
                                     selectStatement.And($"({String.Join(" OR ", flt.Select(o => $"{tablePrefix}{fltCol.Table.TableName}.{fltCol.Name} = '{o.Value}'"))})");
@@ -322,7 +343,10 @@ namespace SanteDB.OrmLite
 
                             selectStatement.Append(")");
                             if (!scopedTables.Contains(fkTbl))
+                            {
                                 fkStack.Push(fkTbl);
+                            }
+
                             scopedTables.Add(fkAtt.Table);
                         }
                     }
@@ -345,7 +369,7 @@ namespace SanteDB.OrmLite
             {
                 // The SQL Engine being used does not permit duplicate column names that may come from
                 // SELECT * in a sub-query, so we should explicitly call out the columns to be safe
-                if (this.m_provider.Features.HasFlag(SqlEngineFeatures.StrictSubQueryColumnNames))
+                if (this.m_factory.Features.HasFlag(SqlEngineFeatures.StrictSubQueryColumnNames))
                 {
                     var existingCols = new List<String>();
 
@@ -359,14 +383,18 @@ namespace SanteDB.OrmLite
                         }
                         return false;
                     }).Select(o => $"{tablePrefix}{o.Table.TableName}.{o.Name}"));
-                    selectStatement = new SqlStatement(this.m_provider, $"SELECT {columnList} ").Append(selectStatement);
+                    selectStatement = new SqlStatement(this.m_factory, $"SELECT {columnList} ").Append(selectStatement);
                 }
                 else
-                    selectStatement = new SqlStatement(this.m_provider, $"SELECT *").Append(selectStatement);
+                {
+                    selectStatement = new SqlStatement(this.m_factory, $"SELECT *").Append(selectStatement);
+                }
                 // columnSelector = scopedTables.SelectMany(o => o.Columns).ToArray();
             }
             else if (columnSelector.All(o => o.SourceProperty == null)) // Fake / constants
-                selectStatement = new SqlStatement(this.m_provider, $"SELECT {String.Join(",", columnSelector.Select(o => o.Name))} ").Append(selectStatement);
+            {
+                selectStatement = new SqlStatement(this.m_factory, $"SELECT {String.Join(",", columnSelector.Select(o => o.Name))} ").Append(selectStatement);
+            }
             else
             {
                 var columnList = String.Join(",", columnSelector.Select(o =>
@@ -375,7 +403,9 @@ namespace SanteDB.OrmLite
                     skipParentJoin &= rootCol != null;
 
                     if (skipParentJoin)
+                    {
                         return $"{tablePrefix}{rootCol.Table.TableName}.{rootCol.Name}";
+                    }
                     else
                     {
                         // has the column been redirected?
@@ -383,12 +413,12 @@ namespace SanteDB.OrmLite
                         return $"{tablePrefix}{scopedTable.TableName}.{o.Name}";
                     }
                 }));
-                selectStatement = new SqlStatement(this.m_provider, $"SELECT {columnList} ").Append(selectStatement);
+                selectStatement = new SqlStatement(this.m_factory, $"SELECT {columnList} ").Append(selectStatement);
             }
 
             var whereClause = this.CreateWhereCondition(tmodel, selectStatement, query, tablePrefix, scopedTables, parentScopedTables, out IList<SqlStatement> cteStatements);
             // Return statement
-            SqlStatement retVal = new SqlStatement(this.m_provider);
+            SqlStatement retVal = new SqlStatement(this.m_factory);
             if (cteStatements.Count > 0)
             {
                 retVal.Append("WITH ");
@@ -396,7 +426,9 @@ namespace SanteDB.OrmLite
                 {
                     retVal.Append(c);
                     if (c != cteStatements.Last())
+                    {
                         retVal.Append(",");
+                    }
                 }
             }
             retVal.Append(selectStatement.Where(whereClause));
@@ -421,7 +453,7 @@ namespace SanteDB.OrmLite
             var workingParameters = query.ToList();
 
             // Where clause
-            SqlStatement whereClause = new SqlStatement(this.m_provider);
+            SqlStatement whereClause = new SqlStatement(this.m_factory);
             cteStatements = new List<SqlStatement>();
 
             // Construct
@@ -433,10 +465,15 @@ namespace SanteDB.OrmLite
                 // Match the regex and process
                 var key = parm.Key;
                 if (String.IsNullOrEmpty(key))
+                {
                     key = "id";
+                }
 
                 var propertyPredicate = QueryPredicate.Parse(key);
-                if (propertyPredicate == null) throw new ArgumentOutOfRangeException(parm.Key);
+                if (propertyPredicate == null)
+                {
+                    throw new ArgumentOutOfRangeException(parm.Key);
+                }
 
                 // Next, we want to construct the other parms
                 var otherParms = workingParameters.Where(o => QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.PropertyAndCast) == propertyPredicate.ToString(QueryPredicatePart.PropertyAndCast)).ToArray();
@@ -445,18 +482,23 @@ namespace SanteDB.OrmLite
                 if (otherParms.Any() || !String.IsNullOrEmpty(propertyPredicate.Guard) || !String.IsNullOrEmpty(propertyPredicate.SubPath))
                 {
                     foreach (var o in otherParms)
+                    {
                         workingParameters.Remove(o);
+                    }
 
                     // We need to do a sub query
                     var subQueryParms = new List<KeyValuePair<String, String[]>>() { parm }.Union(otherParms);
 
                     // Grab the appropriate builder
                     var subProp = tmodel.GetQueryProperty(propertyPredicate.Path, true);
-                    if (subProp == null) throw new MissingMemberException(propertyPredicate.Path);
+                    if (subProp == null)
+                    {
+                        throw new MissingMemberException(propertyPredicate.Path);
+                    }
 
                     // Link to this table in the other?
                     // Allow hacking of the query before we get to the auto-generated stuff
-                    if (!m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, tmodel, subProp, tablePrefix, propertyPredicate, parm.Value, scopedTables, subQueryParms.ToDictionary(q=>q.Key, q=>q.Value))))
+                    if (!m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, tmodel, subProp, tablePrefix, propertyPredicate, parm.Value, scopedTables, subQueryParms.ToDictionary(q => q.Key, q => q.Value))))
                     {
                         // Is this a collection?
                         if (typeof(IList).IsAssignableFrom(subProp.PropertyType)) // Other table points at this on
@@ -471,7 +513,7 @@ namespace SanteDB.OrmLite
                             var linkColumn = linkColumns.Count() > 1 ? linkColumns.FirstOrDefault(o => propertyPredicate.SubPath.StartsWith("source") ? o.SourceProperty.Name != "SourceKey" : o.SourceProperty.Name == "SourceKey") : linkColumns.FirstOrDefault();
 
                             // Link column is null, is there an assoc attrib?
-                            SqlStatement subQueryStatement = new SqlStatement(this.m_provider);
+                            SqlStatement subQueryStatement = new SqlStatement(this.m_factory);
 
                             var subTableColumn = linkColumn;
                             string existsClause = String.Empty;
@@ -492,7 +534,9 @@ namespace SanteDB.OrmLite
                             var localTable = scopedTables.Where(o => o.GetColumn(linkColumn.ForeignKey.Column) != null).FirstOrDefault();
 
                             if (String.IsNullOrEmpty(existsClause))
+                            {
                                 existsClause = $"{tablePrefix}{localTable.TableName}.{localTable.GetColumn(linkColumn.ForeignKey.Column).Name}";
+                            }
 
                             var guardConditions = subQueryParms.GroupBy(o => QueryPredicate.Parse(o.Key).Guard);
 
@@ -511,23 +555,31 @@ namespace SanteDB.OrmLite
                                         clsModel = clsProperty.PropertyType.StripGeneric();
                                         var redirectProperty = clsProperty.GetCustomAttribute<SerializationReferenceAttribute>()?.RedirectProperty;
                                         if (redirectProperty != null)
+                                        {
                                             clsProperty = clsProperty.DeclaringType.GetRuntimeProperty(redirectProperty);
+                                        }
 
                                         // Is this a uuid?
                                         guardCondition.Append(clsProperty.GetSerializationName());
                                         if (guardClause.Key.Split('|').All(o => Guid.TryParse(o, out Guid _)))
+                                        {
                                             break;
+                                        }
                                         else
                                         {
                                             if (typeof(IdentifiedData).IsAssignableFrom(clsModel))
+                                            {
                                                 guardCondition.Append(".");
+                                            }
                                         }
                                     }
                                     subQuery.Add(new KeyValuePair<string, string[]>(guardCondition.ToString(), guardClause.Key.Split('|')));
 
                                     // Filter by effective version
                                     if (typeof(IVersionedAssociation).IsAssignableFrom(clsModel))
+                                    {
                                         subQuery.Add(new KeyValuePair<string, string[]>("obsoleteVersionSequence", new string[] { "null" }));
+                                    }
                                 }
 
                                 // Generate method
@@ -536,7 +588,9 @@ namespace SanteDB.OrmLite
 
                                 // Sub path is specified
                                 if (String.IsNullOrEmpty(propertyPredicate.SubPath) && "null".Equals(parm.Value))
+                                {
                                     subQueryStatement.And($"NOT EXISTS (");
+                                }
                                 // Query Optimization - Sub-Path is specfified and the only object is a NOT value (other than classifier)
                                 else if (!String.IsNullOrEmpty(propertyPredicate.SubPath) &&
                                     subQuery.Count <= 2 &&
@@ -548,7 +602,9 @@ namespace SanteDB.OrmLite
                                     subQuery = subQuery.Select(a => new KeyValuePair<string, string[]>(a.Key, a.Value.Select(v => v.StartsWith("!") ? v.Substring(1) : v).ToArray())).ToList();
                                 }
                                 else
+                                {
                                     subQueryStatement.And($"EXISTS (");
+                                }
 
                                 // Does this query object have obsolete version sequence?
                                 if (typeof(IVersionedAssociation).IsAssignableFrom(propertyType)) // Add obslt guard
@@ -559,9 +615,13 @@ namespace SanteDB.OrmLite
                                 var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { propertyType }, new Type[] { subQuery.GetType(), typeof(String), typeof(bool), typeof(List<TableMapping>), typeof(ModelSort<>).MakeGenericType(propertyType).MakeArrayType(), typeof(ColumnMapping[]) });
 
                                 if (subQuery.Count(p => !p.Key.Contains(".")) == 0)
+                                {
                                     subQueryStatement.Append(this.CreateQuery(propertyType, subQuery.ToParameterDictionary(), prefix, true, scopedTables, new ColumnMapping[] { ColumnMapping.One }));
+                                }
                                 else
+                                {
                                     subQueryStatement.Append(this.CreateQuery(propertyType, subQuery.ToParameterDictionary(), prefix, false, scopedTables, new ColumnMapping[] { ColumnMapping.One }));
+                                }
 
                                 subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{subTableColumn.Name}");
                                 //existsClause = $"{prefix}{subTableColumn.Table.TableName}.{subTableColumn.Name}";
@@ -570,16 +630,22 @@ namespace SanteDB.OrmLite
                             }
 
                             if (subTableColumn != linkColumn)
+                            {
                                 whereClause.And($"EXISTS (").Append(subQueryStatement).And($"{tablePrefix}{localTable.TableName}.{localTable.GetColumn(linkColumn.ForeignKey.Column).Name} = {lnkPfx}{linkColumn.Table.TableName}.{linkColumn.Name}").Append(")");
+                            }
                             else
+                            {
                                 whereClause.And(subQueryStatement);
+                            }
                         }
                         else  // this table points at other
                         {
                             var subQuery = subQueryParms.Select(o => new KeyValuePair<String, String[]>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
 
                             if (!subQuery.Any(o => o.Key == "obsoletionTime") && typeof(IBaseData).IsAssignableFrom(subProp.PropertyType))
+                            {
                                 subQuery.Add(new KeyValuePair<string, string[]>("obsoletionTime", NULL_CLAUSE));
+                            }
 
                             TableMapping tableMapping = null;
                             var subPropKey = tmodel.GetQueryProperty(propertyPredicate.Path);
@@ -595,7 +661,9 @@ namespace SanteDB.OrmLite
                                 linkColumn = scopedTables.SelectMany(o => o.Columns).FirstOrDefault(o => o.ForeignKey?.Table == subPropType);
                             }
                             else
+                            {
                                 linkColumn = tableMapping.GetColumn(domainProperty);
+                            }
 
                             var fkTableDef = parentScopedTables?.FirstOrDefault(o => o.OrmType == linkColumn.ForeignKey.Table) ?? TableMapping.Get(linkColumn.ForeignKey.Table);
                             var fkColumnDef = fkTableDef.GetColumn(linkColumn.ForeignKey.Column);
@@ -626,7 +694,9 @@ namespace SanteDB.OrmLite
                     }
                 }
                 else if (!m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, tmodel, tmodel.GetQueryProperty(propertyPredicate.Path), tablePrefix, propertyPredicate, parm.Value, scopedTables, query)))
+                {
                     whereClause.And(CreateWhereCondition(tmodel, propertyPredicate.Path, parm.Value, tablePrefix, scopedTables));
+                }
             }
 
             return whereClause;
@@ -652,14 +722,16 @@ namespace SanteDB.OrmLite
 
                     // Determine the parameter type
                     if (mexpr.Expression.NodeType != ExpressionType.Parameter)
+                    {
                         throw new InvalidOperationException("OrderBy can only be performed on primary properties of the object");
+                    }
 
                     // Determine the map
                     var tableMapping = scopedTables.First();
                     var propertyInfo = mexpr.Member as PropertyInfo;
                     PropertyInfo domainProperty = scopedTables.Select(o => { tableMapping = o; return m_mapper.MapModelProperty(tmodel, o.OrmType, propertyInfo); }).FirstOrDefault(o => o != null);
                     var columnData = tableMapping.GetColumn(domainProperty);
-                    return new SqlStatement(this.m_provider, $" {columnData.Name} {(order == SortOrderType.OrderBy ? "ASC" : "DESC")}");
+                    return new SqlStatement(this.m_factory, $" {columnData.Name} {(order == SortOrderType.OrderBy ? "ASC" : "DESC")}");
 
                 default:
                     throw new InvalidOperationException("Cannot sort by this property expression");
@@ -672,14 +744,20 @@ namespace SanteDB.OrmLite
         private static String IncrementSubQueryAlias(string tablePrefix)
         {
             if (String.IsNullOrEmpty(tablePrefix))
+            {
                 return "sq0";
+            }
             else
             {
                 int sq = 0;
                 if (Int32.TryParse(tablePrefix.Substring(2), out sq))
+                {
                     return "sq" + (sq + 1);
+                }
                 else
+                {
                     return "sq0";
+                }
             }
         }
 
@@ -692,7 +770,9 @@ namespace SanteDB.OrmLite
             var tableMapping = scopedTables.First();
             var propertyInfo = tmodel.GetQueryProperty(propertyPath);
             if (propertyInfo == null)
+            {
                 throw new ArgumentOutOfRangeException(propertyPath);
+            }
 
             PropertyInfo domainProperty = scopedTables.Select(o => { tableMapping = o; return m_mapper.MapModelProperty(tmodel, o.OrmType, propertyInfo); }).FirstOrDefault(o => o != null);
 
@@ -705,7 +785,9 @@ namespace SanteDB.OrmLite
             {
                 var vals = (value as IEnumerable).OfType<Object>().Where(s => !"!null".Equals(s));
                 if (vals.Any())
+                {
                     sValue = vals.First().ToString();
+                }
             }
 
             if (domainProperty == null && Guid.TryParse(sValue, out pkey))
@@ -715,13 +797,18 @@ namespace SanteDB.OrmLite
                 propertyInfo = tmodel.GetProperty(propertyInfo.Name + "Key");
             }
             else if (domainProperty == null)
+            {
                 throw new ArgumentException($"Can't find SQL based property for {propertyPath} on {tableMapping.TableName}");
+            }
+
             var columnData = tableMapping.GetColumn(domainProperty);
 
             // List of parameters
             var lValue = value as IList;
             if (lValue == null)
+            {
                 lValue = new List<Object>() { value };
+            }
 
             return CreateSqlPredicate(tableAlias, columnData.Name, columnData.SourceProperty, lValue);
         }
@@ -733,25 +820,30 @@ namespace SanteDB.OrmLite
         /// <param name="domainProperty">The model property information for type information</param>
         /// <param name="columnName">The column data for the data model</param>
         /// <param name="values">The values to be matched</param>
-        public SqlStatement CreateSqlPredicate(String tableAlias, String columnName,  PropertyInfo domainProperty, IList values)
+        public SqlStatement CreateSqlPredicate(String tableAlias, String columnName, PropertyInfo domainProperty, IList values)
         {
-            if(domainProperty == null)
+            if (domainProperty == null)
             {
                 throw new ArgumentNullException(nameof(domainProperty));
             }
 
-            var retVal = new SqlStatement(this.m_provider);
+            var retVal = new SqlStatement(this.m_factory);
 
             bool noCase = domainProperty.GetCustomAttribute<IgnoreCaseAttribute>() != null;
-            string parmValue = noCase ? $"{this.m_provider.CreateSqlKeyword(SqlKeyword.Lower)}(?)" : "?";
+            string parmValue = noCase ? $"{this.m_factory.CreateSqlKeyword(SqlKeyword.Lower)}(?)" : "?";
             retVal.Append("(");
-            for (var i = 0; i < values.Count;  i++)
+            for (var i = 0; i < values.Count; i++)
             {
                 var itm = values[i];
                 if (noCase)
-                    retVal.Append($"{this.m_provider.CreateSqlKeyword(SqlKeyword.Lower)}({tableAlias}.{columnName})");
+                {
+                    retVal.Append($"{this.m_factory.CreateSqlKeyword(SqlKeyword.Lower)}({tableAlias}.{columnName})");
+                }
                 else
+                {
                     retVal.Append($"{tableAlias}.{columnName}");
+                }
+
                 var semantic = " OR ";
                 var iValue = itm;
                 if (iValue is String)
@@ -776,9 +868,11 @@ namespace SanteDB.OrmLite
                                     parmExtract = QueryFilterExtensions.ParameterExtractRegex.Match(parmExtract.Groups[2].Value);
                                 }
                                 // Now find the function
-                                var filterFn = this.m_provider.GetFilterFunction(fnName);
+                                var filterFn = this.m_factory.GetFilterFunction(fnName);
                                 if (filterFn == null)
+                                {
                                     retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, domainProperty.PropertyType));
+                                }
                                 else
                                 {
                                     retVal.RemoveLast();
@@ -786,15 +880,23 @@ namespace SanteDB.OrmLite
                                 }
                             }
                             else
+                            {
                                 retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, domainProperty.PropertyType));
+                            }
+
                             break;
 
                         case '<':
                             semantic = " AND ";
                             if (sValue[1] == '=')
+                            {
                                 retVal.Append($" <= {parmValue}", CreateParameterValue(sValue.Substring(2), domainProperty.PropertyType));
+                            }
                             else
+                            {
                                 retVal.Append($" < {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                            }
+
                             break;
 
                         case '>':
@@ -803,14 +905,24 @@ namespace SanteDB.OrmLite
                             {
                                 object lower = null, upper = null;
                                 if (sValue[1] == '=')
+                                {
                                     lower = CreateParameterValue(sValue.Substring(2), domainProperty.PropertyType);
+                                }
                                 else
+                                {
                                     lower = CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType);
+                                }
+
                                 sValue = values[++i].ToString();
                                 if (sValue[1] == '=')
+                                {
                                     upper = CreateParameterValue(sValue.Substring(2), domainProperty.PropertyType);
+                                }
                                 else
+                                {
                                     upper = CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType);
+                                }
+
                                 semantic = " OR ";
                                 retVal.Append($" BETWEEN {parmValue} AND {parmValue}", lower, upper);
                             }
@@ -818,45 +930,63 @@ namespace SanteDB.OrmLite
                             {
                                 semantic = " AND ";
                                 if (sValue[1] == '=')
+                                {
                                     retVal.Append($" >= {parmValue}", CreateParameterValue(sValue.Substring(2), domainProperty.PropertyType));
+                                }
                                 else
+                                {
                                     retVal.Append($" > {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                                }
                             }
                             break;
 
                         case '!':
                             semantic = " AND ";
                             if (sValue.Equals("!null"))
+                            {
                                 retVal.Append(" IS NOT NULL");
+                            }
                             else
+                            {
                                 retVal.Append($" <> {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                            }
+
                             break;
 
                         case '~':
-                            retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                            retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             break;
 
                         case '^':
-                            retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                            retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             break;
 
                         case '$':
-                            retVal.Append($" {this.m_provider.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                            retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             break;
 
                         default:
                             if (sValue.Equals("null"))
+                            {
                                 retVal.Append(" IS NULL");
+                            }
                             else
+                            {
                                 retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, domainProperty.PropertyType));
+                            }
+
                             break;
                     }
                 }
                 else
+                {
                     retVal.Append($" = {parmValue} ", CreateParameterValue(iValue, domainProperty.PropertyType));
+                }
 
                 if (i < values.Count - 1)
+                {
                     retVal.Append(semantic);
+                }
             }
 
             retVal.Append(")");
@@ -883,16 +1013,22 @@ namespace SanteDB.OrmLite
                 {
                     return uuid;
                 }
-                
+
             }
-            
+
             if (value.GetType() == toType ||
                 value.GetType() == toType.StripNullable())
+            {
                 return value;
+            }
             else if (MapUtil.TryConvert(value, toType, out var retVal))
+            {
                 return retVal;
+            }
             else
+            {
                 throw new ArgumentOutOfRangeException(value.ToString());
+            }
         }
     }
 }

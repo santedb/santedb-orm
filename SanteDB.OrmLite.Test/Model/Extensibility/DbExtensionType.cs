@@ -30,28 +30,30 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
     /// </summary>
     [Table("ext_typ_tbl")]
     [ExcludeFromCodeCoverage]
-	public class DbExtensionType: DbNonVersionedBaseData
-	{
+    public class DbExtensionType : DbNonVersionedBaseData
+    {
 
-		/// <summary>
-		/// Gets or sets the name.
-		/// </summary>
-		/// <value>The name.</value>
-		[Column("ext_name")]
-		public String Name {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the name.
+        /// </summary>
+        /// <value>The name.</value>
+        [Column("ext_name")]
+        public String Name
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the extension handler.
-		/// </summary>
-		/// <value>The extension handler.</value>
-		[Column("hdlr_cls")]
-		public String ExtensionHandler {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the extension handler.
+        /// </summary>
+        /// <value>The extension handler.</value>
+        [Column("hdlr_cls")]
+        public String ExtensionHandler
+        {
+            get;
+            set;
+        }
 
         /// <summary>
         /// Whether the extension should be executed

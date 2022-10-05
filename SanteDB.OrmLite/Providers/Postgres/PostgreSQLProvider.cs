@@ -20,12 +20,11 @@
  */
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
-using SanteDB.Core.Interfaces;
-using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -55,9 +54,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
         // DB provider factory
         private DbProviderFactory m_provider = null;
 
-        // Filter functions
-        private static Dictionary<String, IDbFilterFunction> s_filterFunctions = null;
-
         // Index functions
         private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
         // Monitor
@@ -68,11 +64,15 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public const string InvariantName = "npgsql";
 
+        /// <inheritdoc/>
+        public IDbStatementFactory StatementFactory { get; }
+
         /// <summary>
         /// Create new provider
         /// </summary>
         public PostgreSQLProvider()
         {
+            this.StatementFactory = new PostgreSQLStatementFactory();
         }
 
         /// <summary>
@@ -96,26 +96,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public String ConnectionString { get; set; }
 
         /// <summary>
-        /// SQL Engine features
-        /// </summary>
-        public SqlEngineFeatures Features
-        {
-            get
-            {
-                return SqlEngineFeatures.AutoGenerateGuids |
-                    SqlEngineFeatures.AutoGenerateTimestamps |
-                    SqlEngineFeatures.ReturnedInsertsAsReader |
-                    SqlEngineFeatures.ReturnedUpdatesAsReader |
-                    SqlEngineFeatures.StrictSubQueryColumnNames |
-                    SqlEngineFeatures.LimitOffset |
-                    SqlEngineFeatures.FetchOffset |
-                    SqlEngineFeatures.MustNameSubQuery |
-                    SqlEngineFeatures.SetTimeout |
-                    SqlEngineFeatures.MaterializedViews;
-            }
-        }
-
-        /// <summary>
         /// Get name of provider
         /// </summary>
         public string Invariant => InvariantName;
@@ -123,7 +103,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Get the monitor probe
         /// </summary>
-        public IDiagnosticsProbe MonitorProbe {
+        public IDiagnosticsProbe MonitorProbe
+        {
             get
             {
                 if (this.m_monitor == null)
@@ -145,11 +126,17 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 var provType = ApplicationServiceContext.Current?.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type
                     ?? Type.GetType("Npgsql.NpgsqlFactory, Npgsql");
                 if (provType == null)
+                {
                     throw new InvalidOperationException("Cannot find NPGSQL provider");
+                }
+
                 this.m_provider = provType.GetField("Instance").GetValue(null) as DbProviderFactory;
             }
             if (this.m_provider == null)
+            {
                 throw new InvalidOperationException("Missing Npgsql provider");
+            }
+
             return this.m_provider;
         }
 
@@ -197,11 +184,15 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             using (var cmd = this.CreateCommandInternal(context, CommandType.Text, "EXPLAIN " + sQL, v))
             using (var plan = cmd.ExecuteReader())
+            {
                 while (plan.Read())
                 {
                     if (plan.GetValue(0).ToString().Contains("Seq"))
+                    {
                         System.Diagnostics.Debugger.Break();
+                    }
                 }
+            }
         }
 
         // Parameter regex
@@ -217,7 +208,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
             sql = this.m_parmRegex.Replace(sql, o => $"@parm{pno++}");
 
             if (pno != parms.Length && type == CommandType.Text)
+            {
                 throw new ArgumentOutOfRangeException(nameof(sql), $"Parameter mismatch query expected {pno} but {parms.Length} supplied");
+            }
 
             var cmd = context.Connection.CreateCommand();
             cmd.Transaction = context.Transaction;
@@ -240,9 +233,13 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
                 // Set value
                 if (itm == null || itm == DBNull.Value)
+                {
                     parm.Value = DBNull.Value;
+                }
                 else if (value?.GetType().IsEnum == true)
+                {
                     parm.Value = (int)value;
+                }
                 else if (value is DateTimeOffset dto)
                 {
                     parm.Value = dto.ToUniversalTime();
@@ -264,14 +261,21 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     }
                 }
                 else
+                {
                     parm.Value = itm;
+                }
 
                 if (type == CommandType.Text)
+                {
                     parm.ParameterName = $"parm{pno++}";
+                }
+
                 parm.Direction = ParameterDirection.Input;
 
                 if (this.TraceSql)
+                {
                     this.m_tracer.TraceEvent(EventLevel.Verbose, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
+                }
 
                 cmd.Parameters.Add(parm);
             }
@@ -286,7 +290,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public DbType MapParameterType(Type type)
         {
             // Null check
-            if (type == null) return DbType.Object;
+            if (type == null)
+            {
+                return DbType.Object;
+            }
 
             switch (type.StripNullable().Name)
             {
@@ -325,9 +332,18 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     return DbType.Time;
 
                 default:
-                    if (type.StripNullable() == typeof(byte[])) return System.Data.DbType.Binary;
-                    else if (type.StripNullable().IsEnum) return DbType.Int32;
-                    else throw new ArgumentOutOfRangeException(nameof(type), $"Can't map parameter type {type.Name}");
+                    if (type.StripNullable() == typeof(byte[]))
+                    {
+                        return System.Data.DbType.Binary;
+                    }
+                    else if (type.StripNullable().IsEnum)
+                    {
+                        return DbType.Int32;
+                    }
+                    else
+                    {
+                        throw new ArgumentOutOfRangeException(nameof(type), $"Can't map parameter type {type.Name}");
+                    }
             }
         }
 
@@ -347,39 +363,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
             return this.CreateCommandInternal(context, CommandType.Text, sql, parms);
         }
 
-        /// <summary>
-        /// Return exists
-        /// </summary>
-        public SqlStatement Count(SqlStatement sqlStatement)
-        {
-            return new SqlStatement(this, "SELECT COUNT(*) FROM (").Append(sqlStatement.Build()).Append(") Q0");
-        }
 
-        /// <summary>
-        /// Return exists
-        /// </summary>
-        public SqlStatement Exists(SqlStatement sqlStatement)
-        {
-            return new SqlStatement(this, "SELECT CASE WHEN EXISTS (").Append(sqlStatement.Build()).Append(") THEN true ELSE false END");
-        }
-
-        /// <summary>
-        /// Append a returning statement
-        /// </summary>
-        public SqlStatement Returning(SqlStatement sqlStatement, params ColumnMapping[] returnColumns)
-        {
-            if (returnColumns.Length == 0)
-                return sqlStatement;
-            return sqlStatement.Append($" RETURNING {String.Join(",", returnColumns.Select(o => o.Name))}");
-        }
-
-        /// <summary>
-        /// Gets a lock
-        /// </summary>
-        public object Lock(IDbConnection conn)
-        {
-            return new object();
-        }
+        /// <inheritdoc/>
+        public T ConvertValue<T>(object value) => (T)this.ConvertValue(value, typeof(T));
 
         /// <summary>
         /// Convert value just uses the mapper if needed
@@ -390,9 +376,13 @@ namespace SanteDB.OrmLite.Providers.Postgres
             if (value != DBNull.Value)
             {
                 if (toType.IsAssignableFrom(value.GetType()))
+                {
                     return value;
+                }
                 else
+                {
                     MapUtil.TryConvert(value, toType, out retVal);
+                }
             }
             return retVal;
         }
@@ -407,41 +397,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             return retVal;
         }
 
-        /// <summary>
-        /// Create SQL keyword
-        /// </summary>
-        public string CreateSqlKeyword(SqlKeyword keywordType)
-        {
-            switch (keywordType)
-            {
-                case SqlKeyword.ILike:
-                    return " ILIKE ";
 
-                case SqlKeyword.Like:
-                    return " LIKE ";
-
-                case SqlKeyword.Lower:
-                    return " LOWER ";
-
-                case SqlKeyword.Upper:
-                    return " UPPER ";
-
-                case SqlKeyword.False:
-                    return " FALSE ";
-
-                case SqlKeyword.True:
-                    return " TRUE ";
-
-                case SqlKeyword.CreateOrAlter:
-                    return "CREATE OR REPLACE ";
-
-                case SqlKeyword.RefreshMaterializedView:
-                    return "REFRESH MATERIALIZED VIEW ";
-
-                default:
-                    throw new NotImplementedException();
-            }
-        }
 
         /// <summary>
         /// Map datatype
@@ -450,8 +406,12 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             type = type.StripNullable();
             if (type == typeof(byte[]))
+            {
                 return "BYTEA";
-            else switch (type.Name)
+            }
+            else
+            {
+                switch (type.Name)
                 {
                     case nameof(Boolean):
                         return "BOOLEAN";
@@ -474,42 +434,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     default:
                         throw new NotSupportedException($"Schema type {type} not supported by PostgreSQL provider");
                 }
-
-        }
-
-        /// <summary>
-        /// Gets the filter function
-        /// </summary>
-        public IDbFilterFunction GetFilterFunction(string name)
-        {
-            if (s_filterFunctions == null)
-            {
-                s_filterFunctions = ApplicationServiceContext.Current.GetService<IServiceManager>()
-                        .CreateInjectedOfAll<IDbFilterFunction>()
-                        .Where(o => o.Provider == InvariantName)
-                        .ToDictionary(o => o.Name, o => o);
             }
-            IDbFilterFunction retVal = null;
-            s_filterFunctions.TryGetValue(name, out retVal);
-            return retVal;
         }
 
-        /// <summary>
-        /// Gets the index function
-        /// </summary>
-        public IDbIndexFunction GetIndexFunction(string name)
-        {
-            if (s_indexFunctions == null)
-            {
-                s_indexFunctions = ApplicationServiceContext.Current.GetService<IServiceManager>()
-                        .CreateInjectedOfAll<IDbIndexFunction>()
-                        .Where(o => o.Provider == this.Invariant)
-                        .ToDictionary(o => o.Name, o => o);
-            }
-
-            s_indexFunctions.TryGetValue(name, out var retVal);
-            return retVal;
-        }
 
         /// <summary>
         /// Get status of server connection
@@ -524,7 +451,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     cmd.CommandType = CommandType.Text;
                     cmd.CommandText = "SELECT * FROM pg_stat_activity;";
                     using (var rdr = cmd.ExecuteReader())
+                    {
                         while (rdr.Read())
+                        {
                             yield return new DbStatementReport()
                             {
                                 StatementId = rdr["pid"].ToString(),
@@ -532,28 +461,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
                                 Status = rdr["state"].ToString() == "active" ? DbStatementStatus.Active : DbStatementStatus.Idle,
                                 Query = rdr["query"].ToString()
                             };
+                        }
+                    }
                 }
             }
-        }
-
-        /// <summary>
-        /// Get reset sequence command
-        /// </summary>
-        public SqlStatement GetResetSequence(string sequenceName, object sequenceValue)
-        {
-            return new SqlStatement(this, $"SELECT setval('{sequenceName}', {sequenceValue})");
-        }
-
-        /// <inheritdoc/>
-        public SqlStatement CreateIndex(string indexName, string tableName, string column, bool isUnique)
-        {
-            return new SqlStatement(this, $"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} USING BTREE ({column})");
-        }
-
-        /// <inheritdoc/>
-        public SqlStatement DropIndex(string indexName)
-        {
-            return new SqlStatement(this, $"DROP INDEX {indexName};");
         }
 
         /// <summary>

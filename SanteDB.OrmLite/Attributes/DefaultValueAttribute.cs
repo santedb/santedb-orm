@@ -19,8 +19,6 @@
  * Date: 2022-8-9
  */
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SanteDB.OrmLite.Attributes
 {

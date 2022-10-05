@@ -32,7 +32,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     [Table("psn_tbl")]
     [ExcludeFromCodeCoverage]
     public class DbPerson : DbEntitySubTable
-	{
+    {
         /// <summary>
         /// Parent key
         /// </summary>
@@ -67,22 +67,24 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
         /// </summary>
         /// <value>The date of birth.</value>
         [Column("dob")]
-		public DateTime? DateOfBirth {
-			get;
-			set;
-		}
+        public DateTime? DateOfBirth
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the date of birth precision.
-		/// </summary>
-		/// <value>The date of birth precision.</value>
-		[Column("dob_prec")]
-		public string DateOfBirthPrecision {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the date of birth precision.
+        /// </summary>
+        /// <value>The date of birth precision.</value>
+        [Column("dob_prec")]
+        public string DateOfBirthPrecision
+        {
+            get;
+            set;
+        }
 
 
-	}
+    }
 }
 

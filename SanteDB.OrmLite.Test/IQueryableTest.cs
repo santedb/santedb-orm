@@ -18,14 +18,13 @@
  * User: fyfej
  * Date: 2022-5-30
  */
+using NUnit.Framework;
+using SanteDB.OrmLite.Providers.Firebird;
+using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 using System;
 using System.Configuration;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Linq;
-using NUnit.Framework;
-using SanteDB.OrmLite.Providers.Firebird;
-using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 
 namespace SanteDB.OrmLite.Tests
 {
@@ -54,7 +53,7 @@ namespace SanteDB.OrmLite.Tests
         [Test]
         public void TestCanDoSimpleQuery()
         {
-            using(var context = this.m_provider.GetReadonlyConnection())
+            using (var context = this.m_provider.GetReadonlyConnection())
             {
                 context.Open();
 
@@ -129,10 +128,14 @@ namespace SanteDB.OrmLite.Tests
 
                 var systemQuery = context.Query<DbSecurityPolicy>(o => o.CreationTime > DateTime.MinValue);
                 foreach (var result in systemQuery)
+                {
                     Assert.IsNotNull(result);
+                }
 
                 foreach (var result in systemQuery.Skip(10).Take(10))
+                {
                     Assert.IsNotNull(result);
+                }
             }
         }
     }

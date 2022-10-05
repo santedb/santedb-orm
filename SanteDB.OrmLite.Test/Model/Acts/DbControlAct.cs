@@ -18,8 +18,8 @@
  * User: fyfej
  * Date: 2022-5-30
  */
-using System.Diagnostics.CodeAnalysis;
 using SanteDB.OrmLite.Attributes;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
 {

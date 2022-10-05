@@ -19,7 +19,6 @@
  * Date: 2022-5-30
  */
 using SanteDB.Core.Diagnostics;
-using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
 using SanteDB.OrmLite.Diagnostics;
 using SanteDB.OrmLite.Providers;
@@ -27,7 +26,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics.Tracing;
 using System.Linq;
 using System.Text;
 
@@ -121,7 +119,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public QueryBuilder GetQueryBuilder(ModelMapper map)
         {
-            return new QueryBuilder(map, this.m_provider);
+            return new QueryBuilder(map, this.m_provider.StatementFactory);
         }
 
         /// <summary>
@@ -160,7 +158,10 @@ namespace SanteDB.OrmLite
         public IDbTransaction BeginTransaction()
         {
             if (this.m_transaction == null)
+            {
                 this.m_transaction = this.m_connection.BeginTransaction();
+            }
+
             return this.m_transaction;
         }
 
@@ -195,10 +196,12 @@ namespace SanteDB.OrmLite
                 this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
             }
 
-                if (this.m_connection.State == ConnectionState.Closed)
+            if (this.m_connection.State == ConnectionState.Closed)
             {
-                if(this.m_opened)
+                if (this.m_opened)
+                {
                     this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+                }
 
                 this.m_connection.Open();
                 this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
@@ -211,7 +214,9 @@ namespace SanteDB.OrmLite
             else if (this.m_connection.State != ConnectionState.Open)
             {
                 if (this.m_opened)
+                {
                     this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+                }
 
                 this.m_connection.Open();
                 this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
@@ -238,10 +243,16 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Dispose()
         {
-            
+
             if (this.m_lastCommand != null)
             {
-                try { if (this.m_provider.CanCancelCommands) this.m_lastCommand?.Cancel(); }
+                try
+                {
+                    if (this.m_provider.CanCancelCommands)
+                    {
+                        this.m_lastCommand?.Cancel();
+                    }
+                }
                 catch { }
                 finally { this.m_lastCommand?.Dispose(); this.m_lastCommand = null; }
             }
@@ -265,7 +276,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         private void ThrowIfDisposed()
         {
-            if(this.m_connection == null)
+            if (this.m_connection == null)
             {
                 throw new ObjectDisposedException(nameof(DataContext));
             }
@@ -275,7 +286,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement CreateSqlStatement()
         {
-            return new SqlStatement(this.m_provider);
+            return new SqlStatement(this.m_provider.StatementFactory);
         }
 
         /// <summary>
@@ -283,7 +294,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement CreateSqlStatement(String sql, params object[] args)
         {
-            return new SqlStatement(this.m_provider, sql, args);
+            return new SqlStatement(this.m_provider.StatementFactory, sql, args);
         }
 
         /// <summary>
@@ -291,7 +302,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement<T> CreateSqlStatement<T>()
         {
-            return new SqlStatement<T>(this.m_provider);
+            return new SqlStatement<T>(this.m_provider.StatementFactory);
         }
 
         /// <summary>
@@ -311,9 +322,14 @@ namespace SanteDB.OrmLite
                 retVal.Remove(pIndex, 1);
                 var obj = qList[parmId++];
                 if (obj is String || obj is Guid || obj is Guid? || obj is DateTime || obj is DateTimeOffset)
+                {
                     obj = $"'{obj}'";
+                }
                 else if (obj == null)
+                {
                     obj = "null";
+                }
+
                 retVal.Insert(pIndex, obj);
                 sql = retVal.ToString();
                 lastIndex = pIndex + obj.ToString().Length;

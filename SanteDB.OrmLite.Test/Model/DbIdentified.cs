@@ -55,5 +55,5 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
         public abstract Guid Key { get; set; }
     }
 
-    
+
 }

@@ -32,8 +32,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// </summary>
     [ExcludeFromCodeCoverage]
     [Table("ent_tbl")]
-	public class DbEntity : DbIdentified
-	{
+    public class DbEntity : DbIdentified
+    {
         /// <summary>
         /// Gets or sets the template
         /// </summary>
@@ -45,20 +45,22 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
         /// </summary>
         /// <value>The class concept identifier.</value>
         [Column("cls_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
-		public Guid ClassConceptKey {
-			get;
-			set;
-		}
+        public Guid ClassConceptKey
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the determiner concept identifier.
-		/// </summary>
-		/// <value>The determiner concept identifier.</value>
-		[Column("dtr_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
-		public Guid DeterminerConceptKey {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the determiner concept identifier.
+        /// </summary>
+        /// <value>The determiner concept identifier.</value>
+        [Column("dtr_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
+        public Guid DeterminerConceptKey
+        {
+            get;
+            set;
+        }
 
         /// <summary>
         /// Gets or sets the key

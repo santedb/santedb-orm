@@ -39,6 +39,7 @@ namespace SanteDB.OrmLite.Providers
         MustNameSubQuery = 0x80,
         SetTimeout = 0x100,
         ReturnedUpdatesAsReader = 0x200,
-        MaterializedViews = 0x400
+        MaterializedViews = 0x400,
+        AutoGenerateSequences = 0x800
     }
 }

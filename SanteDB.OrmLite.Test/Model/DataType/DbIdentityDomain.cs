@@ -95,7 +95,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
     /// </summary>
     [ExcludeFromCodeCoverage]
     [Table("asgn_aut_scp_tbl")]
-    public class DbAuthorityScope 
+    public class DbAuthorityScope
     {
         /// <summary>
         /// Gets or sets the scope of the auhority

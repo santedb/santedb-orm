@@ -30,18 +30,19 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// </summary>
     [Table("org_tbl")]
     [ExcludeFromCodeCoverage]
-	public class DbOrganization : DbEntitySubTable
-	{
-		/// <summary>
-		/// Gets or sets the industry concept.
-		/// </summary>
-		/// <value>The industry concept.</value>
-		[Column("ind_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
-		public Guid IndustryConceptKey {
-			get;
-			set;
-		}
+    public class DbOrganization : DbEntitySubTable
+    {
+        /// <summary>
+        /// Gets or sets the industry concept.
+        /// </summary>
+        /// <value>The industry concept.</value>
+        [Column("ind_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
+        public Guid IndustryConceptKey
+        {
+            get;
+            set;
+        }
 
-	}
+    }
 }
 

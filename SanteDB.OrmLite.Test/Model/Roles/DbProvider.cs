@@ -57,11 +57,12 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Roles
         /// </summary>
         /// <value>The specialty.</value>
         [Column("spec_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
-		public Guid Specialty {
-			get;
-			set;
-		}
+        public Guid Specialty
+        {
+            get;
+            set;
+        }
 
-	}
+    }
 }
 

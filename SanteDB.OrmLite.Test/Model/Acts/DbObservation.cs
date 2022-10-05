@@ -73,7 +73,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
     [ExcludeFromCodeCoverage]
     public class DbQuantityObservation : DbObsSubTable
     {
-        
+
         /// <summary>
         /// Represents the unit of measure
         /// </summary>
@@ -120,8 +120,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Acts
         /// <summary>
         /// Gets or sets the concept representing the value of this
         /// </summary>
-        [Column("val_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))] 
+        [Column("val_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
         public Guid? Value { get; set; }
-        
+
     }
 }

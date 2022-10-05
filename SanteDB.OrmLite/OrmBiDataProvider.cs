@@ -22,7 +22,6 @@ using SanteDB.BI;
 using SanteDB.BI.Model;
 using SanteDB.BI.Services;
 using SanteDB.BI.Util;
-using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Exceptions;
 using SanteDB.Core.Security.Services;
@@ -79,7 +78,9 @@ namespace SanteDB.OrmLite
 
             // The ADO.NET provider only allows one connection to one db at a time, so verify the connections are appropriate
             if (materializeDefinition.DataSources?.Count != 1)
+            {
                 throw new InvalidOperationException($"ADO.NET BI queries can only source data from 1 connection source, query {materializeDefinition.Name} has {materializeDefinition.DataSources?.Count}");
+            }
 
             // We want to open the specified connection
             var provider = this.GetProvider(materializeDefinition);
@@ -107,20 +108,7 @@ namespace SanteDB.OrmLite
                 {
                     context.Open();
                     context.CommandTimeout = 360000;
-                    if (provider.Features.HasFlag(SqlEngineFeatures.MaterializedViews))
-                    {
-                        context.ExecuteNonQuery(new SqlStatement(provider, "CREATE MATERIALIZED VIEW ")
-                            .Append(rdbmsQueryDefinition.Materialize.Name)
-                            .Append(" AS ")
-                            .Append(rdbmsQueryDefinition.Materialize.Sql));
-                    }
-                    else
-                    {
-                        context.ExecuteNonQuery(new SqlStatement(provider, "CREATE VIEW ")
-                            .Append(rdbmsQueryDefinition.Materialize.Name)
-                            .Append(" AS ")
-                            .Append(rdbmsQueryDefinition.Materialize.Sql));
-                    }
+                    context.ExecuteNonQuery(new SqlStatement(provider.StatementFactory, provider.StatementFactory.CreateSqlKeyword(SqlKeyword.CreateMaterializedView)).Append(rdbmsQueryDefinition.Materialize.Name).Append(" AS ").Append(rdbmsQueryDefinition.Materialize.Sql));
                 }
                 catch (Exception e)
                 {
@@ -135,70 +123,109 @@ namespace SanteDB.OrmLite
         public BisResultContext ExecuteQuery(BiQueryDefinition queryDefinition, IDictionary<string, object> parameters, BiAggregationDefinition[] aggregation, int offset, int? count)
         {
             if (queryDefinition == null)
+            {
                 throw new ArgumentNullException(nameof(queryDefinition));
+            }
 
             queryDefinition = BiUtils.ResolveRefs(queryDefinition);
             // The ADO.NET provider only allows one connection to one db at a time, so verify the connections are appropriate
             if (queryDefinition.DataSources?.Count != 1)
+            {
                 throw new InvalidOperationException($"ADO.NET BI queries can only source data from 1 connection source, query {queryDefinition.Name} has {queryDefinition.DataSources?.Count}");
+            }
 
             // Ensure we have sufficient priviledge
             this.AclCheck(queryDefinition);
 
             // Apply defaults where possible
             foreach (var defaultParm in queryDefinition.Parameters.Where(p => !String.IsNullOrEmpty(p.DefaultValue) && !parameters.ContainsKey(p.Name)))
+            {
                 parameters.Add(defaultParm.Name, defaultParm.DefaultValue);
+            }
 
             // Next we validate parameters
             if (!queryDefinition.Parameters.Where(p => p.Required == true).All(p => parameters.ContainsKey(p.Name)))
+            {
                 throw new InvalidOperationException("Missing required parameter");
+            }
 
             // Validate parameter values
             foreach (var kv in parameters.ToArray())
             {
                 var parmDef = queryDefinition.Parameters.FirstOrDefault(p => p.Name == kv.Key);
-                if (parmDef == null) continue; // skip
-                else switch (parmDef.Type)
+                if (parmDef == null)
+                {
+                    continue; // skip
+                }
+                else
+                {
+                    switch (parmDef.Type)
                     {
                         case BiDataType.Boolean:
                             if (string.IsNullOrEmpty(kv.Value?.ToString()))
+                            {
                                 parameters[kv.Key] = DBNull.Value;
+                            }
                             else
+                            {
                                 parameters[kv.Key] = Boolean.Parse(kv.Value.ToString());
+                            }
+
                             break;
 
                         case BiDataType.Date:
                         case BiDataType.DateTime:
                             if (string.IsNullOrEmpty(kv.Value?.ToString()))
+                            {
                                 parameters[kv.Key] = DBNull.Value;
+                            }
                             else
+                            {
                                 parameters[kv.Key] = DateTime.Parse(kv.Value.ToString());
+                            }
+
                             break;
 
                         case BiDataType.Integer:
                             if (string.IsNullOrEmpty(kv.Value?.ToString()))
+                            {
                                 parameters[kv.Key] = DBNull.Value;
+                            }
                             else
+                            {
                                 parameters[kv.Key] = Int32.Parse(kv.Value.ToString());
+                            }
+
                             break;
 
                         case BiDataType.String:
                             if (string.IsNullOrEmpty(kv.Value?.ToString()))
+                            {
                                 parameters[kv.Key] = DBNull.Value;
+                            }
                             else
+                            {
                                 parameters[kv.Key] = kv.Value.ToString();
+                            }
+
                             break;
 
                         case BiDataType.Uuid:
                             if (string.IsNullOrEmpty(kv.Value?.ToString()))
+                            {
                                 parameters[kv.Key] = DBNull.Value;
+                            }
                             else
+                            {
                                 parameters[kv.Key] = Guid.Parse(kv.Value.ToString());
+                            }
+
                             break;
 
                         default:
                             throw new InvalidOperationException($"Cannot determine how to parse {parmDef.Type}");
                     }
+                }
             }
 
             // We want to open the specified connection
@@ -226,7 +253,9 @@ namespace SanteDB.OrmLite
 
                 // Aggregation found
                 if (agg == null)
+                {
                     throw new InvalidOperationException($"No provided aggregation can be found for {provider.Invariant}");
+                }
 
                 var selector = agg.Columns?.Select(c =>
                 {
@@ -267,7 +296,7 @@ namespace SanteDB.OrmLite
                     colGroupings = agg.Groupings.Select(g => $"{g.ColumnSelector} AS {g.Name}").ToArray();
                 // Aggregate
                 stmt = $"SELECT {String.Join(",", colGroupings.Concat(selector))} " +
-                        $"FROM ({stmt}) {(provider.Features.HasFlag(SqlEngineFeatures.MustNameSubQuery) ? " AS _inner" : "")} " +
+                        $"FROM ({stmt})  AS _inner" +
                     $"GROUP BY {String.Join(",", groupings)}";
             }
 
@@ -278,7 +307,7 @@ namespace SanteDB.OrmLite
                 {
                     context.Open();
                     DateTime startTime = DateTime.Now;
-                    var sqlStmt = new SqlStatement(provider, stmt, values.ToArray());
+                    var sqlStmt = new SqlStatement(provider.StatementFactory, stmt, values.ToArray());
                     this.m_tracer.TraceInfo("Executing BI Query: {0}", context.GetQueryLiteral(sqlStmt.Build()));
                     var results = context.Query<ExpandoObject>(sqlStmt).Skip(offset).Take(count ?? 10000).ToArray();
                     return new BisResultContext(
@@ -306,7 +335,10 @@ namespace SanteDB.OrmLite
         {
             var rdbmsQueryDefinition = queryDefinition.QueryDefinitions.FirstOrDefault(o => o.Invariants.Contains(provider.Invariant));
             if (rdbmsQueryDefinition == null)
+            {
                 throw new InvalidOperationException($"Could not find a SQL definition for invariant {provider.Invariant} from {queryDefinition?.Id} (supported invariants: {String.Join(",", queryDefinition.QueryDefinitions.SelectMany(o => o.Invariants))})");
+            }
+
             return rdbmsQueryDefinition;
         }
 
@@ -331,9 +363,14 @@ namespace SanteDB.OrmLite
 
             var demandList = queryDefinition.DataSources.SelectMany(o => o?.MetaData.Demands);
             if (queryDefinition.MetaData?.Demands != null)
+            {
                 demandList = demandList.Union(queryDefinition.MetaData?.Demands);
+            }
+
             foreach (var pol in demandList)
+            {
                 this.m_policyEnforcementService.Demand(pol);
+            }
         }
 
         /// <summary>
@@ -343,9 +380,13 @@ namespace SanteDB.OrmLite
         {
             var query = this.m_metadataRepository?.Get<BiQueryDefinition>(queryId);
             if (query == null)
+            {
                 throw new KeyNotFoundException(queryId);
+            }
             else
+            {
                 return this.ExecuteQuery(query, parameters, aggregation, offset, count);
+            }
         }
 
         /// <summary>
@@ -356,7 +397,10 @@ namespace SanteDB.OrmLite
             viewDef = BiUtils.ResolveRefs(viewDef) as BiViewDefinition;
             var retVal = this.ExecuteQuery(viewDef.Query, parameters, viewDef.AggregationDefinitions?.ToArray(), offset, count);
             if (viewDef.Pivot != null)
+            {
                 retVal = this.m_pivotProvider.Pivot(retVal, viewDef.Pivot);
+            }
+
             return retVal;
         }
 
@@ -373,7 +417,9 @@ namespace SanteDB.OrmLite
             materializeDefinition = BiUtils.ResolveRefs(materializeDefinition);
             // The ADO.NET provider only allows one connection to one db at a time, so verify the connections are appropriate
             if (materializeDefinition.DataSources?.Count != 1)
+            {
                 throw new InvalidOperationException($"ADO.NET BI queries can only source data from 1 connection source, query {materializeDefinition.Name} has {materializeDefinition.DataSources?.Count}");
+            }
 
             // We want to open the specified connection
             var provider = this.GetProvider(materializeDefinition);
@@ -391,7 +437,7 @@ namespace SanteDB.OrmLite
             }
 
             // Get connection and execute
-            if (provider.Features.HasFlag(SqlEngineFeatures.MaterializedViews))
+            if (provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.MaterializedViews))
             {
 
                 using (var context = provider.GetWriteConnection())
@@ -400,7 +446,7 @@ namespace SanteDB.OrmLite
                     {
                         context.Open();
                         context.CommandTimeout = 360000;
-                        context.ExecuteNonQuery(new SqlStatement(provider, provider.CreateSqlKeyword(SqlKeyword.RefreshMaterializedView))
+                        context.ExecuteNonQuery(new SqlStatement(provider.StatementFactory, provider.StatementFactory.CreateSqlKeyword(SqlKeyword.RefreshMaterializedView))
                             .Append(rdbmsQueryDefinition.Materialize.Name));
                     }
                     catch (Exception e)

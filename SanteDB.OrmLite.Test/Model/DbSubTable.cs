@@ -30,7 +30,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// Gets or sets the derived parent class
     /// </summary>
     [ExcludeFromCodeCoverage]
-    public abstract class DbSubTable 
+    public abstract class DbSubTable
     {
 
         /// <summary>

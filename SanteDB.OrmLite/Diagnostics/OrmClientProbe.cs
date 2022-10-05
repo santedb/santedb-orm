@@ -24,7 +24,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 
 namespace SanteDB.OrmLite.Diagnostics
@@ -183,7 +182,7 @@ namespace SanteDB.OrmLite.Diagnostics
         /// </summary>
         private void UpdateOrmMetricsWorker(object obj)
         {
-            
+
             while (!this.m_disposed)
             {
                 try
@@ -198,9 +197,14 @@ namespace SanteDB.OrmLite.Diagnostics
                                 break;
                             default:
                                 if (instruction.Value > 0)
+                                {
                                     this.m_componentValues[(int)instruction.Key].Increment();
-                                else if(instruction.Value < 0)
+                                }
+                                else if (instruction.Value < 0)
+                                {
                                     this.m_componentValues[(int)instruction.Key].Decrement();
+                                }
+
                                 break;
                         }
                     }
@@ -255,12 +259,16 @@ namespace SanteDB.OrmLite.Diagnostics
             this.m_resetEvent.Set();
         }
 
-            /// <summary>
-            /// Dispose the object
-            /// </summary>
-            public void Dispose()
+        /// <summary>
+        /// Dispose the object
+        /// </summary>
+        public void Dispose()
         {
-            if (this.m_disposed) throw new ObjectDisposedException(nameof(OrmClientProbe));
+            if (this.m_disposed)
+            {
+                throw new ObjectDisposedException(nameof(OrmClientProbe));
+            }
+
             this.m_disposed = true;
             this.m_resetEvent.Dispose();
         }

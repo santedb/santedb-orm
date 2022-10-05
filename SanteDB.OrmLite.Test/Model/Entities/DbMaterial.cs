@@ -32,7 +32,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
     /// </summary>
     [Table("mat_tbl")]
     [ExcludeFromCodeCoverage]
-	public class DbMaterial : DbEntitySubTable
+    public class DbMaterial : DbEntitySubTable
     {
 
         /// <summary>
@@ -58,59 +58,64 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
         /// </summary>
         /// <value>The quantity.</value>
         [Column("qty")]
-		public decimal Quantity {
-			get;
-			set;
-		}
+        public decimal Quantity
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the form concept.
-		/// </summary>
-		/// <value>The form concept.</value>
-		[Column("frm_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
-		public Guid FormConceptKey {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the form concept.
+        /// </summary>
+        /// <value>The form concept.</value>
+        [Column("frm_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
+        public Guid FormConceptKey
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the quantity concept.
-		/// </summary>
-		/// <value>The quantity concept.</value>
-		[Column("qty_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
-		public Guid QuantityConceptKey {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the quantity concept.
+        /// </summary>
+        /// <value>The quantity concept.</value>
+        [Column("qty_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
+        public Guid QuantityConceptKey
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the expiry date.
-		/// </summary>
-		/// <value>The expiry date.</value>
-		[Column("exp_utc")]
-		public DateTime ExpiryDate {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the expiry date.
+        /// </summary>
+        /// <value>The expiry date.</value>
+        [Column("exp_utc")]
+        public DateTime ExpiryDate
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets a value indicating whether this instance is administrative.
-		/// </summary>
-		/// <value><c>true</c> if this instance is administrative; otherwise, <c>false</c>.</value>
-		[Column("is_adm")]
-		public bool IsAdministrative {
-			get;
-			set;
-		}
-	}
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is administrative.
+        /// </summary>
+        /// <value><c>true</c> if this instance is administrative; otherwise, <c>false</c>.</value>
+        [Column("is_adm")]
+        public bool IsAdministrative
+        {
+            get;
+            set;
+        }
+    }
 
-	/// <summary>
-	/// Manufactured material.
-	/// </summary>
-	[Table("mmat_tbl")]
+    /// <summary>
+    /// Manufactured material.
+    /// </summary>
+    [Table("mmat_tbl")]
     [ExcludeFromCodeCoverage]
-	public class DbManufacturedMaterial : DbEntitySubTable
-	{
+    public class DbManufacturedMaterial : DbEntitySubTable
+    {
 
         /// <summary>
         /// Parent key filter
@@ -128,17 +133,18 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
                 base.ParentKey = value;
             }
         }
-              
+
         /// <summary>
         /// Gets or sets the lot number.
         /// </summary>
         /// <value>The lot number.</value>
         [Column("lot_no")]
-		public String LotNumber {
-			get;
-			set;
-		}
-	}
+        public String LotNumber
+        {
+            get;
+            set;
+        }
+    }
 
 }
 

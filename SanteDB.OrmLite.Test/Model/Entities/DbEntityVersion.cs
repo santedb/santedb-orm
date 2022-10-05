@@ -43,20 +43,22 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
         /// </summary>
         /// <value>The status concept identifier.</value>
         [Column("sts_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
-		public Guid StatusConceptKey {
-			get;
-			set;
-		}
+        public Guid StatusConceptKey
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the type concept identifier.
-		/// </summary>
-		/// <value>The type concept identifier.</value>
-		[Column("typ_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
-		public Guid? TypeConceptKey {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the type concept identifier.
+        /// </summary>
+        /// <value>The type concept identifier.</value>
+        [Column("typ_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
+        public Guid? TypeConceptKey
+        {
+            get;
+            set;
+        }
 
         /// <summary>
         /// Gets or sets the version id

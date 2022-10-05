@@ -19,19 +19,15 @@
  * Date: 2022-9-7
  */
 using SanteDB.Core.Diagnostics;
+using SanteDB.Core.i18n;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Query;
-using SanteDB.Core.Services;
-using SanteDB.OrmLite;
-using SanteDB.Core.i18n;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
-using System.Reflection;
 
 namespace SanteDB.OrmLite.MappedResultSets
 {

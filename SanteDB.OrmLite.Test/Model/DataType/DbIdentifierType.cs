@@ -31,7 +31,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
     [Table("id_typ_tbl")]
     [ExcludeFromCodeCoverage]
     public class DbIdentifierType : DbBaseData
-	{
+    {
         /// <summary>
         /// Gets or sets the id type
         /// </summary>
@@ -43,10 +43,11 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.DataType
         /// </summary>
         /// <value>The type concept identifier.</value>
         [Column("typ_cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
-		public Guid TypeConceptKey {
-			get;
-			set;
-		}
+        public Guid TypeConceptKey
+        {
+            get;
+            set;
+        }
 
         /// <summary>
         /// Gets or sets the type concept identifier.
