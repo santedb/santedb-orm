@@ -142,6 +142,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
         public object ConvertValue(object value, Type toType)
         {
             object retVal = null;
+            if(value == null || value == DBNull.Value)
+            {
+                return null;
+            }
             if (value != DBNull.Value)
             {
                 // Hack: Firebird handles UUIDs as a char array of 16 rather than a byte array
