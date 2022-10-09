@@ -87,14 +87,14 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Order in ascending order accoridng to expression
         /// </summary>
-        IOrmResultSet OrderBy(Expression orderExpression);
+        IOrmResultSet OrderBy(LambdaExpression orderExpression);
 
         /// <summary>
         /// Order by descending according to expression
         /// </summary>
         /// <param name="orderExpression"></param>
         /// <returns></returns>
-        IOrmResultSet OrderByDescending(Expression orderExpression);
+        IOrmResultSet OrderByDescending(LambdaExpression orderExpression);
 
         /// <summary>
         /// Wraps the query in this result set in another query with  a where clause matching <paramref name="whereExpression"/>

@@ -421,7 +421,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
             }
 
-            return this.CloneWith(this.m_resultSet.OrderBy(this.m_provider.MapExpression(sortExpression)));
+            return this.CloneWith(this.m_resultSet.OrderBy((LambdaExpression)this.m_provider.MapExpression(sortExpression)));
         }
 
         /// <summary>
@@ -434,7 +434,7 @@ namespace SanteDB.OrmLite.MappedResultSets
                 this.m_resultSet = this.m_provider.ExecuteQueryOrm(this.m_context, o => true);
             }
 
-            return this.CloneWith(this.m_resultSet.OrderByDescending(this.m_provider.MapExpression(sortExpression)));
+            return this.CloneWith(this.m_resultSet.OrderByDescending((LambdaExpression)this.m_provider.MapExpression(sortExpression)));
         }
 
         /// <summary>
