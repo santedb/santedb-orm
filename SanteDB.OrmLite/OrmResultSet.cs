@@ -140,7 +140,16 @@ namespace SanteDB.OrmLite
         /// <param name="sortFieldSelector">The field to order the results by</param>
         public OrmResultSet<TData> OrderBy(Expression<Func<TData, dynamic>> sortFieldSelector)
         {
-            return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy(sortFieldSelector, Core.Model.Map.SortOrderType.OrderBy));
+            var sql = this.Statement.Build();
+            var unionSelect = this.m_extractUnionIntersects.Match(sql.SQL);
+            if (unionSelect.Success)
+            {
+                return new OrmResultSet<TData>(this.Context, new SqlStatement(this.Context.Provider.StatementFactory, "SELECT * FROM (").Append(sql).Append(") AS I").OrderBy(sortFieldSelector, Core.Model.Map.SortOrderType.OrderBy));
+            }
+            else
+            {
+                return new OrmResultSet<TData>(this.Context, sql.OrderBy(sortFieldSelector, Core.Model.Map.SortOrderType.OrderBy));
+            }
         }
 
         /// <summary>
@@ -149,7 +158,16 @@ namespace SanteDB.OrmLite
         /// <param name="orderSelector">The selector to order by </param>
         public OrmResultSet<TData> OrderByDescending(Expression<Func<TData, dynamic>> orderSelector)
         {
-            return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy(orderSelector, Core.Model.Map.SortOrderType.OrderByDescending));
+            var sql = this.Statement.Build();
+            var unionSelect = this.m_extractUnionIntersects.Match(sql.SQL);
+            if (unionSelect.Success)
+            {
+                return new OrmResultSet<TData>(this.Context, new SqlStatement(this.Context.Provider.StatementFactory, "SELECT * FROM (").Append(sql).Append(") AS I").OrderBy(orderSelector, Core.Model.Map.SortOrderType.OrderByDescending));
+            }
+            else
+            {
+                return new OrmResultSet<TData>(this.Context, sql.OrderBy(orderSelector, Core.Model.Map.SortOrderType.OrderByDescending));
+            }
         }
 
         /// <summary>
@@ -485,7 +503,7 @@ namespace SanteDB.OrmLite
                 typeof(TData).GetGenericArguments().Contains(le.Parameters[0].Type) ||
                 typeof(TData) == le.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
             {
-                return new OrmResultSet<TData>(this.Context, this.TransformAll(stmt => stmt.OrderBy(le, Core.Model.Map.SortOrderType.OrderBy)));
+                return new OrmResultSet<TData>(this.Context, this.Context.CreateSqlStatement("SELECT * FROM (").Append(this.Statement.Build()).Append(") I").OrderBy(le, Core.Model.Map.SortOrderType.OrderBy));
             }
             else
             {
@@ -507,7 +525,7 @@ namespace SanteDB.OrmLite
                 typeof(TData).GetGenericArguments().Contains(le.Parameters[0].Type) ||
                 typeof(TData) == le.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
             {
-                return new OrmResultSet<TData>(this.Context, this.TransformAll(stmt => stmt.OrderBy(le, Core.Model.Map.SortOrderType.OrderByDescending)));
+                return new OrmResultSet<TData>(this.Context, this.Context.CreateSqlStatement("SELECT * FROM (").Append(this.Statement.Build()).Append(") I").OrderBy(le, Core.Model.Map.SortOrderType.OrderByDescending));
             }
             else
             {
