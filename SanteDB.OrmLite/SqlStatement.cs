@@ -447,7 +447,7 @@ namespace SanteDB.OrmLite
             } while (t != null);
 
             // Append order by?
-            return this.Append($"{(!hasOrder ? " ORDER BY " : ",")} {orderCol.Name} {(sortOperation == SortOrderType.OrderBy ? " ASC " : " DESC ")}");
+            return this.Append($"{(!hasOrder ? " ORDER BY " : ",")} {orderCol.Table.TableName}.{orderCol.Name} {(sortOperation == SortOrderType.OrderBy ? " ASC " : " DESC ")}");
         }
 
         /// <summary>
