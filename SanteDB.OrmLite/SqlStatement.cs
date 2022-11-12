@@ -400,7 +400,7 @@ namespace SanteDB.OrmLite
         public SqlStatement RemoveLimit(out int count)
         {
             var sql = this.Build();
-            var sqlPart = new Regex(@"(?:FETCH\sFIRST|LIMIT)\s(\d+?)\s?(?:\sROWS\sONLY)?").Match(sql.SQL);
+            var sqlPart = new Regex(@"(?:FETCH\sFIRST|LIMIT)\s(\d+?)\s(?:\sROWS\sONLY)?").Match(sql.SQL + " ");
             if (sqlPart.Success)
             {
                 count = Int32.Parse(sqlPart.Groups[1].Value);

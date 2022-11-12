@@ -98,7 +98,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                 case SqlKeyword.CreateView:
                 case SqlKeyword.CreateMaterializedView:
-                    return "CREATE VIEW ";
+                    return "CREATE VIEW IF NOT EXISTS ";
                 default:
                     throw new NotImplementedException();
             }

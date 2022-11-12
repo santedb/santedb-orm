@@ -472,6 +472,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 retVal = new Guid(bValue);
             }
+            else if (typeof(byte[]) == toType.StripNullable() &&
+                value is byte[] bValue2 &&
+                bValue2.Length == 16) // this is a UUID - SQLite reads (esp from the data layer) are just BLOBs
+            {
+                retVal = new Guid(bValue2);
+            }
             else
             {
                 MapUtil.TryConvert(value, toType, out retVal);

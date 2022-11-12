@@ -234,12 +234,15 @@ namespace SanteDB.OrmLite
             for (int i = 0; i < rdr.FieldCount; i++)
             {
                 var value = rdr[i];
+                var name = rdr.GetName(i).ToLowerInvariant();
                 if (value == DBNull.Value)
                 {
                     value = null;
                 }
-
-                var name = rdr.GetName(i).ToLowerInvariant();
+                else
+                {
+                    value = this.m_provider.ConvertValue(value, rdr.GetFieldType(i));
+                }
                 retVal.Add(name, value);
             }
             return (TModel)retVal;
