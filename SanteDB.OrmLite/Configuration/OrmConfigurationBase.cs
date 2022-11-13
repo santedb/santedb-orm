@@ -83,7 +83,7 @@ namespace SanteDB.OrmLite.Configuration
         {
             get
             {
-                if (this.m_dbProvider == null)
+                if (this.m_dbProvider == null && this.ProviderType != null)
                 {
                     this.m_dbProvider = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().GetProvider(this.ProviderType);
                     if (this.m_dbProvider == null)
