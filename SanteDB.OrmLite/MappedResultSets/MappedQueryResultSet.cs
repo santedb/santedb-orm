@@ -157,7 +157,14 @@ namespace SanteDB.OrmLite.MappedResultSets
             if (this.m_resultSet != null)
             {
                 // This is in effect an intersect
-                return this.CloneWith(this.m_resultSet.Where(this.m_provider.MapExpression<bool>(query)));
+                try
+                {
+                    return this.CloneWith(this.m_resultSet.Where(this.m_provider.MapExpression<bool>(query)));
+                }
+                catch
+                {
+                    return this.CloneWith(this.m_resultSet.Intersect(this.m_provider.ExecuteQueryOrm(this.m_context, query)));
+                }
             }
             else
             {
