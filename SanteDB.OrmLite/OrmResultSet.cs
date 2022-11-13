@@ -451,6 +451,16 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Intersect the data
+        /// </summary>
+        public OrmResultSet<TData> Intersect(OrmResultSet<TData> other)
+        {
+            var sql = this.ToSqlStatement();
+            sql = sql.Append(" INTERSECT ").Append(other.ToSqlStatement()).Build();
+            return new OrmResultSet<TData>(this.Context, sql);
+        }
+
+        /// <summary>
         /// Union of other result set with this
         /// </summary>
         public IOrmResultSet Union(IOrmResultSet other)
