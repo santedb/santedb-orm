@@ -56,6 +56,11 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// </summary>
         public const string InvariantName = "FirebirdSQL";
 
+        /// <summary>
+        /// The factory this provider uses
+        /// </summary>
+        public const string ProviderFactoryType = "FirebirdSql.Data.FirebirdClient.FirebirdClientFactory, FirebirdSql.Data.FirebirdClient";
+
         // Parameter regex
         private readonly Regex m_parmRegex = new Regex(@"\?");
 
@@ -376,7 +381,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             if (this.m_provider == null) // HACK for Mono
             {
                 var provType = ApplicationServiceContext.Current?.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type
-                    ?? Type.GetType("FirebirdSql.Data.FirebirdClient.FirebirdClientFactory, FirebirdSql.Data.FirebirdClient");
+                    ?? Type.GetType(ProviderFactoryType);
                 if (provType == null)
                 {
                     throw new InvalidOperationException("Cannot find FirebirdSQL provider");

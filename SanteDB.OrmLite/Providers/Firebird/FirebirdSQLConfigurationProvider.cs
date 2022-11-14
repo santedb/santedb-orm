@@ -55,6 +55,11 @@ namespace SanteDB.OrmLite.Providers.Firebird
         public override Type DbProviderType => typeof(FirebirdSQLProvider);
 
         /// <summary>
+        /// Get the provider factory
+        /// </summary>
+        public override Type AdoNetFactoryType => Type.GetType(FirebirdSQLProvider.ProviderFactoryType);
+
+        /// <summary>
         /// Get the options
         /// </summary>
         public override IDictionary<string, ConfigurationOptionType> Options => new Dictionary<string, ConfigurationOptionType>()

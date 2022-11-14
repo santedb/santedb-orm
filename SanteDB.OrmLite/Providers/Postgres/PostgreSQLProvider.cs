@@ -64,6 +64,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public const string InvariantName = "npgsql";
 
+        /// <summary>
+        /// The factory this provider uses
+        /// </summary>
+        public const string ProviderFactoryType = "Npgsql.NpgsqlFactory, Npgsql";
+
         /// <inheritdoc/>
         public IDbStatementFactory StatementFactory { get; }
 
@@ -124,7 +129,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             if (this.m_provider == null) // HACK for Mono
             {
                 var provType = ApplicationServiceContext.Current?.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type
-                    ?? Type.GetType("Npgsql.NpgsqlFactory, Npgsql");
+                    ?? Type.GetType(ProviderFactoryType);
                 if (provType == null)
                 {
                     throw new InvalidOperationException("Cannot find NPGSQL provider");

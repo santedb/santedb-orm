@@ -49,6 +49,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public override OperatingSystemID Platform => OperatingSystemID.Android | OperatingSystemID.Linux | OperatingSystemID.MacOS | OperatingSystemID.Win32 | OperatingSystemID.Other;
 
         /// <summary>
+        /// Get the provider factory
+        /// </summary>
+        public override Type AdoNetFactoryType => Type.GetType(PostgreSQLProvider.ProviderFactoryType);
+
+        /// <summary>
         /// Get the options for connecting
         /// </summary>
         public override IDictionary<string, ConfigurationOptionType> Options => new Dictionary<string, ConfigurationOptionType>(){

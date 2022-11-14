@@ -21,6 +21,8 @@
 using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Exceptions;
+using SanteDB.Core.i18n;
+using SanteDB.Core.Services;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
@@ -77,9 +79,14 @@ namespace SanteDB.OrmLite.Migration
         }
 
         /// <summary>
+        /// Upgrade schema
+        /// </summary>
+        public static void UpgradeSchema(this IDbProvider provider, string scopeOfContext) => UpgradeSchema(provider, scopeOfContext, null);
+
+        /// <summary>
         /// Upgrade the schema
         /// </summary>
-        public static void UpgradeSchema(this IDbProvider provider, string scopeOfContext)
+        public static void UpgradeSchema(this IDbProvider provider, string scopeOfContext, Action<float, string> progressMonitor)
         {
             // First, does the database exist?
             m_traceSource.TraceInfo("Ensure context {0} is updated...", scopeOfContext);
@@ -95,6 +102,7 @@ namespace SanteDB.OrmLite.Migration
             {
                 try
                 {
+                    progressMonitor?.Invoke(0.0f, String.Format(UserMessages.INITIALIZE_DATABASE, scopeOfContext));
                     m_traceSource.TraceInfo("Will create database {0}...", dbName);
                     configProvider.CreateDatabase(connectionString, dbName, connectionString.GetComponent(configProvider.Capabilities.UserNameSetting));
                 }
@@ -107,12 +115,15 @@ namespace SanteDB.OrmLite.Migration
             var updates = GetFeatures(provider.Invariant).OfType<SqlFeature>().Where(o => o.Scope == scopeOfContext).OrderBy(o => o.Id).ToArray();
 
             // Some of the updates from V2 to V3 can take hours to complete - this timer allows us to report progress on the log
+            int i = 0;
             foreach (var itm in updates)
             {
                 try
                 {
                     using (var conn = provider.GetWriteConnection())
                     {
+                        progressMonitor?.Invoke((((float)++i) / updates.Length), String.Format(UserMessages.UPDATE_DATABASE, itm.Description));
+
                         if (!conn.IsInstalled(itm))
                         {
                             m_traceSource.TraceInfo("Installing {0} ({1})...", itm.Id, itm.Description);

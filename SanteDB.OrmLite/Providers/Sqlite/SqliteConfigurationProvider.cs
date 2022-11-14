@@ -39,6 +39,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public override OperatingSystemID Platform => OperatingSystemID.Win32 | OperatingSystemID.Android | OperatingSystemID.iOS | OperatingSystemID.Linux | OperatingSystemID.MacOS | OperatingSystemID.Other;
 
         /// <summary>
+        /// Get the provider factory
+        /// </summary>
+        public override Type AdoNetFactoryType => Type.GetType(SqliteProvider.ProviderFactoryType);
+
+        /// <summary>
         /// Get the host types that this works on
         /// </summary>
         public override SanteDBHostType HostType => SanteDBHostType.Client | SanteDBHostType.Configuration | SanteDBHostType.Gateway | SanteDBHostType.Other | SanteDBHostType.Server | SanteDBHostType.Test;
@@ -50,9 +55,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
             { "Data Source", ConfigurationOptionType.DatabaseName },
             { "Password", ConfigurationOptionType.Password },
-#if !DEBUG
-            { "Certificate", ConfigurationOptionType.Certificate },
-#endif
             { "Foreign Keys", ConfigurationOptionType.Boolean }
         };
 
@@ -150,5 +152,15 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
         /// <inheritdoc/>
         public override DataConfigurationCapabilities Capabilities => new DataConfigurationCapabilities("Data Source", null, "Password", null, false);
+
+        /// <inheritdoc/>
+        public override ConnectionString CreateConnectionString(IDictionary<string, object> options)
+        {
+            if(options.TryGetValue("Data Source", out var dataSourceRaw) && Path.GetExtension(dataSourceRaw.ToString()) != "sqlite")
+            {
+                options["Data Source"] = Path.ChangeExtension(dataSourceRaw.ToString(), "sqlite");
+            }
+            return base.CreateConnectionString(options);
+        }
     }
 }

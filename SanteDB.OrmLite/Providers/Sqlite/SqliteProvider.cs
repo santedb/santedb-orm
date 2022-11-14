@@ -53,6 +53,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public const string InvariantName = "sqlite";
 
+        /// <summary>
+        /// The factory this provider uses
+        /// </summary>
+        public const string ProviderFactoryType = "Microsoft.Data.Sqlite.SqliteFactory, Microsoft.Data.Sqlite";
+
         // UUID regex
         private readonly Regex m_uuidRegex = new Regex(@"(\'[A-Za-z0-9]{8}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{12}\')");
         private readonly Regex m_parmRegex = new Regex(@"\?");
@@ -152,29 +157,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         internal static ConnectionString CorrectConnectionString(ConnectionString connectionString)
         {
             var retVal = connectionString.Clone();
-            // Are we encrypting with a password - or with a X509 cert?
-            var x509 = retVal.GetComponent("Certificate");
-            // Attempt to find the certificate
-            if (!String.IsNullOrEmpty(x509))
-            {
-                // HACK: Configurator tool adds full string
-                if(x509.Contains("\r")) { 
-                    var parts = connectionString.ToString().Split('\n');
-                    
-                    x509 = parts[Array.IndexOf(parts,"[Serial Number]\r")+1].Trim();
-                }
-                var pubkey = X509CertificateUtils.FindCertificate(System.Security.Cryptography.X509Certificates.X509FindType.FindBySerialNumber, System.Security.Cryptography.X509Certificates.StoreLocation.LocalMachine, System.Security.Cryptography.X509Certificates.StoreName.My, x509);
-                if (pubkey == null || !pubkey.HasPrivateKey)
-                {
-                    throw new InvalidOperationException(ErrorMessages.CERTIFICATE_NOT_VALID);
-                }
-                using (var privkey = pubkey.PrivateKey)
-                {
-                    retVal.SetComponent("Password", BitConverter.ToString(SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(privkey.ToXmlString(true)))));
-                }
-            }
-
+           
             var dataSource = retVal.GetComponent("Data Source");
+            if(Path.GetExtension(dataSource) != ".sqlite")
+            {
+                dataSource = Path.ChangeExtension(dataSource, "sqlite");
+            }
             if (!String.IsNullOrEmpty(dataSource)
                && !dataSource.StartsWith("|DataDirectory|")
                && !Path.IsPathRooted(dataSource))
@@ -364,7 +352,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             if (this.m_provider == null) // HACK for Mono
             {
                 var provType = ApplicationServiceContext.Current?.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type
-                    ?? Type.GetType("Microsoft.Data.Sqlite.SqliteFactory, Microsoft.Data.Sqlite");
+                    ?? Type.GetType(ProviderFactoryType);
                 if (provType == null)
                 {
                     throw new InvalidOperationException("Cannot find SQlite provider");

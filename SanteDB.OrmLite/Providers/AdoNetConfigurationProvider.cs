@@ -60,7 +60,7 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Gets the host type
         /// </summary>
-        public virtual SanteDBHostType HostType => SanteDBHostType.Server;
+        public virtual SanteDBHostType HostType => SanteDBHostType.Server | SanteDBHostType.Gateway;
 
         /// <summary>
         /// Gets the options
@@ -82,6 +82,12 @@ namespace SanteDB.OrmLite.Providers
         /// Get the provider type
         /// </summary>
         public abstract Type DbProviderType { get; }
+
+
+        /// <summary>
+        /// Get the provider type
+        /// </summary>
+        public abstract Type AdoNetFactoryType { get; }
 
         /// <summary>
         /// Gets the capabilities of the database
