@@ -150,6 +150,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 case SqlKeyword.CreateMaterializedView:
                 case SqlKeyword.CreateView:
                     return "CREATE OR ALTER VIEW ";
+                case SqlKeyword.Union:
+                    return " UNION ";
+                case SqlKeyword.UnionAll:
+                    return " UNION ALL ";
                 default:
                     throw new ArgumentOutOfRangeException(nameof(keywordType));
             }

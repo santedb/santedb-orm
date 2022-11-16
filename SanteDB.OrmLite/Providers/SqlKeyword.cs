@@ -64,6 +64,18 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Create a materialized view
         /// </summary>
-        CreateMaterializedView
+        CreateMaterializedView,
+        /// <summary>
+        /// Intersect 
+        /// </summary>
+        Intersect,
+        /// <summary>
+        /// Union distinct
+        /// </summary>
+        Union,
+        /// <summary>
+        /// UnionAll
+        /// </summary>
+        UnionAll
     }
 }

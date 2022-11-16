@@ -129,6 +129,13 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     return "CREATE OR REPLACE MATERIALIZED VIEW ";
                 case SqlKeyword.CreateView:
                     return "CREATE OR REPLACE VIEW ";
+
+                case SqlKeyword.Union:
+                    return " UNION ";
+                case SqlKeyword.UnionAll:
+                    return " UNION ALL ";
+                case SqlKeyword.Intersect:
+                    return " INTERSECT ";
                 default:
                     throw new NotImplementedException();
             }

@@ -99,6 +99,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 case SqlKeyword.CreateView:
                 case SqlKeyword.CreateMaterializedView:
                     return "CREATE VIEW IF NOT EXISTS ";
+                case SqlKeyword.Union:
+                case SqlKeyword.UnionAll:
+                    return " UNION ";
+                case SqlKeyword.Intersect:
+                    return " INTERSECT ";
                 default:
                     throw new NotImplementedException();
             }

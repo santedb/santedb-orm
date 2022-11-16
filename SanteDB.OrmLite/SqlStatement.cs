@@ -51,6 +51,7 @@ namespace SanteDB.OrmLite
         /// Arguments for the SQL statement
         /// </summary>
         protected List<object> m_arguments = null;
+        private string m_alias;
 
         /// <summary>
         /// True if the sql statement is finalized
@@ -77,7 +78,17 @@ namespace SanteDB.OrmLite
         /// Gets the constructed or set SQL
         /// </summary>
         public string SQL
-        { get { return this.m_sql; } }
+        { 
+            get 
+            { 
+                return this.m_sql?.Replace("\r"," ").Replace("\n"," "); 
+            } 
+        }
+
+        /// <summary>
+        /// Gets the alias on the statement
+        /// </summary>
+        public String Alias => this.m_alias;
 
         /// <summary>
         /// Creates a new empty SQL statement
@@ -114,11 +125,11 @@ namespace SanteDB.OrmLite
 
             if (this.m_rhs != null)
             {
-                this.m_rhs.Append(sql);
+                this.m_rhs.Append(sql.Build());
             }
             else
             {
-                this.m_rhs = sql;
+                this.m_rhs = sql.Build();
             }
 
             return this;
@@ -156,7 +167,10 @@ namespace SanteDB.OrmLite
                 focus = focus.m_rhs;
             } while (focus != null);
 
-            return new SqlStatement(this.m_statementFactory, sb.ToString(), parameters.ToArray());
+            return new SqlStatement(this.m_statementFactory, sb.ToString(), parameters.ToArray())
+            {
+                m_alias = this.m_alias
+            };
         }
 
         /// <summary>
@@ -308,7 +322,7 @@ namespace SanteDB.OrmLite
         public SqlStatement SelectFrom(Type dataType, params ColumnMapping[] columns)
         {
             var tableMap = TableMapping.Get(dataType);
-            return this.Append(new SqlStatement(this.m_statementFactory, $"SELECT {String.Join(",", columns.Select(o => $"{o.Table.TableName}.{o.Name}"))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
+            return this.Append(new SqlStatement(this.m_statementFactory, $"SELECT {String.Join(",", columns.Select(o => $"{this.m_alias ?? o.Table.TableName}.{o.Name}"))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
         }
 
         /// <summary>
@@ -364,7 +378,7 @@ namespace SanteDB.OrmLite
         public SqlStatement RemoveOffset(out int offset)
         {
             var sql = this.Build();
-            var sqlPart = new Regex(@"OFFSET (\d+?)\s?(?:ROW)?").Match(sql.SQL);
+            var sqlPart = new Regex(@"OFFSET (\d+)\s?(?:ROW)?").Match(sql.SQL);
             if (sqlPart.Success)
             {
                 offset = Int32.Parse(sqlPart.Groups[1].Value);
@@ -400,7 +414,7 @@ namespace SanteDB.OrmLite
         public SqlStatement RemoveLimit(out int count)
         {
             var sql = this.Build();
-            var sqlPart = new Regex(@"(?:FETCH\sFIRST|LIMIT)\s(\d+?)\s(?:\sROWS\sONLY)?").Match(sql.SQL + " ");
+            var sqlPart = new Regex(@"(?:FETCH\sFIRST|LIMIT)\s(\d+)(?:\sROWS\sONLY)?").Match(sql.SQL + " ");
             if (sqlPart.Success)
             {
                 count = Int32.Parse(sqlPart.Groups[1].Value);
@@ -414,6 +428,16 @@ namespace SanteDB.OrmLite
         /// Construct an order by
         /// </summary>
         public SqlStatement OrderBy<TData>(Expression<Func<TData, dynamic>> orderExpression, SortOrderType sortOperation = SortOrderType.OrderBy) => this.OrderBy((LambdaExpression)orderExpression, sortOperation);
+
+        /// <summary>
+        /// Using an alias for column references
+        /// </summary>
+        /// <param name="alias">The alias to use</param>
+        public SqlStatement UsingAlias(String alias)
+        {
+            this.m_alias = alias;
+            return this;
+        }
 
         /// <summary>
         /// Construct an order by
@@ -447,16 +471,7 @@ namespace SanteDB.OrmLite
             } while (t != null);
 
             // Append order by?
-            return this.Append($"{(!hasOrder ? " ORDER BY " : ",")} {orderCol.Table.TableName}.{orderCol.Name} {(sortOperation == SortOrderType.OrderBy ? " ASC " : " DESC ")}");
-        }
-
-        /// <summary>
-        /// Removes the last statement from the list
-        /// </summary>
-        public bool RemoveLast(out SqlStatement last)
-        {
-            last = this.RemoveLast();
-            return last != null;
+            return this.Append($"{(!hasOrder ? " ORDER BY " : ",")} {this.m_alias ?? orderCol.Table.TableName}.{orderCol.Name} {(sortOperation == SortOrderType.OrderBy ? " ASC " : " DESC ")}");
         }
 
         /// <summary>
@@ -464,6 +479,14 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement GetLast()
         {
+            return this.GetSecondLast().m_rhs;
+        }
+
+        /// <summary>
+        /// Get second last
+        /// </summary>
+        private SqlStatement GetSecondLast()
+        { 
             var t = this;
             while (t.m_rhs?.m_rhs != null)
             {
@@ -493,18 +516,20 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Removes the last statement from the list
         /// </summary>
-        public SqlStatement RemoveLast()
+        public SqlStatement RemoveLast(out SqlStatement lastStatement)
         {
-            var t = this.GetLast();
+            var t = this.GetSecondLast();
             if (t != null)
             {
                 var m = t.m_rhs;
                 t.m_rhs = null;
-                return m;
+                lastStatement = m;
+                return this;
             }
             else
             {
-                return null;
+                lastStatement = null;
+                return this;
             }
         }
 
@@ -656,7 +681,7 @@ namespace SanteDB.OrmLite
         public SqlStatement<T> SelectFrom(params ColumnMapping[] columns)
         {
             var tableMap = TableMapping.Get(typeof(T));
-            return this.Append(new SqlStatement<T>(this.m_statementFactory, $"SELECT {String.Join(",", columns.Select(o => o.Table == null ? o.Name : $"{o.Table.TableName}.{o.Name}"))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
+            return this.Append(new SqlStatement<T>(this.m_statementFactory, $"SELECT {String.Join(",", columns.Select(o => o.Table == null ? o.Name : $"{this.m_alias ?? o.Table.TableName}.{o.Name}"))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
         }
 
         /// <summary>
@@ -677,7 +702,7 @@ namespace SanteDB.OrmLite
                       return true;
                   }
                   return false;
-              }).Select(o => $"{(!o.Table.HasName ? "" : o.Table.TableName + ".")}{o.Name}"));
+              }).Select(o => $"{this.m_alias ?? (!o.Table.HasName ? "" : o.Table.TableName + ".")}{o.Name}"));
 
             // Append the result to query
             var retVal = this.Append(new SqlStatement<T>(this.m_statementFactory, $"SELECT {columnList} ")

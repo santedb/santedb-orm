@@ -23,6 +23,7 @@ using SanteDB.Core.i18n;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Query;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 
@@ -65,6 +66,36 @@ namespace SanteDB.OrmLite.MappedResultSets
             return new MappedStatefulQueryResultSet<TData>(this, resultSet);
         }
 
+        /// <inheritdoc/>
+        public override bool Any()
+        {
+            this.ResultSet.WithoutSkip(out var offset).WithoutTake(out var limit);
+            if (limit < 0)
+            {
+                return this.Provider.QueryPersistence.QueryResultTotalQuantity(this.m_queryId) > offset;
+            }
+            else
+            {
+                return this.Provider.QueryPersistence.QueryResultTotalQuantity(this.m_queryId) - limit > offset ;
+            }
+        }
+
+        /// <summary>
+        /// Count the results
+        /// </summary>
+        public override int Count()
+        {
+            this.ResultSet.WithoutSkip(out var offset).WithoutTake(out var limit);
+            if (limit < 0)
+            {
+                return (int)this.Provider.QueryPersistence.QueryResultTotalQuantity(this.m_queryId) - offset;
+            }
+            else
+            {
+                return this.Provider.QueryPersistence.GetQueryResults(this.m_queryId, offset, limit).Count();
+            }
+        }
+
         /// <summary>
         /// Prepare the result set
         /// </summary>
@@ -76,11 +107,8 @@ namespace SanteDB.OrmLite.MappedResultSets
             // No limit query
             if (limit < 0)
             {
+                this.m_tracer.TraceWarning("No limit has been specified - this may take a while to construct the stateful query load! Consider calling .Take() before executing this method");
                 limit = (int)this.Provider.QueryPersistence.QueryResultTotalQuantity(this.m_queryId);
-                if (limit > 1000)
-                {
-                    this.m_tracer.TraceWarning("No limit has been specified - this may take a while to construct the stateful query load! Consider calling .Take() before executing this method");
-                }
             }
 
             // Fetch the result set
@@ -103,6 +131,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         {
             throw new NotSupportedException(ErrorMessages.NOT_SUPPORTED);
         }
+
 
         /// <inheritdoc/>
         /// <exception cref="InvalidOperationException">Stateful result sets are already stateful</exception>

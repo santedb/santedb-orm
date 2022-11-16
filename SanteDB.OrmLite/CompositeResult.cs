@@ -96,8 +96,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public CompositeResult(TData1 object1, TData2 object2)
         {
-            this.Values[0] = object1;
-            this.Values[1] = object2;
+            this.Values = new object[] { object1, object2 };
         }
 
         /// <summary>

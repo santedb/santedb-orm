@@ -559,7 +559,8 @@ namespace SanteDB.OrmLite
                                         var value = (node.Member as PropertyInfo).GetValue(cons);
                                         if (value == null)
                                         {
-                                            var stmt = this.m_sqlStatement.RemoveLast().SQL.Trim();
+                                            this.m_sqlStatement.RemoveLast(out var lastStmt);
+                                            var stmt = lastStmt.SQL.Trim();
                                             if (stmt == "<>")
                                             {
                                                 this.m_sqlStatement.Append(" IS NOT NULL ");
@@ -587,7 +588,8 @@ namespace SanteDB.OrmLite
                                         var value = (node.Member as FieldInfo).GetValue(cons);
                                         if (value == null)
                                         {
-                                            var stmt = this.m_sqlStatement.RemoveLast().SQL.Trim();
+                                            this.m_sqlStatement.RemoveLast(out var lastStmt);
+                                            var stmt = lastStmt.SQL.Trim();
                                             if (stmt == "<>")
                                             {
                                                 this.m_sqlStatement.Append(" IS NOT NULL ");

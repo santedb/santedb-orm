@@ -875,8 +875,7 @@ namespace SanteDB.OrmLite
                                 }
                                 else
                                 {
-                                    retVal.RemoveLast();
-                                    retVal = filterFn.CreateSqlStatement(retVal, $"{tableAlias}.{columnName}", extendedParms.ToArray(), operand, domainProperty.PropertyType).Build();
+                                    retVal = filterFn.CreateSqlStatement(retVal.RemoveLast(out _), $"{tableAlias}.{columnName}", extendedParms.ToArray(), operand, domainProperty.PropertyType).Build();
                                 }
                             }
                             else

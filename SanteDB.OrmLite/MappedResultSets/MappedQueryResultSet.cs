@@ -525,7 +525,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Get the count of objects
         /// </summary>
-        public int Count()
+        public virtual int Count()
         {
 #if DEBUG
             var sw = new Stopwatch();

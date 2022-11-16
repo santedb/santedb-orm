@@ -159,10 +159,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             var retVal = connectionString.Clone();
            
             var dataSource = retVal.GetComponent("Data Source");
-            if(Path.GetExtension(dataSource) != ".sqlite")
-            {
-                dataSource = Path.ChangeExtension(dataSource, "sqlite");
-            }
             if (!String.IsNullOrEmpty(dataSource)
                && !dataSource.StartsWith("|DataDirectory|")
                && !Path.IsPathRooted(dataSource))
