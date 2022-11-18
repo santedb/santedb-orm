@@ -450,7 +450,7 @@ namespace SanteDB.OrmLite
         {
             // We want to process each query and build WHERE clauses - these where clauses are based off of the JSON / XML names
             // on the model, so we have to use those for the time being before translating to SQL
-            var workingParameters = query.ToList();
+            var workingParameters = query.Where(o=>!o.Key.StartsWith("_")).ToList();
 
             // Where clause
             SqlStatement whereClause = new SqlStatement(this.m_factory);
