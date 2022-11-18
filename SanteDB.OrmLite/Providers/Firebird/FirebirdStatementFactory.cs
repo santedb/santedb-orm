@@ -40,6 +40,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             s_filterFunctions.TryGetValue(name, out var retVal);
             return retVal;
         }
+
         /// <summary>
         /// Perform a returning command
         /// </summary>
@@ -159,5 +160,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             }
         }
 
+        /// <inheritdoc/>
+        public IEnumerable<IDbFilterFunction> GetFilterFunctions() => s_filterFunctions.Values;
     }
 }

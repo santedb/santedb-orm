@@ -133,5 +133,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             return new SqlStatement(this, $"SELECT MAX(ROWID) + 1 FROM {sequenceName.Sanitize()}");
         }
 
+        /// <inheritdoc/>
+        public IEnumerable<IDbFilterFunction> GetFilterFunctions() => s_filterFunctions.Values;
     }
 }

@@ -222,6 +222,9 @@ namespace SanteDB.OrmLite
                 this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
 
             }
+
+            _ = this.m_provider.StatementFactory.GetFilterFunctions().OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
+
             this.m_opened = true;
         }
 

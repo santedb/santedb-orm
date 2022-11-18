@@ -72,5 +72,9 @@ namespace SanteDB.OrmLite.Providers
         /// <returns>The retrieved filter function if it is provided by the provider</returns>
         IDbFilterFunction GetFilterFunction(String name);
 
+        /// <summary>
+        /// Get all filter functions
+        /// </summary>
+        IEnumerable<IDbFilterFunction> GetFilterFunctions();
     }
 }

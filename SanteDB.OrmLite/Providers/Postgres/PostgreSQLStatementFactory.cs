@@ -161,5 +161,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             return new SqlStatement(this, $"DROP INDEX {indexName};");
         }
 
+        /// <inheritdoc/>
+        public IEnumerable<IDbFilterFunction> GetFilterFunctions() => s_filterFunctions.Values;
     }
 }

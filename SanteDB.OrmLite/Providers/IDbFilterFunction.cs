@@ -19,6 +19,7 @@
  * Date: 2022-5-30
  */
 using System;
+using System.Data;
 
 namespace SanteDB.OrmLite.Providers
 {
@@ -49,5 +50,19 @@ namespace SanteDB.OrmLite.Providers
         /// <returns>The constructed / updated SQLStatement</returns>
         SqlStatement CreateSqlStatement(SqlStatement current, String filterColumn, String[] parms, String operand, Type operandType);
 
+    }
+
+    /// <summary>
+    /// Represents a <see cref="IDbFilterFunction"/> which requires the loading of external libraries or setup
+    /// </summary>
+    public interface IDbInitializedFilterFunction : IDbFilterFunction
+    {
+
+        /// <summary>
+        /// Initialize this filter function on <paramref name="connection"/>
+        /// </summary>
+        /// <param name="connection">The connection on which the DB filter function should be initialized</param>
+        /// <returns>True if the initialization on the connection was successful</returns>
+        bool Initialize(IDbConnection connection);
     }
 }
