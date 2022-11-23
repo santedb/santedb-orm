@@ -462,12 +462,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 retVal = new Guid(bValue2);
             }
-            else if(typeof(String) == toType.StripNullable() &&
-                value is String str &&
-                DateTime.TryParse(str, out var parsedDateTime))
-            {
-                retVal = parsedDateTime; // HACK: SQLite reads dates as strings
-            }
+            
             else
             {
                 MapUtil.TryConvert(value, toType, out retVal);

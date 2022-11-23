@@ -243,6 +243,7 @@ namespace SanteDB.OrmLite
                 {
                     value = this.m_provider.ConvertValue(value, rdr.GetFieldType(i));
                 }
+
                 retVal.Add(name, value);
             }
             return (TModel)retVal;
