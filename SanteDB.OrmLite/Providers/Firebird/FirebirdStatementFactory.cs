@@ -29,6 +29,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
                         .Where(o => o.Provider == FirebirdSQLProvider.InvariantName)
                         .ToDictionary(o => o.Name, o => o));
             }
+            else
+            {
+                s_filterFunctions = new ConcurrentDictionary<string, IDbFilterFunction>();
+            }
 
         }
 
