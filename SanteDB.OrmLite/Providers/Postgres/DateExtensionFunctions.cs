@@ -56,7 +56,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             {
                 throw new InvalidOperationException("Cannot execute a date_diff function with a null parameter");
             }
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
             if (String.IsNullOrEmpty(op))
             {
@@ -142,7 +142,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
         {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
             if (String.IsNullOrEmpty(op))
             {
@@ -197,7 +197,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
         {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
             if (String.IsNullOrEmpty(op))
             {

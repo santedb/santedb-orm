@@ -201,7 +201,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         }
 
         // Parameter regex
-        private readonly Regex m_parmRegex = new Regex(@"\?");
+        private static readonly Regex m_parmRegex = new Regex(@"\?", RegexOptions.Compiled);
 
         /// <summary>
         /// Create command internally
@@ -210,7 +210,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             var pno = 0;
 
-            sql = this.m_parmRegex.Replace(sql, o => $"@parm{pno++}");
+            sql = m_parmRegex.Replace(sql, o => $"@parm{pno++}");
 
             if (pno != parms.Length && type == CommandType.Text)
             {

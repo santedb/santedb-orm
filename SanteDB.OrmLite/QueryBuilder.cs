@@ -56,7 +56,7 @@ namespace SanteDB.OrmLite
     public class QueryPredicate
     {
         // Regex to extract property, guards and cast
-        public static readonly Regex ExtractionRegex = new Regex(@"^(\w*?)(\[(.*?)\])?(\@(\w*))?(\.(.*))?$");
+        public static readonly Regex ExtractionRegex = new Regex(@"^(\w*?)(\[(.*?)\])?(\@(\w*))?(\.(.*))?$", RegexOptions.Compiled);
 
         private const int PropertyRegexGroup = 1;
         private const int GuardRegexGroup = 3;
@@ -450,7 +450,7 @@ namespace SanteDB.OrmLite
         {
             // We want to process each query and build WHERE clauses - these where clauses are based off of the JSON / XML names
             // on the model, so we have to use those for the time being before translating to SQL
-            var workingParameters = query.Where(o=>!o.Key.StartsWith("_")).ToList();
+            var workingParameters = query.Where(o=>!o.Key.StartsWith("_") || tmodel.GetQueryProperty(o.Key)  != null).ToList();
 
             // Where clause
             SqlStatement whereClause = new SqlStatement(this.m_factory);

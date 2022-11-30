@@ -223,7 +223,7 @@ namespace SanteDB.OrmLite
 
             }
 
-            _ = this.m_provider.StatementFactory.GetFilterFunctions().OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
+            _ = this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
 
             this.m_opened = true;
         }

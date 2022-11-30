@@ -15,8 +15,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
     {
         private static readonly ConcurrentDictionary<string, IDbFilterFunction> s_filterFunctions;
 
-
-
         /// <summary>
         /// Static CTOR
         /// </summary>
@@ -25,11 +23,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
             if (ApplicationServiceContext.Current != null)
             {
                 s_filterFunctions = new ConcurrentDictionary<string, IDbFilterFunction>(ApplicationServiceContext.Current.GetService<IServiceManager>()
-                        .CreateInjectedOfAll<IDbFilterFunction>()
-                        .Where(o => o.Provider == FirebirdSQLProvider.InvariantName)
-                        .ToDictionary(o => o.Name, o => o));
+                    .CreateInjectedOfAll<IDbFilterFunction>()
+                    .Where(o => o.Provider == FirebirdSQLProvider.InvariantName)
+                    .ToDictionary(o => o.Name, o => o));
             }
-
         }
 
         /// <summary>
@@ -161,6 +158,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
         }
 
         /// <inheritdoc/>
-        public IEnumerable<IDbFilterFunction> GetFilterFunctions() => s_filterFunctions.Values;
+        public IEnumerable<IDbFilterFunction> GetFilterFunctions() => s_filterFunctions?.Values;
     }
 }

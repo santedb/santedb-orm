@@ -18,6 +18,8 @@
  * User: fyfej
  * Date: 2022-5-30
  */
+using System.Text.RegularExpressions;
+
 namespace SanteDB.OrmLite
 {
     /// <summary>
@@ -30,5 +32,13 @@ namespace SanteDB.OrmLite
         /// Represents the trace source name
         /// </summary>
         public const string TracerName = "SanteDB.OrmLite";
+
+        internal static readonly Regex ExtractColumnBindingRegex = new Regex(@"([A-Za-z_]\w+\.)?([A-Za-z_]\w+),?", RegexOptions.Compiled);
+        internal static readonly Regex ExtractUnionIntersectRegex = new Regex(@"^(.*?)(UNION|INTERSECT|UNION ALL|INTERSECT ALL)(.*?)$", RegexOptions.Compiled);
+        internal static readonly Regex ExtractRawSqlStatementRegex = new Regex(@"^SELECT\s(DISTINCT)?(.*?)FROM(.*?)(?:WHERE(.*?))?((ORDER|OFFSET|LIMIT).*)?$", RegexOptions.Compiled);
+        internal static readonly Regex ExtractFilterOperandRegex = new Regex(@"^([<>]?=?)(.*?)$", RegexOptions.Compiled);
+        internal static readonly Regex ExtractOffsetRegex = new Regex(@"OFFSET (\d+)\s?(?:ROW)?", RegexOptions.Compiled);
+        internal static readonly Regex ExtractLimitRegex = new Regex(@"(?:FETCH\sFIRST|LIMIT)\s(\d+)(?:\sROWS\sONLY)?", RegexOptions.Compiled);
+        internal static readonly Regex ExtractOrderByRegex = new Regex(@"^(.*?)(ORDER BY (?:.*? (?:ASC|DESC),?){0,})(.*)$", RegexOptions.Compiled);
     }
 }

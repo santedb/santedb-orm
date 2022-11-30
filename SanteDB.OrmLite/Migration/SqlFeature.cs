@@ -35,7 +35,7 @@ namespace SanteDB.OrmLite.Migration
     {
 
         // Metadata regex
-        private static Regex m_metaRegx = new Regex(@"\/\*\*(.*?)\*\/");
+        private static Regex m_metaRegx = new Regex(@"\/\*\*(.*?)\*\/", RegexOptions.Compiled);
 
         // Deploy sql
         private string m_deploySql;

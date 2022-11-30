@@ -134,6 +134,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         }
 
         /// <inheritdoc/>
-        public IEnumerable<IDbFilterFunction> GetFilterFunctions() => s_filterFunctions.Values;
+        public IEnumerable<IDbFilterFunction> GetFilterFunctions() => s_filterFunctions?.Values;
     }
 }

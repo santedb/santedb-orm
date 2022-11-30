@@ -54,11 +54,6 @@ namespace SanteDB.OrmLite
         private string m_alias;
 
         /// <summary>
-        /// True if the sql statement is finalized
-        /// </summary>
-        public bool IsFinalized { get; private set; }
-
-        /// <summary>
         /// Get the DB provider
         /// </summary>
         public IDbStatementFactory DbProvider => this.m_statementFactory;
@@ -118,18 +113,24 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement Append(SqlStatement sql)
         {
-            if (this.IsFinalized)
+          
+
+            if(sql.m_rhs != null)
             {
-                throw new InvalidOperationException();
+                sql = sql.Build();
+            }
+            else
+            {
+                sql = new SqlStatement(sql.m_statementFactory, sql.SQL, sql.Arguments.ToArray()); // copy constructr
             }
 
             if (this.m_rhs != null)
             {
-                this.m_rhs.Append(sql.Build());
+                this.m_rhs.Append(sql);
             }
             else
             {
-                this.m_rhs = sql.Build();
+                this.m_rhs = sql;
             }
 
             return this;
@@ -336,10 +337,6 @@ namespace SanteDB.OrmLite
             return this.Append(new SqlStatement(this.m_statementFactory, "WHERE ").Append(queryBuilder.SqlStatement.Build()));
         }
 
-        internal void Append(object like)
-        {
-            throw new NotImplementedException();
-        }
 
         /// <summary>
         /// Expression
@@ -378,7 +375,7 @@ namespace SanteDB.OrmLite
         public SqlStatement RemoveOffset(out int offset)
         {
             var sql = this.Build();
-            var sqlPart = new Regex(@"OFFSET (\d+)\s?(?:ROW)?").Match(sql.SQL);
+            var sqlPart = Constants.ExtractOffsetRegex.Match(sql.SQL);
             if (sqlPart.Success)
             {
                 offset = Int32.Parse(sqlPart.Groups[1].Value);
@@ -414,7 +411,7 @@ namespace SanteDB.OrmLite
         public SqlStatement RemoveLimit(out int count)
         {
             var sql = this.Build();
-            var sqlPart = new Regex(@"(?:FETCH\sFIRST|LIMIT)\s(\d+)(?:\sROWS\sONLY)?").Match(sql.SQL + " ");
+            var sqlPart = Constants.ExtractLimitRegex.Match(sql.SQL + " ");
             if (sqlPart.Success)
             {
                 count = Int32.Parse(sqlPart.Groups[1].Value);
@@ -502,7 +499,7 @@ namespace SanteDB.OrmLite
         public SqlStatement RemoveOrderBy(out SqlStatement orderBy)
         {
             var sql = this.Build();
-            var sqlPart = new Regex(@"^(.*?)(ORDER BY (?:.*? (?:ASC|DESC),?){0,})(.*)$").Match(sql.SQL);
+            var sqlPart = Constants.ExtractOrderByRegex.Match(sql.SQL);
             if (sqlPart.Success)
             {
                 orderBy = new SqlStatement(this.m_statementFactory, sqlPart.Groups[2].Value);
@@ -585,11 +582,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement<T> Append(SqlStatement<T> sql)
         {
-            if (this.IsFinalized)
-            {
-                throw new InvalidOperationException();
-            }
-
+            
             if (this.m_rhs != null)
             {
                 this.m_rhs.Append(sql);

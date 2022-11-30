@@ -45,7 +45,7 @@ namespace SanteDB.OrmLite
         private readonly Tracer m_tracer = Tracer.GetTracer(typeof(OrmBiDataProvider));
 
         // Parameter regular expression
-        private readonly Regex m_parmRegex = new Regex(@"\$\{([\w_][\-\d\w\._]*?)\}");
+        private static readonly Regex m_parmRegex = new Regex(@"\$\{([\w_][\-\d\w\._]*?)\}", RegexOptions.Compiled);
 
         // Services
         private readonly IPolicyEnforcementService m_policyEnforcementService;
@@ -96,7 +96,7 @@ namespace SanteDB.OrmLite
             {
                 throw new InvalidOperationException($"Materialization on {materializeDefinition.Id} must have a unique name");
             }
-            else if (this.m_parmRegex.IsMatch(rdbmsQueryDefinition.Materialize.Sql))
+            else if (m_parmRegex.IsMatch(rdbmsQueryDefinition.Materialize.Sql))
             {
                 throw new InvalidOperationException("Materializations are not allowed to have parameters references - move parameters to the SQL definition");
             }
@@ -236,7 +236,7 @@ namespace SanteDB.OrmLite
 
             // Prepare the templated SQL
             List<Object> values = new List<object>();
-            var stmt = this.m_parmRegex.Replace(rdbmsQueryDefinition.Sql, (m) =>
+            var stmt = m_parmRegex.Replace(rdbmsQueryDefinition.Sql, (m) =>
             {
                 object pValue = null;
                 parameters.TryGetValue(m.Groups[1].Value, out pValue);

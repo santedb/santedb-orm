@@ -35,9 +35,6 @@ namespace SanteDB.OrmLite
     public class OrmResultSet<TData> : IEnumerable<TData>, IOrmResultSet
     {
 
-        private readonly Regex m_extracColumnBindings = new Regex(@"([A-Za-z_]\w+\.)?([A-Za-z_]\w+),?");
-        private readonly Regex m_extractUnionIntersects = new Regex(@"^(.*?)(UNION|INTERSECT|UNION ALL|INTERSECT ALL)(.*?)$");
-        private readonly Regex m_extractRawSelectStatment = new Regex(@"^SELECT\s(DISTINCT)?(.*?)FROM(.*?)(?:WHERE(.*?))?((ORDER|OFFSET|LIMIT).*)?$");
         private const int SQL_GROUP_DISTINCT = 1;
         private const int SQL_GROUP_COLUMNS = 2;
         private const int SQL_GROUP_FROM = 3;
@@ -112,7 +109,7 @@ namespace SanteDB.OrmLite
         private SqlStatement ExtractFirstFromUnionIntersect()
         {
             var innerQuery = this.Statement.Build();
-            var unionMatch = this.m_extractUnionIntersects.Match(innerQuery.SQL);
+            var unionMatch = Constants.ExtractUnionIntersectRegex.Match(innerQuery.SQL);
             if (unionMatch.Success)
             {
                 return this.Context.CreateSqlStatement(unionMatch.Groups[1].Value);
@@ -130,7 +127,7 @@ namespace SanteDB.OrmLite
         private SqlStatement TransformAll(Func<SqlStatement, SqlStatement> transformer)
         {
             var innerQuery = this.Statement.Build();
-            var unionMatch = this.m_extractUnionIntersects.Match(innerQuery.SQL);
+            var unionMatch = Constants.ExtractUnionIntersectRegex.Match(innerQuery.SQL);
             if (unionMatch.Success)
             {
                 SqlStatement retVal = new SqlStatement(this.Context.Provider.StatementFactory, "", innerQuery.Arguments.ToArray());
@@ -139,7 +136,7 @@ namespace SanteDB.OrmLite
                     // Transform the first match
                     retVal = retVal.Append(transformer(this.Context.CreateSqlStatement(unionMatch.Groups[1].Value.Trim()))).Append($" {unionMatch.Groups[2].Value} ");
                     var secondStatement = unionMatch.Groups[3].Value;
-                    unionMatch = this.m_extractUnionIntersects.Match(secondStatement);
+                    unionMatch = Constants.ExtractUnionIntersectRegex.Match(secondStatement);
                     // If union match is successful we have a UNION b UNION c
                     if (!unionMatch.Success) // no more intersects
                     {
@@ -160,7 +157,7 @@ namespace SanteDB.OrmLite
         /// <param name="sortFieldSelector">The field to order the results by</param>
         public OrmResultSet<TData> OrderBy(Expression<Func<TData, dynamic>> sortFieldSelector)
         {
-            var sqlParts = this.m_extractRawSelectStatment.Match(this.ExtractFirstFromUnionIntersect().SQL);
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
             if (sqlParts.Success)
             {
                 var stmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[SQL_GROUP_COLUMNS].Value, "I")} FROM (")
@@ -183,7 +180,7 @@ namespace SanteDB.OrmLite
         /// <param name="orderSelector">The selector to order by </param>
         public OrmResultSet<TData> OrderByDescending(Expression<Func<TData, dynamic>> orderSelector)
         {
-            var sqlParts = this.m_extractRawSelectStatment.Match(this.ExtractFirstFromUnionIntersect().SQL);
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
             if (sqlParts.Success)
             {
                 var stmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[SQL_GROUP_COLUMNS].Value, "I")} FROM (")
@@ -246,7 +243,7 @@ namespace SanteDB.OrmLite
             return new OrmResultSet<TData>(this.Context, this.TransformAll(stmt =>
             {
                 var innerQuery = stmt.Build();
-                var sqlParts = this.m_extractRawSelectStatment.Match(innerQuery.SQL);
+                var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(innerQuery.SQL);
                 if (!sqlParts.Success)
                 {
                     throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Distinct)));
@@ -290,7 +287,7 @@ namespace SanteDB.OrmLite
                 }
 
                 // HACK: Swap out SELECT * if query starts with it
-                var sqlParts = this.m_extractRawSelectStatment.Match(innerQuery.SQL);
+                var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(innerQuery.SQL);
                 if (!sqlParts.Success)
                 {
                     throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Keys)));
@@ -339,7 +336,7 @@ namespace SanteDB.OrmLite
             // Union is not permitted
 
             // HACK: Find a better way to dissassembly the query - basically we want to get the SELECT * FROM XXXX WHERE ----- and swap out the WHERE clause to only those keys in our set
-            var sqlParts = this.m_extractRawSelectStatment.Match(this.Statement.Build().SQL);
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.Build().SQL);
             if (sqlParts.Success)
             {
 
@@ -387,7 +384,7 @@ namespace SanteDB.OrmLite
         /// <param name="newTableAlias">The new table alias</param>
         private string RebindColumnSelector(string columnSelector, string newTableAlias)
         {
-            var matchedColumns = this.m_extracColumnBindings.Matches(columnSelector).OfType<Match>().Select(o => $"{newTableAlias}.{o.Groups[2].Value}").Distinct();
+            var matchedColumns = Constants.ExtractColumnBindingRegex.Matches(columnSelector).OfType<Match>().Select(o => $"{newTableAlias}.{o.Groups[2].Value}").Distinct();
             return String.Join(",", matchedColumns);
         }
 
@@ -397,7 +394,7 @@ namespace SanteDB.OrmLite
         public OrmResultSet<T> Select<T>(Expression<Func<TData, T>> column)
         {
             var mapping = TableMapping.Get(typeof(TData)).GetColumn(column.Body.GetMember());
-            var sqlParts = this.m_extracColumnBindings.Match(this.ExtractFirstFromUnionIntersect().SQL);
+            var sqlParts = Constants.ExtractColumnBindingRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
             if (sqlParts.Success)
             {
                 var newStmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {mapping.Name} AS v FROM (")
@@ -420,7 +417,7 @@ namespace SanteDB.OrmLite
         {
             var mapping = TableMapping.Get(typeof(TData)).GetColumn(column.Body.GetMember());
             var innerQuery = this.Statement.Build();
-            var sqlParts = this.m_extractRawSelectStatment.Match(innerQuery.SQL);
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(innerQuery.SQL);
             if (!sqlParts.Success)
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Max)));
@@ -438,7 +435,7 @@ namespace SanteDB.OrmLite
         {
             var mapping = TableMapping.Get(typeof(TData)).GetColumn(column.Body.GetMember());
             var innerQuery = this.Statement.Build();
-            var sqlParts = this.m_extractRawSelectStatment.Match(innerQuery.SQL);
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(innerQuery.SQL);
             if (!sqlParts.Success)
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Min)));
@@ -455,7 +452,7 @@ namespace SanteDB.OrmLite
         public OrmResultSet<dynamic> Select(params Expression<Func<TData, dynamic>>[] columns)
         {
             var mapping = columns.Select(o => TableMapping.Get(typeof(TData)).GetColumn(o.Body.GetMember()));
-            var sqlParts = this.m_extracColumnBindings.Match(this.ExtractFirstFromUnionIntersect().SQL);
+            var sqlParts = Constants.ExtractColumnBindingRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
             if (sqlParts.Success)
             {
                 var newStmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {String.Join(",", mapping.Select(o => o.Name))} AS v FROM (")
@@ -480,7 +477,7 @@ namespace SanteDB.OrmLite
             if (tm.PrimaryKey.Count() != 1)
                 throw new InvalidOperationException(String.Format(ErrorMessages.DATA_STRUCTURE_NOT_APPROPRIATE, nameof(Keys), "nokeys"));
 
-            var sqlParts = this.m_extractRawSelectStatment.Match(this.ExtractFirstFromUnionIntersect().SQL);
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
             if (!sqlParts.Success)
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Keys)));
@@ -582,7 +579,7 @@ namespace SanteDB.OrmLite
                 typeof(TData).GetGenericArguments().Contains(le.Parameters[0].Type) ||
                 typeof(TData) == le.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
             {
-                var sqlParts = this.m_extractRawSelectStatment.Match(this.ExtractFirstFromUnionIntersect().SQL);
+                var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
                 if (sqlParts.Success)
                 {
                     var stmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[SQL_GROUP_COLUMNS].Value, "I")} FROM (")
@@ -619,7 +616,7 @@ namespace SanteDB.OrmLite
                 typeof(TData) == le.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
             {
 
-                var sqlParts = this.m_extractRawSelectStatment.Match(this.ExtractFirstFromUnionIntersect().SQL);
+                var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
                 if (sqlParts.Success)
                 {
                     var stmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[SQL_GROUP_COLUMNS].Value, "I")} FROM (")
@@ -646,7 +643,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public OrmResultSet<TElement> Select<TElement>(String field)
         {
-            var sqlParts = this.m_extractRawSelectStatment.Match(this.ExtractFirstFromUnionIntersect().SQL);
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
             if (!sqlParts.Success)
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Select)));
@@ -693,7 +690,7 @@ namespace SanteDB.OrmLite
         {
             return new OrmResultSet<TData>(this.Context, this.TransformAll(stmt =>
             {
-                var sqlParts = this.m_extractRawSelectStatment.Match(stmt.SQL);
+                var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(stmt.SQL);
                 if (!sqlParts.Success)
                 {
                     throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Where)));

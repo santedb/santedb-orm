@@ -62,10 +62,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
         public const string ProviderFactoryType = "FirebirdSql.Data.FirebirdClient.FirebirdClientFactory, FirebirdSql.Data.FirebirdClient";
 
         // Parameter regex
-        private readonly Regex m_parmRegex = new Regex(@"\?");
+        private static readonly Regex m_parmRegex = new Regex(@"\?", RegexOptions.Compiled);
 
         // UUID regex
-        private readonly Regex m_uuidRegex = new Regex(@"(\'[A-Za-z0-9]{8}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{12}\')");
+        private static readonly Regex m_uuidRegex = new Regex(@"(\'[A-Za-z0-9]{8}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{12}\')", RegexOptions.Compiled);
 
         private IDiagnosticsProbe m_monitor;
 
@@ -196,10 +196,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             var pno = 0;
 
-            sql = this.m_parmRegex
+            sql = m_parmRegex
                 .Replace(sql, o => $"@parm{pno++} ")
                 .Replace(" ILIKE ", " LIKE ");
-            sql = this.m_uuidRegex
+            sql = m_uuidRegex
                 .Replace(sql, o => $"char_to_uuid({o.Groups[1].Value})")
                 .Replace("char_to_uuid(char_to_uuid(", "(char_to_uuid("); //HACK:
 

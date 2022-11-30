@@ -59,10 +59,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public const string ProviderFactoryType = "Microsoft.Data.Sqlite.SqliteFactory, Microsoft.Data.Sqlite";
 
         // UUID regex
-        private readonly Regex m_uuidRegex = new Regex(@"(\'[A-Za-z0-9]{8}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{12}\')");
-        private readonly Regex m_parmRegex = new Regex(@"\?");
-        private readonly Regex m_limitOffsetRegex = new Regex(@"(OFFSET\s\d+)\s+(LIMIT\s\d+)?");
-        private readonly Regex m_dateRegex = new Regex(@"(CURRENT_TIMESTAMP|CURRENT_DATE)", RegexOptions.IgnoreCase);
+        private static readonly Regex m_uuidRegex = new Regex(@"(\'[A-Za-z0-9]{8}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{4}\-[A-Za-z0-9]{12}\')", RegexOptions.Compiled);
+        private static readonly Regex m_parmRegex = new Regex(@"\?", RegexOptions.Compiled);
+        private static readonly Regex m_limitOffsetRegex = new Regex(@"(OFFSET\s\d+)\s+(LIMIT\s\d+)?", RegexOptions.Compiled);
+        private static readonly Regex m_dateRegex = new Regex(@"(CURRENT_TIMESTAMP|CURRENT_DATE)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         // Provider
         private DbProviderFactory m_provider = null;
 
@@ -206,13 +206,13 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             cmd.CommandType = type;
 
             var pno = 0;
-            sql = this.m_parmRegex
+            sql = m_parmRegex
                .Replace(sql, o => $"$parm{pno++} ")
                .Replace(" ILIKE ", " LIKE ");
-            sql = this.m_uuidRegex
+            sql = m_uuidRegex
                 .Replace(sql, o => $"x'{BitConverter.ToString(Guid.Parse(o.Groups[1].Value.Substring(1, 36)).ToByteArray()).Replace("-", "")}'");
-            sql = this.m_dateRegex.Replace(sql, o => $"unixepoch({o.Groups[1].Value})");
-            sql = this.m_limitOffsetRegex.Replace(sql, o =>
+            sql = m_dateRegex.Replace(sql, o => $"unixepoch({o.Groups[1].Value})");
+            sql = m_limitOffsetRegex.Replace(sql, o =>
             {
                 if (String.IsNullOrEmpty(o.Groups[2].Value)) // No limit
                 {

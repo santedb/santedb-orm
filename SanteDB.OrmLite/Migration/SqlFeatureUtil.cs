@@ -40,7 +40,7 @@ namespace SanteDB.OrmLite.Migration
         // Features
         private static IEnumerable<IDataFeature> m_features = null;
 
-        private static readonly Regex sr_SqlLogInstruction = new Regex(@"^.*?--\s?INFO:(.*)$", RegexOptions.Multiline);
+        private static readonly Regex sr_SqlLogInstruction = new Regex(@"^.*?--\s?INFO:(.*)$", RegexOptions.Multiline | RegexOptions.Compiled);
 
         private static Tracer m_traceSource = Tracer.GetTracer(typeof(SqlFeatureUtil));
 
