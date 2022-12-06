@@ -21,6 +21,7 @@
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model;
+using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Model.Query;
 using System;
 using System.Collections.Generic;
@@ -33,7 +34,7 @@ namespace SanteDB.OrmLite.MappedResultSets
     /// Represents a stateful result set
     /// </summary>
     public class MappedStatefulQueryResultSet<TData> : MappedQueryResultSet<TData>, IDisposable
-        where TData : IdentifiedData
+        where TData : IIdentifiedResource
     {
 
         // Get tracer

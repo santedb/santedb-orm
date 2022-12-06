@@ -21,6 +21,7 @@
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model;
+using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Model.Query;
 using System;
 using System.Collections;
@@ -37,7 +38,7 @@ namespace SanteDB.OrmLite.MappedResultSets
     /// <remarks>This query set wraps the returns of Query methods and allows for
     /// delay loading of the resulting data from the underlying data provider</remarks>
     public class MappedQueryResultSet<TElement> : IQueryResultSet<TElement>, IOrderableQueryResultSet<TElement>, IDisposable
-        where TElement : IdentifiedData
+        where TElement : IIdentifiedResource
     {
 
 #if DEBUG
