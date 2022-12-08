@@ -43,7 +43,11 @@ namespace SanteDB.OrmLite.MappedResultSets
 
 #if DEBUG
         private int m_expansionCount = 0;
-#endif 
+#endif
+
+
+        /// <inheritdoc/>
+        public Type ElementType => typeof(TElement);
 
         // The data context
         private readonly DataContext m_context;
