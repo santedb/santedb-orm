@@ -162,6 +162,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
         }
 
         /// <inheritdoc/>
-        public IEnumerable<IDbFilterFunction> GetFilterFunctions() => s_filterFunctions.Values;
+        public IEnumerable<IDbFilterFunction> GetFilterFunctions() => s_filterFunctions?.Values;
     }
 }

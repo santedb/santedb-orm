@@ -76,7 +76,15 @@ namespace SanteDB.OrmLite
         { 
             get 
             {
-                return Constants.ExtractCommentsRegex.Replace(this.m_sql ?? "", (m) => m.Groups[1].Value).Replace("\r", " ").Replace("\n", " "); 
+                if (this.m_sql?.Contains("--") == true)
+                {
+                    // Strip out comments
+                    return Constants.ExtractCommentsRegex.Replace(this.m_sql ?? "", (m) => m.Groups[1].Value).Replace("\r", " ").Replace("\n", " ");
+                }
+                else
+                {
+                    return this.m_sql?.Replace("\r", "").Replace("\n", "");
+                }
             } 
         }
 
