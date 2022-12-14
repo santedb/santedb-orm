@@ -126,7 +126,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 case SqlKeyword.RefreshMaterializedView:
                     return "REFRESH MATERIALIZED VIEW ";
                 case SqlKeyword.CreateMaterializedView:
-                    return "CREATE OR REPLACE MATERIALIZED VIEW ";
+                    return "CREATE MATERIALIZED VIEW ";
                 case SqlKeyword.CreateView:
                     return "CREATE OR REPLACE VIEW ";
 

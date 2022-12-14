@@ -83,7 +83,7 @@ namespace SanteDB.OrmLite
                 }
                 else
                 {
-                    return this.m_sql?.Replace("\r", "").Replace("\n", "");
+                    return this.m_sql?.Replace("\r", "").Replace("\n", "") ?? String.Empty;
                 }
             } 
         }
