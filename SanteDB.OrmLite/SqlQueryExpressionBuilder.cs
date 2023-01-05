@@ -271,7 +271,7 @@ namespace SanteDB.OrmLite
         protected override Expression VisitParameter(ParameterExpression node)
         {
             var tableMap = TableMapping.Get(node.Type);
-            this.m_sqlStatement.Append($"{tableMap.TableName}");
+            this.m_sqlStatement.Append($"{this.m_tableAlias ?? tableMap.TableName}");
             return node;
         }
 

@@ -18,6 +18,7 @@
  * User: fyfej
  * Date: 2022-5-30
  */
+using SanteDB.Core.Diagnostics.Performance;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
@@ -115,8 +116,8 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "QUERY {0} executed in {1} ms", spName, sw.ElapsedMilliseconds);
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -328,8 +329,8 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "QUERY {0} executed in {1} ms", this.GetQueryLiteral(stmt), sw.ElapsedMilliseconds);
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
 
 
             }
@@ -375,7 +376,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "FIRST {0} executed in {1} ms", spName, sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -427,7 +429,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "FIRST {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -445,7 +448,7 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt.Build()))
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt.Build().Limit(1)))
                     {
                         try
                         {
@@ -480,7 +483,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "FIRST {0} executed in {1} ms", this.GetQueryLiteral(stmt), sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -543,7 +547,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "SINGLE {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -593,7 +598,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "SCALAR {0} executed in {1} ms", sqlStatement, sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -643,7 +649,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "ANY {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -694,7 +701,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "ANY {0} executed in {1} ms", this.GetQueryLiteral(querySpec), sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -745,7 +753,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "COUNT {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -797,7 +806,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "COUNT {0} executed in {1} ms", this.GetQueryLiteral(querySpec), sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -892,7 +902,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "QUERY {0} executed in {1} ms", this.GetQueryLiteral(query), sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -1144,7 +1155,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "INSERT executed in {0} ms", sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -1190,7 +1202,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "DELETE executed in {0} ms", sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -1244,7 +1257,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "DELETE executed in {0} ms", sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -1335,7 +1349,8 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "UPDATE executed in {0} ms", sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -1365,6 +1380,34 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void UpdateAll(Type tmodel, LambdaExpression whereExpression, params LambdaExpression[] updateStatements)
         {
+            // Convert where clause
+            var tableMap = TableMapping.Get(tmodel);
+            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
+            queryBuilder.Visit(whereExpression.Body);
+
+            this.UpdateAll(tmodel, queryBuilder.SqlStatement, updateStatements);
+        }
+
+        /// <summary>
+        /// Update all with specified Sql based statement
+        /// </summary>
+        public void UpdateAll<TModel>(SqlStatement whereExpression, params Expression<Func<TModel, dynamic>>[] updateStatements)
+        {
+            whereExpression = whereExpression.Build();
+            if(whereExpression.SQL.Contains("SELECT"))
+            {
+                var match = Constants.ExtractRawSqlStatementRegex.Match(whereExpression.SQL);
+                var where = match.Groups[Constants.SQL_GROUP_WHERE].Value;
+                whereExpression = new SqlStatement(this.Provider.StatementFactory, where, whereExpression.Arguments.ToArray());
+            }
+            this.UpdateAll(typeof(TModel), whereExpression, updateStatements);
+        }
+
+        /// <summary>
+        /// Update all data with specified where clause
+        /// </summary>
+        public void UpdateAll(Type tmodel, SqlStatement whereClause, params LambdaExpression[] updateStatements)
+        { 
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
@@ -1375,12 +1418,8 @@ namespace SanteDB.OrmLite
                 // Build the command
                 var tableMap = TableMapping.Get(tmodel);
                 var updateStatement = this.CreateSqlStatement().UpdateSet(tmodel) as SqlStatement;
-
-                // Convert where clause
+               
                 var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
-                queryBuilder.Visit(whereExpression.Body);
-
-                var whereClause = this.CreateSqlStatement().Where(queryBuilder.SqlStatement);
                 var setClause = this.CreateSqlStatement();
                 foreach (var updateFunc in updateStatements)
                 {
@@ -1390,7 +1429,7 @@ namespace SanteDB.OrmLite
                     setClause.Append(",");
                 }
                 
-                updateStatement = updateStatement.Append(setClause.RemoveLast(out _).Build()).Append(whereClause.Build());
+                updateStatement = updateStatement.Append(setClause.RemoveLast(out _).Build()).Where(whereClause.Build());
 
                 // Now update
                 lock (this.m_lockObject)
@@ -1407,7 +1446,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "UPDATE executed in {0} ms", sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -1418,15 +1458,33 @@ namespace SanteDB.OrmLite
         public void DeleteAll<TModel>(Expression<Func<TModel, bool>> where) => this.DeleteAll(typeof(TModel), where);
 
         /// <summary>
-        /// Delete all objects matching the la
+        /// Update all 
         /// </summary>
-        public void DeleteAll(Type tmodel, LambdaExpression where)
+        public void DeleteAll(Type tmodel, LambdaExpression whereExpression)
         {
+            // Convert where clause
             var tableMap = TableMapping.Get(tmodel);
             var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
-            queryBuilder.Visit(where.Body);
+            queryBuilder.Visit(whereExpression.Body);
+
             this.DeleteAll(tmodel, queryBuilder.SqlStatement);
         }
+
+        /// <summary>
+        /// Update all with specified Sql based statement
+        /// </summary>
+        public void DeleteAll<TModel>(SqlStatement whereExpression)
+        {
+            whereExpression = whereExpression.Build();
+            if (whereExpression.SQL.Contains("SELECT"))
+            {
+                var match = Constants.ExtractRawSqlStatementRegex.Match(whereExpression.SQL);
+                var where = match.Groups[Constants.SQL_GROUP_WHERE].Value;
+                whereExpression = new SqlStatement(this.Provider.StatementFactory, where, whereExpression.Arguments.ToArray());
+            }
+            this.DeleteAll(typeof(TModel), whereExpression);
+        }
+
 
         /// <summary>
         /// Execute a non query
@@ -1467,7 +1525,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "EXECUTE NON QUERY executed in {0} ms", sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }

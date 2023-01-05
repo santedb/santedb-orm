@@ -115,7 +115,8 @@ namespace SanteDB.OrmLite.MappedResultSets
             // Fetch the result set
             var guids = this.Provider.QueryPersistence.GetQueryResults(this.m_queryId, offset, limit);
 
-            return retVal.HavingKeys(guids, this.StateKeyName);
+            retVal = retVal.HavingKeys(guids, this.StateKeyName);
+            return retVal.Clone(retVal.Statement.Where(this.Provider.GetCurrentVersionFilter(retVal.Statement.Alias)));
         }
 
 

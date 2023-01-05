@@ -35,11 +35,6 @@ namespace SanteDB.OrmLite
     public class OrmResultSet<TData> : IEnumerable<TData>, IOrmResultSet
     {
 
-        private const int SQL_GROUP_DISTINCT = 1;
-        private const int SQL_GROUP_COLUMNS = 2;
-        private const int SQL_GROUP_FROM = 3;
-        private const int SQL_GROUP_WHERE = 4;
-        private const int SQL_GROUP_LIMIT = 5;
 
         /// <summary>
         /// Gets the SQL statement that this result set is based on
@@ -160,7 +155,7 @@ namespace SanteDB.OrmLite
             var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
             if (sqlParts.Success)
             {
-                var stmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[SQL_GROUP_COLUMNS].Value, "I")} FROM (")
+                var stmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[Constants.SQL_GROUP_COLUMNS].Value, "I")} FROM (")
                     .Append(this.Statement)
                     .Append(") I ")
                     .UsingAlias("I")
@@ -183,7 +178,7 @@ namespace SanteDB.OrmLite
             var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
             if (sqlParts.Success)
             {
-                var stmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[SQL_GROUP_COLUMNS].Value, "I")} FROM (")
+                var stmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[Constants.SQL_GROUP_COLUMNS].Value, "I")} FROM (")
                     .Append(this.Statement)
                     .Append(") I ")
                     .UsingAlias("I")
@@ -240,26 +235,20 @@ namespace SanteDB.OrmLite
         /// </summary>
         public OrmResultSet<TData> Distinct()
         {
-            return new OrmResultSet<TData>(this.Context, this.TransformAll(stmt =>
+
+            var innerQuery = this.Statement.Build();
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(innerQuery.SQL);
+            if (!sqlParts.Success)
             {
-                var innerQuery = stmt.Build();
-                var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(innerQuery.SQL);
-                if (!sqlParts.Success)
-                {
-                    throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Distinct)));
-                }
-                else if (String.IsNullOrEmpty(sqlParts.Groups[SQL_GROUP_DISTINCT].Value)) // not already distcint
-                {
-                    return this.Context.CreateSqlStatement(
-                        $"SELECT DISTINCT {sqlParts.Groups[SQL_GROUP_COLUMNS].Value} FROM {sqlParts.Groups[SQL_GROUP_FROM].Value} WHERE {this.CorrectWhereClause(sqlParts.Groups[SQL_GROUP_WHERE].Value)} {sqlParts.Groups[SQL_GROUP_LIMIT].Value}",
-                        innerQuery.Arguments.ToArray()
-                        );
-                }
-                else
-                {
-                    return this.Statement;
-                }
-            }));
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Distinct)));
+            }
+            var stmt = this.Context.CreateSqlStatement($"SELECT DISTINCT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[Constants.SQL_GROUP_COLUMNS].Value, "I")} FROM (")
+                    .Append(this.Statement)
+                    .Append(") I ")
+                    .UsingAlias("I")
+                    .Build();
+            return new OrmResultSet<TData>(this.Context, stmt);
+
         }
 
 
@@ -294,7 +283,7 @@ namespace SanteDB.OrmLite
                 }
                 else
                 {
-                    var newStmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {String.Join(",", tm.PrimaryKey.Select(o => $"I.{o.Name}"))} FROM (")
+                    var newStmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {String.Join(",", tm.PrimaryKey.Select(o => $"I.{o.Name}"))} FROM (")
                         .Append(this.Statement.Build())
                         .Append(") I")
                         .UsingAlias("I");
@@ -341,17 +330,17 @@ namespace SanteDB.OrmLite
             {
 
                 // Is the inner query a sub-query?
-                if (sqlParts.Groups[SQL_GROUP_FROM].Value.TrimStart().StartsWith("("))
+                if (sqlParts.Groups[Constants.SQL_GROUP_FROM].Value.TrimStart().StartsWith("("))
                 {
-                    return new OrmResultSet<TData>(this.Context, this.Context.CreateSqlStatement($"{sqlParts.Groups[SQL_GROUP_FROM].Value.TrimStart().Substring(1)} WHERE {sqlParts.Groups[SQL_GROUP_WHERE].Value}".Replace($") I",""), this.Statement.Arguments.ToArray())).HavingKeys(keyList, keyColumnName);
+                    return new OrmResultSet<TData>(this.Context, this.Context.CreateSqlStatement($"{sqlParts.Groups[Constants.SQL_GROUP_FROM].Value.TrimStart().Substring(1)} WHERE {sqlParts.Groups[Constants.SQL_GROUP_WHERE].Value}".Replace($") I", ""), this.Statement.Arguments.ToArray())).HavingKeys(keyList, keyColumnName);
                 }
                 var offset = 0;
                 var keyArray = keyList.OfType<Object>();
-                var sqlStatement = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[SQL_GROUP_COLUMNS].Value, "I")} FROM (");
+                var sqlStatement = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[Constants.SQL_GROUP_COLUMNS].Value, "I")} FROM (");
                 while (offset <= keyArray.Count())
                 {
 
-                    sqlStatement.Append($"SELECT {sqlParts.Groups[SQL_GROUP_COLUMNS].Value} FROM {sqlParts.Groups[SQL_GROUP_FROM].Value} WHERE ").Append("FALSE").Append(" OR ");
+                    sqlStatement.Append($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_COLUMNS].Value} FROM {sqlParts.Groups[Constants.SQL_GROUP_FROM].Value} WHERE ").Append("FALSE").Append(" OR ");
 
                     var keyBatch = keyArray.Skip(offset).Take(500);
                     if (keyBatch.Any())
@@ -359,7 +348,7 @@ namespace SanteDB.OrmLite
                         sqlStatement.Append(String.Join(" OR ", keyBatch.Select(o => $" {keyColumn.Table.TableName}.{keyColumn.Name} = ? ")), keyBatch.ToArray());
                         sqlStatement.Append(this.Context.Provider.StatementFactory.CreateSqlKeyword(Providers.SqlKeyword.UnionAll));
                     }
-                    else if(offset > 0)
+                    else if (offset > 0)
                     {
                         sqlStatement.RemoveLast(out _).RemoveLast(out _).RemoveLast(out _);
                     }
@@ -397,7 +386,7 @@ namespace SanteDB.OrmLite
             var sqlParts = Constants.ExtractColumnBindingRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
             if (sqlParts.Success)
             {
-                var newStmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {mapping.Name} AS v FROM (")
+                var newStmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {mapping.Name} AS v FROM (")
                     .Append(this.Statement)
                     .Append(") I")
                     .UsingAlias("I");
@@ -455,7 +444,7 @@ namespace SanteDB.OrmLite
             var sqlParts = Constants.ExtractColumnBindingRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
             if (sqlParts.Success)
             {
-                var newStmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {String.Join(",", mapping.Select(o => o.Name))} AS v FROM (")
+                var newStmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {String.Join(",", mapping.Select(o => o.Name))} AS v FROM (")
                     .Append(this.Statement)
                     .Append(") I")
                     .UsingAlias("I");
@@ -484,7 +473,7 @@ namespace SanteDB.OrmLite
             }
             else
             {
-                var newStmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (")
+                var newStmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (")
                     .Append(this.Statement)
                     .Append(") I")
                     .UsingAlias("I");
@@ -582,7 +571,7 @@ namespace SanteDB.OrmLite
                 var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
                 if (sqlParts.Success)
                 {
-                    var stmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[SQL_GROUP_COLUMNS].Value, "I")} FROM (")
+                    var stmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[Constants.SQL_GROUP_COLUMNS].Value, "I")} FROM (")
                         .Append(this.Statement)
                         .Append(") I ")
                         .UsingAlias("I")
@@ -619,7 +608,7 @@ namespace SanteDB.OrmLite
                 var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
                 if (sqlParts.Success)
                 {
-                    var stmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[SQL_GROUP_COLUMNS].Value, "I")} FROM (")
+                    var stmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[Constants.SQL_GROUP_COLUMNS].Value, "I")} FROM (")
                         .Append(this.Statement)
                         .Append(") I ")
                         .UsingAlias("I")
@@ -656,7 +645,7 @@ namespace SanteDB.OrmLite
                     var mapping = TableMapping.Get(itm).GetColumn(field);
                     if (mapping != null)
                     {
-                        var newStmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {mapping.Name} FROM (")
+                        var newStmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {mapping.Name} FROM (")
                             .Append(this.Statement)
                             .Append(") I")
                             .UsingAlias("I");
@@ -668,7 +657,7 @@ namespace SanteDB.OrmLite
             else
             {
                 var mapping = TableMapping.Get(typeof(TData)).GetColumn(field);
-                var newStmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} {mapping.Name} FROM (")
+                var newStmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {mapping.Name} FROM (")
                     .Append(this.Statement)
                     .Append(") I")
                     .UsingAlias("I");
@@ -688,34 +677,26 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IOrmResultSet Where(Expression whereExpression)
         {
-            return new OrmResultSet<TData>(this.Context, this.TransformAll(stmt =>
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.ExtractFirstFromUnionIntersect().SQL);
+            if (sqlParts.Success && whereExpression is Expression<Func<TData, bool>> whereExpressionStrong)
             {
-                var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(stmt.SQL);
-                if (!sqlParts.Success)
-                {
-                    throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Where)));
-                }
-                else if (whereExpression is Expression<Func<TData, bool>> whereExpressionStrong)
-                {
-                    var newStatement = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[SQL_GROUP_DISTINCT].Value} ", stmt.Arguments.ToArray());
-                    if (typeof(CompositeResult).IsAssignableFrom(typeof(TData)))
-                    {
-                        newStatement = newStatement.Append(String.Join(",", typeof(TData).GetGenericArguments().SelectMany(t => TableMapping.Get(t).Columns).Select(c => $"{c.Table.TableName}.{c.Name}")));
-                    }
-                    else
-                    {
-                        var tmap = TableMapping.Get(typeof(TData));
-                        newStatement = newStatement.Append(String.Join(",", tmap.Columns.Select(c => $"{c.Table.TableName}.{c.Name}")));
-                    }
+                var stmt = this.Context.CreateSqlStatement($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[Constants.SQL_GROUP_COLUMNS].Value, "I")} FROM (")
+                    .Append(this.Statement)
+                    .Append(") I ")
+                    .UsingAlias("I")
+                    .Where(whereExpressionStrong)
+                    .Build();
+                return new OrmResultSet<TData>(this.Context, stmt);
+            }
+            else if (!sqlParts.Success)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderBy)));
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, typeof(Expression<Func<TData, bool>>), whereExpression.GetType()));
+            }
 
-                    newStatement.Append($" FROM {sqlParts.Groups[SQL_GROUP_FROM].Value} WHERE ({this.CorrectWhereClause(sqlParts.Groups[SQL_GROUP_WHERE].Value)}) ").And(whereExpressionStrong).Append($" {sqlParts.Groups[SQL_GROUP_LIMIT].Value}");
-                    return newStatement;
-                }
-                else
-                {
-                    throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, typeof(Expression<Func<TData, bool>>), whereExpression.GetType()));
-                }
-            }));
         }
 
         /// <summary>
@@ -746,6 +727,12 @@ namespace SanteDB.OrmLite
             var retVal = new OrmResultSet<TData>(this.Context, this.Statement.RemoveLimit(out take));
             originalTake = take;
             return retVal;
+        }
+
+        /// <inheritdoc/>
+        public IOrmResultSet Clone(SqlStatement withStatement)
+        {
+            return new OrmResultSet<TData>(this.Context, withStatement);
         }
     }
 }

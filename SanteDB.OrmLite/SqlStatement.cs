@@ -193,8 +193,14 @@ namespace SanteDB.OrmLite
             {
                 return this;
             }
-
-            return this.Append(new SqlStatement(this.m_statementFactory, "WHERE ").Append(clause));
+            else if (clause.SQL.Trim().StartsWith("WHERE"))
+            {
+                return this.Append(clause);
+            }
+            else
+            {
+                return this.Append(new SqlStatement(this.m_statementFactory, " WHERE ").Append(clause));
+            }
         }
 
         /// <summary>
@@ -340,7 +346,7 @@ namespace SanteDB.OrmLite
         public SqlStatement Where<TExpression>(Expression<Func<TExpression, bool>> expression)
         {
             var tableMap = TableMapping.Get(typeof(TExpression));
-            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_statementFactory);
+            var queryBuilder = new SqlQueryExpressionBuilder(this.Alias, this.m_statementFactory);
             queryBuilder.Visit(expression.Body);
             return this.Append(new SqlStatement(this.m_statementFactory, "WHERE ").Append(queryBuilder.SqlStatement.Build()));
         }

@@ -65,5 +65,11 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <returns>The mapped sort expression</returns>
         Expression MapExpression<TReturn>(Expression<Func<TModel, TReturn>> sortExpression);
 
+        /// <summary>
+        /// Apply any special versioning filters on the specified statement
+        /// </summary>
+        /// <param name="tableAlias">The table alias to use</param>
+        /// <returns>The updated statement with versioning filters</returns>
+        SqlStatement GetCurrentVersionFilter(String tableAlias);
     }
 }

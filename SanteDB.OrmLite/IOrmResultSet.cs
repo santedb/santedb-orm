@@ -141,5 +141,10 @@ namespace SanteDB.OrmLite
         /// Remove the take instruction
         /// </summary>
         IOrmResultSet WithoutTake(out int originalTake);
+
+        /// <summary>
+        /// Clone the current result set with the specified sqlstatement
+        /// </summary>
+        IOrmResultSet Clone(SqlStatement statement);
     }
 }

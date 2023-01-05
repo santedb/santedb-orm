@@ -191,20 +191,10 @@ namespace SanteDB.OrmLite
         {
             this.ThrowIfDisposed();
 
-            if (this.m_opened)
-            {
-                this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
-            }
 
             if (this.m_connection.State == ConnectionState.Closed)
             {
-                if (this.m_opened)
-                {
-                    this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
-                }
-
                 this.m_connection.Open();
-                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
             }
             else if (this.m_connection.State == ConnectionState.Broken)
             {
@@ -213,19 +203,16 @@ namespace SanteDB.OrmLite
             }
             else if (this.m_connection.State != ConnectionState.Open)
             {
-                if (this.m_opened)
-                {
-                    this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
-                }
-
                 this.m_connection.Open();
-                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
-
             }
 
             _ = this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
 
-            this.m_opened = true;
+            if(!this.m_opened)
+            {
+                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+               this.m_opened = true;
+            }
         }
 
         /// <summary>
@@ -263,6 +250,7 @@ namespace SanteDB.OrmLite
             if (this.m_connection != null && this.m_opened)
             {
                 this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+                this.m_opened = false;
             }
 
             this.m_transaction?.Dispose();
