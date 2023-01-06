@@ -1,4 +1,6 @@
-﻿using System;
+﻿using SanteDB.Core.i18n;
+using SanteDB.Core.Model.Map;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Text;
@@ -51,7 +53,19 @@ namespace SanteDB.OrmLite
 
                 }
 
-                return (TReturn)cmd.ExecuteScalar();
+                var retVal = cmd.ExecuteScalar();
+                if(retVal is TReturn tr)
+                {
+                    return tr;
+                }
+                else if(MapUtil.TryConvert(retVal, typeof(TReturn), out var tr2))
+                {
+                    return (TReturn)tr2;
+                }
+                else
+                {
+                    throw new InvalidCastException(String.Format(ErrorMessages.MAP_INCOMPATIBLE_TYPE, retVal.GetType(), typeof(TReturn)));
+                }
             }
 
         }
