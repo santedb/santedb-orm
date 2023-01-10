@@ -18,6 +18,7 @@
  * User: fyfej
  * Date: 2022-5-30
  */
+using SanteDB.Core.i18n;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Attributes;
 using SanteDB.Core.Model.Interfaces;
@@ -871,7 +872,7 @@ namespace SanteDB.OrmLite
                                 var filterFn = this.m_factory.GetFilterFunction(fnName);
                                 if (filterFn == null)
                                 {
-                                    retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, domainProperty.PropertyType));
+                                    throw new MissingMethodException(String.Format(ErrorMessages.METHOD_NOT_FOUND, fnName));
                                 }
                                 else
                                 {
