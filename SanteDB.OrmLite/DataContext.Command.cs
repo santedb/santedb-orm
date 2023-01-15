@@ -1485,6 +1485,13 @@ namespace SanteDB.OrmLite
             this.DeleteAll(typeof(TModel), whereExpression);
         }
 
+        /// <summary>
+        /// Execute the specified SQL
+        /// </summary>
+        public void ExecuteNonQuery(String sql, params object[] args)
+        {
+            this.ExecuteNonQuery(this.CreateSqlStatement(sql, args));
+        }
 
         /// <summary>
         /// Execute a non query

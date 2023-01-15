@@ -136,6 +136,12 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     return " UNION ALL ";
                 case SqlKeyword.Intersect:
                     return " INTERSECT ";
+                case SqlKeyword.Vacuum:
+                    return "VACUUM";
+                case SqlKeyword.Analyze:
+                    return "ANALYZE";
+                case SqlKeyword.Reindex:
+                    return "REINDEX SCHEMA public";
                 default:
                     throw new NotImplementedException();
             }

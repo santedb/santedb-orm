@@ -104,6 +104,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     return " UNION ";
                 case SqlKeyword.Intersect:
                     return " INTERSECT ";
+                case SqlKeyword.Vacuum:
+                    return "VACUUM";
+                case SqlKeyword.Reindex:
+                    return "REINDEX";
+                case SqlKeyword.Analyze:
+                    return "ANALYZE";
                 default:
                     throw new NotImplementedException();
             }

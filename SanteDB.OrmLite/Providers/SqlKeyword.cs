@@ -76,6 +76,18 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// UnionAll
         /// </summary>
-        UnionAll
+        UnionAll,
+        /// <summary>
+        /// VACUUM FULL
+        /// </summary>
+        Vacuum,
+        /// <summary>
+        /// Reindex
+        /// </summary>
+        Reindex,
+        /// <summary>
+        /// Analyze
+        /// </summary>
+        Analyze
     }
 }
