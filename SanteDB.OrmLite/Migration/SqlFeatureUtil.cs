@@ -56,19 +56,7 @@ namespace SanteDB.OrmLite.Migration
         {
             if (m_providers == null)
             {
-                m_providers = AppDomain.CurrentDomain.GetAssemblies()
-                    .Where(a => !a.IsDynamic)
-                    .SelectMany(a =>
-                    {
-                        try
-                        {
-                            return a.ExportedTypes;
-                        }
-                        catch (Exception)
-                        {
-                            return new List<Type>();
-                        }
-                    })
+                m_providers = AppDomain.CurrentDomain.GetAllTypes()
                     .Where(t => typeof(IDataConfigurationProvider).IsAssignableFrom(t) && !t.IsAbstract && t.IsClass)
                     .Select(t => Activator.CreateInstance(t))
                     .OfType<IDataConfigurationProvider>()

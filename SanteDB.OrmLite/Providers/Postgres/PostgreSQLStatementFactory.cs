@@ -68,7 +68,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public SqlStatement Count(SqlStatement sqlStatement)
         {
-            return new SqlStatement(this, "SELECT COUNT(*) FROM (").Append(sqlStatement.Build()).Append(") Q0");
+            return "SELECT COUNT(*) FROM (" +  sqlStatement + ") Q0";
         }
 
         /// <summary>
@@ -76,24 +76,24 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public SqlStatement Exists(SqlStatement sqlStatement)
         {
-            return new SqlStatement(this, "SELECT CASE WHEN EXISTS (").Append(sqlStatement.Build()).Append(") THEN true ELSE false END");
+            return "SELECT CASE WHEN EXISTS (" + sqlStatement + ") THEN true ELSE false END";
         }
 
         /// <summary>
         /// Append a returning statement
         /// </summary>
-        public SqlStatement Returning(SqlStatement sqlStatement, params ColumnMapping[] returnColumns)
+        public SqlStatement Returning(params ColumnMapping[] returnColumns)
         {
             if (returnColumns.Length == 0)
             {
-                return sqlStatement;
+                return SqlStatement.Empty;
             }
 
-            return sqlStatement.Append($" RETURNING {String.Join(",", returnColumns.Select(o => o.Name))}");
+            return new SqlStatement($" RETURNING {String.Join(",", returnColumns.Select(o => o.Name))}");
         }
 
         /// <inheritdoc/>
-        public SqlStatement GetNextSequenceValue(String sequenceName) => new SqlStatement(this, $"SELECT nextval(?)", sequenceName);
+        public SqlStatement GetNextSequenceValue(String sequenceName) => new SqlStatement($"SELECT nextval(?)", sequenceName);
 
         /// <summary>
         /// Create SQL keyword
@@ -152,19 +152,19 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public SqlStatement GetResetSequence(string sequenceName, object sequenceValue)
         {
-            return new SqlStatement(this, $"SELECT setval('{sequenceName}', {sequenceValue})");
+            return new SqlStatement($"SELECT setval('{sequenceName}', {sequenceValue})");
         }
 
         /// <inheritdoc/>
         public SqlStatement CreateIndex(string indexName, string tableName, string column, bool isUnique)
         {
-            return new SqlStatement(this, $"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} USING BTREE ({column})");
+            return new SqlStatement($"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} USING BTREE ({column})");
         }
 
         /// <inheritdoc/>
         public SqlStatement DropIndex(string indexName)
         {
-            return new SqlStatement(this, $"DROP INDEX {indexName};");
+            return new SqlStatement($"DROP INDEX {indexName};");
         }
 
         /// <inheritdoc/>

@@ -263,7 +263,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             this.m_expansionCount++;
             if (this.m_expansionCount > 1)
             {
-                this.m_tracer.TraceWarning("QUERY RESULT SET {0} HAS BEEN EXPANDED {1} TIMES AT {2}", execResultSet.ToSqlStatement().SQL, this.m_expansionCount, new StackTrace());
+                this.m_tracer.TraceWarning("QUERY RESULT SET {0} HAS BEEN EXPANDED {1} TIMES AT {2}", execResultSet.Statement, this.m_expansionCount, new StackTrace());
             }
 #endif
             try

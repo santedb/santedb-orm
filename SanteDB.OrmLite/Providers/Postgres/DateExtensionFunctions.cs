@@ -49,7 +49,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Create the SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type operandType)
         {
             // Is the parameter null? If so return the error
             if (parms.Length == 0 || parms[0] == null)
@@ -140,7 +140,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Create SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type operandType)
         {
             var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
@@ -195,7 +195,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Create the SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type operandType)
         {
             var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;

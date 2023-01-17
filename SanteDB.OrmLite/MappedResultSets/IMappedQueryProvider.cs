@@ -63,7 +63,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// </summary>
         /// <param name="sortExpression">The sort expression to map</param>
         /// <returns>The mapped sort expression</returns>
-        Expression MapExpression<TReturn>(Expression<Func<TModel, TReturn>> sortExpression);
+        LambdaExpression MapExpression<TReturn>(Expression<Func<TModel, TReturn>> sortExpression);
 
         /// <summary>
         /// Apply any special versioning filters on the specified statement

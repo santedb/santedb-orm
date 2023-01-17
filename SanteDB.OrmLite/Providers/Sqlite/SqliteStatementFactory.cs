@@ -57,24 +57,24 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public SqlStatement Count(SqlStatement sqlStatement)
         {
-            return new SqlStatement(this, "SELECT COUNT(*) FROM (").Append(sqlStatement.Build()).Append(") Q0");
+            return new SqlStatement("SELECT COUNT(*) FROM (").Append( sqlStatement).Append( ") Q0");
         }
 
         /// <inheritdoc/>
         public SqlStatement Exists(SqlStatement sqlStatement)
         {
-            return new SqlStatement(this, "SELECT CASE WHEN EXISTS (").Append(sqlStatement.Build()).Append(") THEN true ELSE false END");
+            return new SqlStatement("SELECT CASE WHEN EXISTS (").Append(sqlStatement).Append(") THEN true ELSE false END");
         }
 
         /// <inheritdoc/>
-        public SqlStatement Returning(SqlStatement sqlStatement, params ColumnMapping[] returnColumns)
+        public SqlStatement Returning(params ColumnMapping[] returnColumns)
         {
             if (returnColumns.Length == 0)
             {
-                return sqlStatement;
+                return SqlStatement.Empty;
             }
 
-            return sqlStatement.Append($" RETURNING {String.Join(",", returnColumns.Select(o => o.Name))}");
+            return new SqlStatement($" RETURNING {String.Join(",", returnColumns.Select(o => o.Name))}");
         }
 
         /// <inheritdoc/>
@@ -124,19 +124,19 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public SqlStatement CreateIndex(string indexName, string tableName, string column, bool isUnique)
         {
-            return new SqlStatement(this, $"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName.Sanitize()} ON {tableName.Sanitize()} ({column.Sanitize()})");
+            return new SqlStatement($"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName.Sanitize()} ON {tableName.Sanitize()} ({column.Sanitize()})");
         }
 
         /// <inheritdoc/>
         public SqlStatement DropIndex(string indexName)
         {
-            return new SqlStatement(this, $"DROP INDEX {indexName}");
+            return new SqlStatement($"DROP INDEX {indexName}");
         }
 
         /// <inheritdoc/>
         public SqlStatement GetNextSequenceValue(string sequenceName)
         {
-            return new SqlStatement(this, $"SELECT MAX(ROWID) + 1 FROM {sequenceName.Sanitize()}");
+            return new SqlStatement($"SELECT MAX(ROWID) + 1 FROM {sequenceName.Sanitize()}");
         }
 
         /// <inheritdoc/>

@@ -40,7 +40,7 @@ namespace SanteDB.OrmLite
         internal const int SQL_GROUP_WHERE = 4;
         internal const int SQL_GROUP_LIMIT = 5;
 
-        internal static readonly Regex ExtractColumnBindingRegex = new Regex(@"([A-Za-z_]\w+\.)?([A-Za-z_]\w+),?", RegexOptions.Compiled);
+        internal static readonly Regex ExtractColumnBindingRegex = new Regex(@"([A-Za-z_]\w+\.)?([A-Za-z_\*]\w+),?", RegexOptions.Compiled);
         internal static readonly Regex ExtractUnionIntersectRegex = new Regex(@"^(.*?)(UNION|INTERSECT|UNION ALL|INTERSECT ALL)(.*?)$", RegexOptions.Compiled);
         internal static readonly Regex ExtractRawSqlStatementRegex = new Regex(@"^SELECT\s(DISTINCT)?(.*?)FROM(.*?)(?:WHERE(.*?))?((ORDER|OFFSET|LIMIT).*)?$", RegexOptions.Compiled);
         internal static readonly Regex ExtractFilterOperandRegex = new Regex(@"^([<>]?=?)(.*?)$", RegexOptions.Compiled);

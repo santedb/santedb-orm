@@ -179,14 +179,14 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// </summary>
         public IDbCommand CreateCommand(DataContext context, SqlStatement stmt)
         {
-            var finStmt = stmt.Build();
+            var finStmt = stmt.Prepare();
 
 #if DB_DEBUG
            if(System.Diagnostics.Debugger.IsAttached)
                this.Explain(context, CommandType.Text, finStmt.SQL, finStmt.Arguments.ToArray());
 #endif
 
-            return this.CreateCommandInternal(context, CommandType.Text, finStmt.SQL, finStmt.Arguments.ToArray());
+            return this.CreateCommandInternal(context, CommandType.Text, finStmt.Sql, finStmt.Arguments.ToArray());
         }
 
         /// <summary>

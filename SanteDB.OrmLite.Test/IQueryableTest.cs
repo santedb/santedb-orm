@@ -42,6 +42,7 @@ namespace SanteDB.OrmLite.Tests
         [SetUp]
         public void ClassSetup()
         {
+            var sql = new SqlStatement("foo");
             AppDomain.CurrentDomain.SetData(
               "DataDirectory",
               Path.Combine(TestContext.CurrentContext.TestDirectory, string.Empty));
@@ -63,7 +64,7 @@ namespace SanteDB.OrmLite.Tests
             }
         }
 
-
+        
         /// <summary>
         /// Test that a simple query can be executed
         /// </summary>

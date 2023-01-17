@@ -108,7 +108,10 @@ namespace SanteDB.OrmLite
                 {
                     context.Open();
                     context.CommandTimeout = 360000;
-                    context.ExecuteNonQuery(new SqlStatement(provider.StatementFactory, provider.StatementFactory.CreateSqlKeyword(SqlKeyword.CreateMaterializedView)).Append(rdbmsQueryDefinition.Materialize.Name).Append(" AS ").Append(rdbmsQueryDefinition.Materialize.Sql));
+                    var sql = new SqlStatement(provider.StatementFactory.CreateSqlKeyword(SqlKeyword.CreateMaterializedView)) + rdbmsQueryDefinition.Materialize.Name
+                        + " AS "
+                        + rdbmsQueryDefinition.Materialize.Sql;
+                    context.ExecuteNonQuery(sql);
                 }
                 catch (Exception e)
                 {
@@ -307,8 +310,8 @@ namespace SanteDB.OrmLite
                 {
                     context.Open();
                     DateTime startTime = DateTime.Now;
-                    var sqlStmt = new SqlStatement(provider.StatementFactory, stmt, values.ToArray());
-                    this.m_tracer.TraceInfo("Executing BI Query: {0}", context.GetQueryLiteral(sqlStmt.Build()));
+                    var sqlStmt = new SqlStatement(stmt, values.ToArray());
+                    this.m_tracer.TraceInfo("Executing BI Query: {0}", sqlStmt.ToString());
                     var results = context.Query<ExpandoObject>(sqlStmt).Skip(offset).Take(count ?? 10000).ToArray();
                     return new BisResultContext(
                         queryDefinition,
@@ -446,8 +449,10 @@ namespace SanteDB.OrmLite
                     {
                         context.Open();
                         context.CommandTimeout = 360000;
-                        context.ExecuteNonQuery(new SqlStatement(provider.StatementFactory, provider.StatementFactory.CreateSqlKeyword(SqlKeyword.RefreshMaterializedView))
-                            .Append(rdbmsQueryDefinition.Materialize.Name));
+                        var stmt = new SqlStatement(provider.StatementFactory.CreateSqlKeyword(SqlKeyword.RefreshMaterializedView))
+                            + rdbmsQueryDefinition.Materialize.Name;
+
+                        context.ExecuteNonQuery(stmt);
                     }
                     catch (Exception e)
                     {

@@ -33,7 +33,7 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Appends a RETURNING statement
         /// </summary>
-        SqlStatement Returning(SqlStatement sqlStatement, params ColumnMapping[] returnColumns);
+        SqlStatement Returning(params ColumnMapping[] returnColumns);
 
         /// <summary>
         /// Gets the reset sequence command

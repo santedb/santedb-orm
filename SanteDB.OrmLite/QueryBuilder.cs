@@ -178,7 +178,7 @@ namespace SanteDB.OrmLite
         private readonly String[] NULL_CLAUSE = { "null" };
 
         // Join cache
-        private Dictionary<String, KeyValuePair<SqlStatement, List<TableMapping>>> s_joinCache = new Dictionary<String, KeyValuePair<SqlStatement, List<TableMapping>>>();
+        private Dictionary<String, KeyValuePair<SqlStatementBuilder, List<TableMapping>>> s_joinCache = new Dictionary<String, KeyValuePair<SqlStatementBuilder, List<TableMapping>>>();
 
         // A list of hacks injected into this query builder
         private static List<IQueryBuilderHack> m_hacks = new List<IQueryBuilderHack>();
@@ -215,20 +215,20 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Create a query
         /// </summary>
-        public SqlStatement CreateWhere<TModel>(Expression<Func<TModel, bool>> predicate)
+        public SqlStatementBuilder CreateWhere<TModel>(Expression<Func<TModel, bool>> predicate)
         {
             var nvc = QueryExpressionBuilder.BuildQuery(predicate, true);
             var tableType = m_mapper.MapModelType(typeof(TModel));
             var tableMap = TableMapping.Get(tableType);
             List<TableMapping> scopedTables = new List<TableMapping>() { tableMap };
 
-            return CreateWhereCondition(typeof(TModel), new SqlStatement(m_factory), nvc.ToDictionary(), String.Empty, scopedTables, null, out IList<SqlStatement> _);
+            return CreateWhereCondition(typeof(TModel), new SqlStatementBuilder(m_factory), nvc.ToDictionary(), String.Empty, scopedTables, null, out IList<SqlStatementBuilder> _);
         }
 
         /// <summary>
         /// Create a query from expression without needing type
         /// </summary>
-        public SqlStatement CreateQuery(Type modelType, LambdaExpression predicate, params ColumnMapping[] selector)
+        public SqlStatementBuilder CreateQuery(Type modelType, LambdaExpression predicate, params ColumnMapping[] selector)
         {
             var nvc = QueryExpressionBuilder.BuildQuery(modelType, predicate, true);
             return CreateQuery(modelType, nvc.ToDictionary(), selector);
@@ -237,16 +237,16 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Create a query
         /// </summary>
-        public SqlStatement CreateQuery<TModel>(Expression<Func<TModel, bool>> predicate, params ColumnMapping[] selector)
+        public SqlStatementBuilder CreateQuery<TModel>(Expression<Func<TModel, bool>> predicate, params ColumnMapping[] selector)
         {
-            var nvc = QueryExpressionBuilder.BuildQuery(predicate, true);
+            var nvc = QueryExpressionBuilder.BuildQuery(predicate);
             return CreateQuery(typeof(TModel), nvc.ToDictionary(), selector);
         }
 
         /// <summary>
         /// Create query
         /// </summary>
-        public SqlStatement CreateQuery(Type tmodel, IDictionary<String, String[]> query, params ColumnMapping[] selector)
+        public SqlStatementBuilder CreateQuery(Type tmodel, IDictionary<String, String[]> query, params ColumnMapping[] selector)
         {
             return CreateQuery(tmodel, query, null, false, null, selector);
         }
@@ -256,14 +256,14 @@ namespace SanteDB.OrmLite
         /// Query query
         /// </summary>
         /// TODO: Refactor this
-        public SqlStatement CreateQuery(Type tmodel, IDictionary<String, String[]> query, String tablePrefix, bool skipJoins, IEnumerable<TableMapping> parentScopedTables, params ColumnMapping[] selector)
+        public SqlStatementBuilder CreateQuery(Type tmodel, IDictionary<String, String[]> query, String tablePrefix, bool skipJoins, IEnumerable<TableMapping> parentScopedTables, params ColumnMapping[] selector)
         {
             var tableType = m_mapper.MapModelType(tmodel);
             var tableMap = TableMapping.Get(tableType);
             List<TableMapping> scopedTables = new List<TableMapping>() { tableMap };
 
             bool skipParentJoin = true;
-            SqlStatement selectStatement = null;
+            SqlStatementBuilder selectStatement = null;
             Dictionary<Type, TableMapping> skippedJoinMappings = new Dictionary<Type, TableMapping>();
 
             // Is the query using any of the properties from this table?
@@ -290,13 +290,13 @@ namespace SanteDB.OrmLite
                     query.Remove("obsoletionTime");
                     scopedTables = new List<TableMapping>() { tableMap };
                 }
-                selectStatement = new SqlStatement(this.m_factory, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
+                selectStatement = new SqlStatementBuilder(this.m_factory, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
             }
             else
             {
                 //if (!s_joinCache.TryGetValue($"{tablePrefix}.{typeof(TModel).Name}", out cacheHit))
                 //{
-                selectStatement = new SqlStatement(this.m_factory, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
+                selectStatement = new SqlStatementBuilder(this.m_factory, $" FROM {tableMap.TableName} AS {tablePrefix}{tableMap.TableName} ");
 
                 Stack<TableMapping> fkStack = new Stack<TableMapping>();
                 fkStack.Push(tableMap);
@@ -384,17 +384,17 @@ namespace SanteDB.OrmLite
                         }
                         return false;
                     }).Select(o => $"{tablePrefix}{o.Table.TableName}.{o.Name}"));
-                    selectStatement = new SqlStatement(this.m_factory, $"SELECT {columnList} ").Append(selectStatement);
+                    selectStatement = new SqlStatementBuilder(this.m_factory, $"SELECT {columnList} ").Append(selectStatement);
                 }
                 else
                 {
-                    selectStatement = new SqlStatement(this.m_factory, $"SELECT *").Append(selectStatement);
+                    selectStatement = new SqlStatementBuilder(this.m_factory, $"SELECT *").Append(selectStatement);
                 }
                 // columnSelector = scopedTables.SelectMany(o => o.Columns).ToArray();
             }
             else if (columnSelector.All(o => o.SourceProperty == null)) // Fake / constants
             {
-                selectStatement = new SqlStatement(this.m_factory, $"SELECT {String.Join(",", columnSelector.Select(o => o.Name))} ").Append(selectStatement);
+                selectStatement = new SqlStatementBuilder(this.m_factory, $"SELECT {String.Join(",", columnSelector.Select(o => o.Name))} ").Append(selectStatement);
             }
             else
             {
@@ -414,25 +414,14 @@ namespace SanteDB.OrmLite
                         return $"{tablePrefix}{scopedTable.TableName}.{o.Name}";
                     }
                 }));
-                selectStatement = new SqlStatement(this.m_factory, $"SELECT {columnList} ").Append(selectStatement);
+                selectStatement = new SqlStatementBuilder(this.m_factory, $"SELECT {columnList} ").Append(selectStatement);
             }
 
-            var whereClause = this.CreateWhereCondition(tmodel, selectStatement, query, tablePrefix, scopedTables, parentScopedTables, out IList<SqlStatement> cteStatements);
+            var whereClause = this.CreateWhereCondition(tmodel, selectStatement, query, tablePrefix, scopedTables, parentScopedTables, out IList<SqlStatementBuilder> cteStatements);
             // Return statement
-            SqlStatement retVal = new SqlStatement(this.m_factory);
-            if (cteStatements.Count > 0)
-            {
-                retVal.Append("WITH ");
-                foreach (var c in cteStatements)
-                {
-                    retVal.Append(c);
-                    if (c != cteStatements.Last())
-                    {
-                        retVal.Append(",");
-                    }
-                }
-            }
-            retVal.Append(selectStatement.Where(whereClause));
+            SqlStatementBuilder retVal = new SqlStatementBuilder(this.m_factory)
+                .Append(selectStatement)
+                .Where(whereClause.Statement);
 
             return retVal;
         }
@@ -447,15 +436,15 @@ namespace SanteDB.OrmLite
         /// <param name="scopedTables">The scoped tables</param>
         /// <param name="parentScopedTables">Scoped tables from the parent</param>
         /// <param name="cteStatements">CTE which need to be appended</param>
-        private SqlStatement CreateWhereCondition(Type tmodel, SqlStatement selectStatement, IDictionary<String, String[]> query, string tablePrefix, IEnumerable<TableMapping> scopedTables, IEnumerable<TableMapping> parentScopedTables, out IList<SqlStatement> cteStatements)
+        private SqlStatementBuilder CreateWhereCondition(Type tmodel, SqlStatementBuilder selectStatement, IDictionary<String, String[]> query, string tablePrefix, IEnumerable<TableMapping> scopedTables, IEnumerable<TableMapping> parentScopedTables, out IList<SqlStatementBuilder> cteStatements)
         {
             // We want to process each query and build WHERE clauses - these where clauses are based off of the JSON / XML names
             // on the model, so we have to use those for the time being before translating to SQL
             var workingParameters = query.Where(o=>!o.Key.StartsWith("_") || tmodel.GetQueryProperty(o.Key)  != null).ToList();
 
             // Where clause
-            SqlStatement whereClause = new SqlStatement(this.m_factory);
-            cteStatements = new List<SqlStatement>();
+            SqlStatementBuilder whereClause = new SqlStatementBuilder(this.m_factory);
+            cteStatements = new List<SqlStatementBuilder>();
 
             // Construct
             while (workingParameters.Count > 0)
@@ -514,7 +503,7 @@ namespace SanteDB.OrmLite
                             var linkColumn = linkColumns.Count() > 1 ? linkColumns.FirstOrDefault(o => propertyPredicate.SubPath.StartsWith("source") ? o.SourceProperty.Name != "SourceKey" : o.SourceProperty.Name == "SourceKey") : linkColumns.FirstOrDefault();
 
                             // Link column is null, is there an assoc attrib?
-                            SqlStatement subQueryStatement = new SqlStatement(this.m_factory);
+                            SqlStatementBuilder subQueryStatement = new SqlStatementBuilder(this.m_factory);
 
                             var subTableColumn = linkColumn;
                             string existsClause = String.Empty;
@@ -636,7 +625,7 @@ namespace SanteDB.OrmLite
                             }
                             else
                             {
-                                whereClause.And(subQueryStatement);
+                                whereClause.And(subQueryStatement.Statement);
                             }
                         }
                         else  // this table points at other
@@ -673,7 +662,7 @@ namespace SanteDB.OrmLite
                             // Create the sub-query
                             //var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { subProp.PropertyType }, new Type[] { subQuery.GetType(), typeof(ColumnMapping[]) });
                             //SqlStatement subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, new ColumnMapping[] { fkColumnDef } }) as SqlStatement;
-                            SqlStatement subQueryStatement = null;
+                            SqlStatementBuilder subQueryStatement = null;
                             var subSkipJoins = subQuery.Count(o => !o.Key.Contains(".") && o.Key != "obsoletionTime") == 0;
                             if (String.IsNullOrEmpty(propertyPredicate.CastAs))
                             {
@@ -710,7 +699,7 @@ namespace SanteDB.OrmLite
         /// <param name="tablePrefix">The prefix that the table has</param>
         /// <param name="scopedTables">The tables which are scoped</param>
         /// <param name="sortExpression">The sorting expression</param>
-        private SqlStatement CreateOrderBy(Type tmodel, string tablePrefix, IEnumerable<TableMapping> scopedTables, Expression sortExpression, SortOrderType order)
+        private SqlStatementBuilder CreateOrderBy(Type tmodel, string tablePrefix, IEnumerable<TableMapping> scopedTables, Expression sortExpression, SortOrderType order)
         {
             switch (sortExpression.NodeType)
             {
@@ -732,7 +721,7 @@ namespace SanteDB.OrmLite
                     var propertyInfo = mexpr.Member as PropertyInfo;
                     PropertyInfo domainProperty = scopedTables.Select(o => { tableMapping = o; return m_mapper.MapModelProperty(tmodel, o.OrmType, propertyInfo); }).FirstOrDefault(o => o != null);
                     var columnData = tableMapping.GetColumn(domainProperty);
-                    return new SqlStatement(this.m_factory, $" {columnData.Name} {(order == SortOrderType.OrderBy ? "ASC" : "DESC")}");
+                    return new SqlStatementBuilder(this.m_factory, $" {columnData.Name} {(order == SortOrderType.OrderBy ? "ASC" : "DESC")}");
 
                 default:
                     throw new InvalidOperationException("Cannot sort by this property expression");
@@ -828,7 +817,7 @@ namespace SanteDB.OrmLite
                 throw new ArgumentNullException(nameof(domainProperty));
             }
 
-            var retVal = new SqlStatement(this.m_factory);
+            var retVal = new SqlStatementBuilder(this.m_factory);
 
             bool noCase = domainProperty.GetCustomAttribute<IgnoreCaseAttribute>() != null;
             string parmValue = noCase ? $"{this.m_factory.CreateSqlKeyword(SqlKeyword.Lower)}(?)" : "?";
@@ -876,7 +865,7 @@ namespace SanteDB.OrmLite
                                 }
                                 else
                                 {
-                                    retVal = filterFn.CreateSqlStatement(retVal.RemoveLast(out _), $"{tableAlias}.{columnName}", extendedParms.ToArray(), operand, domainProperty.PropertyType).Build();
+                                    retVal = filterFn.CreateSqlStatement(retVal.RemoveLast(out _), $"{tableAlias}.{columnName}", extendedParms.ToArray(), operand, domainProperty.PropertyType);
                                 }
                             }
                             else
@@ -991,7 +980,7 @@ namespace SanteDB.OrmLite
 
             retVal.Append(")");
 
-            return retVal;
+            return retVal.Statement;
         }
 
         /// <summary>

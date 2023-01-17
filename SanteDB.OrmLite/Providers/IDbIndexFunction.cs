@@ -44,7 +44,7 @@ namespace SanteDB.OrmLite.Providers
         /// <param name="indexName">The index name</param>
         /// <param name="column">The column to be indexed</param>
         /// <param name="tableName">The table to be indexed</param>
-        SqlStatement CreateIndex(String indexName, String tableName, String column);
+        SqlStatementBuilder CreateIndex(String indexName, String tableName, String column);
 
 
     }

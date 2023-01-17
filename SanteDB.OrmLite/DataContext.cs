@@ -272,60 +272,23 @@ namespace SanteDB.OrmLite
                 throw new ObjectDisposedException(nameof(DataContext));
             }
         }
-        /// <summary>
-        /// Create sql statement
-        /// </summary>
-        public SqlStatement CreateSqlStatement()
-        {
-            return new SqlStatement(this.m_provider.StatementFactory);
-        }
 
         /// <summary>
         /// Create sql statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(String sql, params object[] args)
+        public SqlStatementBuilder CreateSqlStatementBuilder(SqlStatement statement = null)
         {
-            return new SqlStatement(this.m_provider.StatementFactory, sql, args);
+            return new SqlStatementBuilder(this.m_provider.StatementFactory, statement);
         }
+
 
         /// <summary>
-        /// Create SQL statement
+        /// Create sql statement
         /// </summary>
-        public SqlStatement<T> CreateSqlStatement<T>()
+        public SqlStatementBuilder CreateSqlStatementBuilder(String sql, params object[] parameters)
         {
-            return new SqlStatement<T>(this.m_provider.StatementFactory);
+            return new SqlStatementBuilder(this.m_provider.StatementFactory, new SqlStatement(sql, parameters));
         }
 
-        /// <summary>
-        /// Query
-        /// </summary>
-        public String GetQueryLiteral(SqlStatement query)
-        {
-            query = query.Build();
-            StringBuilder retVal = new StringBuilder(query.SQL);
-            String sql = retVal.ToString();
-            var qList = query.Arguments?.ToArray() ?? new object[0];
-            int parmId = 0;
-            int lastIndex = 0;
-            while (sql.IndexOf("?", lastIndex) > -1)
-            {
-                var pIndex = sql.IndexOf("?", lastIndex);
-                retVal.Remove(pIndex, 1);
-                var obj = qList[parmId++];
-                if (obj is String || obj is Guid || obj is Guid? || obj is DateTime || obj is DateTimeOffset)
-                {
-                    obj = $"'{obj}'";
-                }
-                else if (obj == null)
-                {
-                    obj = "null";
-                }
-
-                retVal.Insert(pIndex, obj);
-                sql = retVal.ToString();
-                lastIndex = pIndex + obj.ToString().Length;
-            }
-            return retVal.ToString();
-        }
     }
 }

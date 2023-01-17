@@ -41,7 +41,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Create the SQL statement for the extension function
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type operandType)
         {
 
             if (parms.Length == 1)

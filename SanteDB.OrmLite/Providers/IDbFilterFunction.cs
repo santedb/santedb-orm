@@ -43,12 +43,12 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Creates the SQL Statement which implements the filter
         /// </summary>
-        /// <param name="current">The current SQLStatement</param>
+        /// <param name="currentBuilder">The current builder on which the SQL statement can be modified</param>
         /// <param name="filterColumn">The column being filtered on</param>
         /// <param name="parms">The parameters to the function</param>
         /// <param name="operand">The provided operand on the query string</param>
         /// <returns>The constructed / updated SQLStatement</returns>
-        SqlStatement CreateSqlStatement(SqlStatement current, String filterColumn, String[] parms, String operand, Type operandType);
+        SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder currentBuilder, String filterColumn, String[] parms, String operand, Type operandType);
 
     }
 

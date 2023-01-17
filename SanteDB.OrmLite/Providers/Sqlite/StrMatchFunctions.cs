@@ -43,7 +43,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Create the SQL for first
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms,
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms,
             string operand, Type type)
         {
             var match = Constants.ExtractFilterOperandRegex.Match(operand);
@@ -89,7 +89,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Create the SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms,
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms,
             string operand, Type type)
         {
             var match = Constants.ExtractFilterOperandRegex.Match(operand);
@@ -123,7 +123,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Create the SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms,
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms,
             string operand, Type type)
         {
             return current.Append($"LOWER({filterColumn}) = LOWER(?)",

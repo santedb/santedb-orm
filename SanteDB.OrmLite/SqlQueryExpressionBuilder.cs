@@ -49,7 +49,7 @@ namespace SanteDB.OrmLite
     public class SqlQueryExpressionBuilder : ExpressionVisitor
     {
         private string m_tableAlias = null;
-        private SqlStatement m_sqlStatement = null;
+        private SqlStatementBuilder m_sqlStatement = null;
         private IDbStatementFactory m_provider;
         private readonly bool m_prefixColumns;
         private bool m_isFilterExpression = true;
@@ -57,7 +57,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Gets the constructed SQL statement
         /// </summary>
-        public SqlStatement SqlStatement => this.m_sqlStatement;
+        public SqlStatementBuilder StatementBuilder => this.m_sqlStatement;
 
         /// <summary>
         /// Creates a new postgresql query expression builder
@@ -65,7 +65,7 @@ namespace SanteDB.OrmLite
         public SqlQueryExpressionBuilder(String alias, IDbStatementFactory provider, bool prefixColumnsWithTableName = true)
         {
             this.m_tableAlias = alias;
-            this.m_sqlStatement = new SqlStatement(this.m_provider);
+            this.m_sqlStatement = new SqlStatementBuilder(this.m_provider);
             this.m_provider = provider;
             this.m_prefixColumns = prefixColumnsWithTableName;
         }
@@ -560,18 +560,25 @@ namespace SanteDB.OrmLite
                                         if (value == null)
                                         {
                                             this.m_sqlStatement.RemoveLast(out var lastStmt);
-                                            var stmt = lastStmt.SQL.Trim();
-                                            if (stmt == "<>")
+                                            if (!lastStmt.IsEmpty())
                                             {
-                                                this.m_sqlStatement.Append(" IS NOT NULL ");
-                                            }
-                                            else if (stmt == "=")
-                                            {
-                                                this.m_sqlStatement.Append(" IS NULL ");
-                                            }
-                                            else if (stmt == "(")
-                                            {
-                                                this.m_sqlStatement.Append("(NULL");
+                                                var stmt = lastStmt.Sql.Trim();
+                                                if (stmt == "<>")
+                                                {
+                                                    this.m_sqlStatement.Append(" IS NOT NULL ");
+                                                }
+                                                else if (stmt == "=")
+                                                {
+                                                    this.m_sqlStatement.Append(" IS NULL ");
+                                                }
+                                                else if (stmt == "(")
+                                                {
+                                                    this.m_sqlStatement.Append("(NULL");
+                                                }
+                                                else
+                                                {
+                                                    throw new InvalidOperationException($"Cannot determine how to convert {node} in SQL");
+                                                }
                                             }
                                             else
                                             {
@@ -589,14 +596,17 @@ namespace SanteDB.OrmLite
                                         if (value == null)
                                         {
                                             this.m_sqlStatement.RemoveLast(out var lastStmt);
-                                            var stmt = lastStmt.SQL.Trim();
-                                            if (stmt == "<>")
+                                            if (!lastStmt.IsEmpty())
                                             {
-                                                this.m_sqlStatement.Append(" IS NOT NULL ");
-                                            }
-                                            else
-                                            {
-                                                this.m_sqlStatement.Append(" IS NULL ");
+                                                var stmt = lastStmt.Sql.Trim();
+                                                if (stmt == "<>")
+                                                {
+                                                    this.m_sqlStatement.Append(" IS NOT NULL ");
+                                                }
+                                                else
+                                                {
+                                                    this.m_sqlStatement.Append(" IS NULL ");
+                                                }
                                             }
                                         }
                                         else

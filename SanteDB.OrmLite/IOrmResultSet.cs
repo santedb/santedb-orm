@@ -75,11 +75,6 @@ namespace SanteDB.OrmLite
         IOrmResultSet HavingKeys(IEnumerable keys, String keyColumnName);
 
         /// <summary>
-        /// Convert this result set to an SQL statement
-        /// </summary>
-        SqlStatement ToSqlStatement();
-
-        /// <summary>
         /// Get first or default item in collection
         /// </summary>
         Object FirstOrDefault();

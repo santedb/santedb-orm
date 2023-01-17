@@ -177,8 +177,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public IDbCommand CreateCommand(DataContext context, SqlStatement stmt)
         {
-            var c = stmt.Build();
-            return CreateCommandInternal(context, CommandType.Text, c.SQL, c.Arguments.ToArray());
+            var c = stmt.Prepare();
+            return CreateCommandInternal(context, CommandType.Text, c.Sql, c.Arguments.ToArray());
         }
 
         /// <summary>

@@ -49,14 +49,14 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <param name="sqlStatement">The SQL statement to "return"</param>
         /// <param name="returnColumns">The columns to return</param>
         /// <returns>The returned colums</returns>
-        public SqlStatement Returning(SqlStatement sqlStatement, params ColumnMapping[] returnColumns)
+        public SqlStatement Returning(params ColumnMapping[] returnColumns)
         {
             if (returnColumns.Length == 0)
             {
-                return sqlStatement;
+                return SqlStatement.Empty;
             }
 
-            return sqlStatement.Append($" RETURNING {String.Join(",", returnColumns.Select(o => o.Name))}");
+            return new SqlStatement($" RETURNING {String.Join(",", returnColumns.Select(o => $"{o.Name}"))}");
         }
 
 
@@ -86,7 +86,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <returns>The count statement</returns>
         public SqlStatement Count(SqlStatement sqlStatement)
         {
-            return new SqlStatement(this, "SELECT COUNT(*) FROM (").Append(sqlStatement.Build()).Append(") Q0");
+            return "SELECT COUNT(*) FROM (" + sqlStatement + ") Q0";
         }
 
 
@@ -97,7 +97,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <returns>The constructed statement</returns>
         public SqlStatement Exists(SqlStatement sqlStatement)
         {
-            return new SqlStatement(this, "SELECT CASE WHEN EXISTS (").Append(sqlStatement.Build()).Append(") THEN true ELSE false END FROM RDB$DATABASE");
+            return "SELECT CASE WHEN EXISTS (" + sqlStatement + ") THEN true ELSE false END FROM RDB$DATABASE";
         }
 
         /// <summary>
@@ -105,22 +105,22 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// </summary>
         public SqlStatement GetResetSequence(string sequenceName, object sequenceValue)
         {
-            return new SqlStatement(this, $"ALTER SEQUENCE {sequenceName} RESTART WITH {(int)sequenceValue}");
+            return new SqlStatement($"ALTER SEQUENCE {sequenceName} RESTART WITH {(int)sequenceValue}");
         }
 
         /// <inheritdoc/>
-        public SqlStatement GetNextSequenceValue(String sequenceName) => new SqlStatement(this, $"SELECT NEXT VALUE FOR {sequenceName} FROM RDB$DATABASE;')");
+        public SqlStatement GetNextSequenceValue(String sequenceName) => new SqlStatement($"SELECT NEXT VALUE FOR {sequenceName} FROM RDB$DATABASE;')");
 
         /// <inheritdoc/>
         public SqlStatement CreateIndex(string indexName, string tableName, string column, bool isUnique)
         {
-            return new SqlStatement(this, $"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} ({column})");
+            return new SqlStatement($"CREATE {(isUnique ? "UNIQUE" : "")} INDEX {indexName} ON {tableName} ({column})");
         }
 
         /// <inheritdoc/>
         public SqlStatement DropIndex(string indexName)
         {
-            return new SqlStatement(this, $"DROP INDEX {indexName}");
+            return new SqlStatement($"DROP INDEX {indexName}");
         }
 
 

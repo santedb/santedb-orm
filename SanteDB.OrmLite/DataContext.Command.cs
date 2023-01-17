@@ -156,14 +156,14 @@ namespace SanteDB.OrmLite
         /// </summary>
         public bool Exists<TModel>(TModel obj)
         {
-            var sqlStatement = this.CreateSqlStatement();
+            var sqlStatement = this.CreateSqlStatementBuilder();
             foreach (var cm in TableMapping.Get(typeof(TModel)).Columns.Where(o => o.IsPrimaryKey))
             {
                 sqlStatement.And($"{cm.Name} = ?", cm.SourceProperty.GetValue(obj));
             }
 
-            sqlStatement = this.CreateSqlStatement<TModel>().SelectFrom(ColumnMapping.One).Where(sqlStatement);
-            return this.Any(sqlStatement);
+            sqlStatement = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel), ColumnMapping.One).Where(sqlStatement.Statement);
+            return this.Any(sqlStatement.Statement);
         }
 
         /// <summary>
@@ -171,14 +171,14 @@ namespace SanteDB.OrmLite
         /// </summary>
         public bool Exists(Type type, Guid modelKey)
         {
-            var sqlStatement = this.CreateSqlStatement();
+            var sqlStatement = this.CreateSqlStatementBuilder();
             foreach (var cm in TableMapping.Get(type).Columns.Where(o => o.IsPrimaryKey))
             {
                 sqlStatement.And($"{cm.Name} = ?", modelKey);
             }
 
-            sqlStatement = this.CreateSqlStatement().SelectFrom(type, ColumnMapping.One).Where(sqlStatement);
-            return this.Any(sqlStatement);
+            sqlStatement = this.CreateSqlStatementBuilder().SelectFrom(type, ColumnMapping.One).Where(sqlStatement.Statement);
+            return this.Any(sqlStatement.Statement);
         }
 
         /// <summary>
@@ -297,7 +297,7 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt.Limit(1)))
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
                         try
                         {
@@ -393,10 +393,10 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec).Limit(1);
+                var builder = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel)).Where(querySpec).Limit(1);
                 lock (this.m_lockObject)
                 {
-                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, builder.Statement))
                     {
                         try
                         {
@@ -448,7 +448,7 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt.Build().Limit(1)))
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
                         try
                         {
@@ -500,7 +500,7 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec).Limit(2);
+                var stmt = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel)).Where(querySpec).Limit(2).Statement;
 
                 lock (this.m_lockObject)
                 {
@@ -615,7 +615,8 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.m_provider.StatementFactory.Exists(this.CreateSqlStatement<TModel>().SelectFrom(ColumnMapping.One).Where(querySpec));
+                var stmt = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel), ColumnMapping.One).Where(querySpec).Statement;
+                stmt = this.m_provider.StatementFactory.Exists(stmt);
                 lock (this.m_lockObject)
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
@@ -718,7 +719,8 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.m_provider.StatementFactory.Count(this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec));
+                var stmt = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel)).Where(querySpec).Statement;
+                stmt = this.m_provider.StatementFactory.Count(stmt);
                 lock (this.m_lockObject)
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
@@ -847,7 +849,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         public OrmResultSet<TModel> Query<TModel>(Expression<Func<TModel, bool>> querySpec)
         {
-            return new OrmResultSet<TModel>(this, this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec));
+            var stmt = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel)).Where(querySpec).Statement;
+            return new OrmResultSet<TModel>(this, stmt);
         }
 
         /// <summary>
@@ -962,8 +965,8 @@ namespace SanteDB.OrmLite
                 // First we want to map object to columns
                 var tableMap = TableMapping.Get(typeof(TModel));
 
-                SqlStatement columnNames = this.CreateSqlStatement(),
-                    values = this.CreateSqlStatement();
+                SqlStatementBuilder columnNames = this.CreateSqlStatementBuilder(),
+                    values = this.CreateSqlStatementBuilder();
                 foreach (var col in tableMap.Columns)
                 {
                     var val = col.SourceProperty.GetValue(value);
@@ -1018,10 +1021,8 @@ namespace SanteDB.OrmLite
                 var returnKeys = tableMap.Columns.Where(o => o.IsAutoGenerated);
 
                 // Return arrays
-                var stmt = this.m_provider.StatementFactory.Returning(
-                    this.CreateSqlStatement($"INSERT INTO {tableMap.TableName} (").Append(columnNames).Append(") VALUES (").Append(values).Append(")"),
-                    returnKeys.ToArray()
-                );
+                var stmt = $"INSERT INTO {tableMap.TableName} (" + columnNames.Statement + ") VALUES (" + values.Statement + ") "
+                    + this.m_provider.StatementFactory.Returning(returnKeys.ToArray());
 
                 // Execute
                 lock (this.m_lockObject)
@@ -1096,13 +1097,13 @@ namespace SanteDB.OrmLite
 
 
                                     var pkcols = tableMap.Columns.Where(o => o.IsPrimaryKey);
-                                    var where = new SqlStatement<TModel>(this.m_provider.StatementFactory);
+                                    var where = new SqlStatementBuilder(this.m_provider.StatementFactory);
                                     foreach (var pk in pkcols)
                                     {
                                         where.And($"{pk.Name} = ?", pk.SourceProperty.GetValue(value));
                                     }
 
-                                    stmt = new SqlStatement<TModel>(this.m_provider.StatementFactory).SelectFrom().Where(where);
+                                    stmt = new SqlStatementBuilder(this.m_provider.StatementFactory).SelectFrom(typeof(TModel)).Where(where.Statement).Statement;
 
                                     // Create command and exec
                                     using (var dbcSelect = this.m_provider.CreateCommand(this, stmt))
@@ -1173,7 +1174,7 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var query = this.CreateSqlStatement().DeleteFrom(tmodel).Where(whereClause);
+                var query = this.CreateSqlStatementBuilder().DeleteFrom(tmodel).Where(whereClause).Statement;
                 lock (this.m_lockObject)
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
@@ -1221,14 +1222,14 @@ namespace SanteDB.OrmLite
 #endif
 
                 var tableMap = TableMapping.Get(obj.GetType());
-                SqlStatement whereClause = this.CreateSqlStatement();
+                SqlStatementBuilder whereClauseBuilder = this.CreateSqlStatementBuilder();
                 foreach (var itm in tableMap.PrimaryKey)
                 {
                     var itmValue = itm.SourceProperty.GetValue(obj);
-                    whereClause.And($"{itm.Name} = ?", itmValue);
+                    whereClauseBuilder.And($"{itm.Name} = ?", itmValue);
                 }
 
-                var query = this.CreateSqlStatement().DeleteFrom(obj.GetType()).Where(whereClause);
+                var query = this.CreateSqlStatementBuilder().DeleteFrom(obj.GetType()).Where(whereClauseBuilder.Statement).Statement;
                 lock (this.m_lockObject)
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
@@ -1276,8 +1277,8 @@ namespace SanteDB.OrmLite
 #endif
                 // Build the command
                 var tableMap = TableMapping.Get(value.GetType());
-                SqlStatement query = this.CreateSqlStatement().UpdateSet(value.GetType());
-                SqlStatement whereClause = this.CreateSqlStatement();
+                SqlStatementBuilder queryBuilder = this.CreateSqlStatementBuilder().UpdateSet(value.GetType());
+                SqlStatementBuilder whereClauseBuilder = this.CreateSqlStatementBuilder();
                 int nUpdatedColumns = 0;
                 foreach (var itm in tableMap.Columns)
                 {
@@ -1303,11 +1304,11 @@ namespace SanteDB.OrmLite
                     }
 
                     nUpdatedColumns++;
-                    query.Append($"{itm.Name} = ? ", itmValue ?? DBNull.Value);
-                    query.Append(",");
+                    queryBuilder.Append($"{itm.Name} = ? ", itmValue ?? DBNull.Value);
+                    queryBuilder.Append(",");
                     if (itm.IsPrimaryKey)
                     {
-                        whereClause.And($"{itm.Name} = ?", itmValue);
+                        whereClauseBuilder.And($"{itm.Name} = ?", itmValue);
                     }
                 }
 
@@ -1318,12 +1319,12 @@ namespace SanteDB.OrmLite
                     return value;
                 }
 
-                query.RemoveLast(out _).Where(whereClause);
+                queryBuilder.RemoveLast(out _).Where(whereClauseBuilder.Statement);
 
                 // Now update
                 lock (this.m_lockObject)
                 {
-                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, queryBuilder.Statement))
                     {
                         try
                         {
@@ -1385,7 +1386,7 @@ namespace SanteDB.OrmLite
             var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
             queryBuilder.Visit(whereExpression.Body);
 
-            this.UpdateAll(tmodel, queryBuilder.SqlStatement, updateStatements);
+            this.UpdateAll(tmodel, queryBuilder.StatementBuilder.Statement, updateStatements);
         }
 
         /// <summary>
@@ -1393,12 +1394,12 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void UpdateAll<TModel>(SqlStatement whereExpression, params Expression<Func<TModel, dynamic>>[] updateStatements)
         {
-            whereExpression = whereExpression.Build();
-            if(whereExpression.SQL.Contains("SELECT"))
+            if(whereExpression.Contains("SELECT"))
             {
-                var match = Constants.ExtractRawSqlStatementRegex.Match(whereExpression.SQL);
+                whereExpression = whereExpression.Prepare();
+                var match = Constants.ExtractRawSqlStatementRegex.Match(whereExpression.Sql);
                 var where = match.Groups[Constants.SQL_GROUP_WHERE].Value;
-                whereExpression = new SqlStatement(this.Provider.StatementFactory, where, whereExpression.Arguments.ToArray());
+                whereExpression = new SqlStatement(where, whereExpression.Arguments);
             }
             this.UpdateAll(typeof(TModel), whereExpression, updateStatements);
         }
@@ -1417,24 +1418,23 @@ namespace SanteDB.OrmLite
 
                 // Build the command
                 var tableMap = TableMapping.Get(tmodel);
-                var updateStatement = this.CreateSqlStatement().UpdateSet(tmodel) as SqlStatement;
-               
+                var updateStatementBuilder = this.CreateSqlStatementBuilder().UpdateSet(tmodel);
                 var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
-                var setClause = this.CreateSqlStatement();
+                var setClause = SqlStatement.Empty;
                 foreach (var updateFunc in updateStatements)
                 {
                     queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory, false);
                     queryBuilder.Visit(updateFunc);
-                    setClause.Append(queryBuilder.SqlStatement);
-                    setClause.Append(",");
+                    setClause += queryBuilder.StatementBuilder.Statement + ",";
                 }
-                
-                updateStatement = updateStatement.Append(setClause.RemoveLast(out _).Build()).Where(whereClause.Build());
+
+                updateStatementBuilder.Append(setClause.RemoveLast(out _))
+                    .Where(whereClause);
 
                 // Now update
                 lock (this.m_lockObject)
                 {
-                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, updateStatement))
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, updateStatementBuilder.Statement))
                     {
                         dbc.ExecuteNonQuery();
                     }
@@ -1467,7 +1467,7 @@ namespace SanteDB.OrmLite
             var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
             queryBuilder.Visit(whereExpression.Body);
 
-            this.DeleteAll(tmodel, queryBuilder.SqlStatement);
+            this.DeleteAll(tmodel, queryBuilder.StatementBuilder.Statement);
         }
 
         /// <summary>
@@ -1475,12 +1475,12 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void DeleteAll<TModel>(SqlStatement whereExpression)
         {
-            whereExpression = whereExpression.Build();
-            if (whereExpression.SQL.Contains("SELECT"))
+            if (whereExpression.Contains("SELECT"))
             {
-                var match = Constants.ExtractRawSqlStatementRegex.Match(whereExpression.SQL);
+                whereExpression = whereExpression.Prepare();
+                var match = Constants.ExtractRawSqlStatementRegex.Match(whereExpression.Sql);
                 var where = match.Groups[Constants.SQL_GROUP_WHERE].Value;
-                whereExpression = new SqlStatement(this.Provider.StatementFactory, where, whereExpression.Arguments.ToArray());
+                whereExpression = new SqlStatement(where, whereExpression.Arguments);
             }
             this.DeleteAll(typeof(TModel), whereExpression);
         }
@@ -1490,7 +1490,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void ExecuteNonQuery(String sql, params object[] args)
         {
-            this.ExecuteNonQuery(this.CreateSqlStatement(sql, args));
+            this.ExecuteNonQuery(new SqlStatement(sql, args));
         }
 
         /// <summary>
