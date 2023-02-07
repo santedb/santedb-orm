@@ -304,7 +304,7 @@ namespace SanteDB.OrmLite
             }
 
             // Get a readonly context
-            using (var context = provider.GetReadonlyConnection())
+            var context = provider.GetReadonlyConnection();
             {
                 try
                 {
@@ -312,12 +312,16 @@ namespace SanteDB.OrmLite
                     DateTime startTime = DateTime.Now;
                     var sqlStmt = new SqlStatement(stmt, values.ToArray());
                     this.m_tracer.TraceInfo("Executing BI Query: {0}", sqlStmt.ToString());
-                    var results = context.Query<ExpandoObject>(sqlStmt).Skip(offset).Take(count ?? 10000).ToArray();
+                    var results = context.Query<ExpandoObject>(sqlStmt).Skip(offset);
+                    if(count.HasValue)
+                    {
+                        results = results.Take(count.Value);
+                    }
                     return new BisResultContext(
                         queryDefinition,
                         parameters,
                         this,
-                        results,
+                        results.ToArray(),
                         startTime);
                 }
                 catch (Exception e)

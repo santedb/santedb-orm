@@ -638,8 +638,6 @@ namespace SanteDB.OrmLite
             }
         }
 
-
-
         /// <summary>
         /// Distinct objects only
         /// </summary>
@@ -702,11 +700,11 @@ namespace SanteDB.OrmLite
             return retVal;
         }
 
-
         /// <inheritdoc/>
         public IOrmResultSet Clone(SqlStatement withStatement)
         {
             return new OrmResultSet<TData>(this.Context, withStatement);
         }
+
     }
 }
