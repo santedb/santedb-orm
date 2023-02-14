@@ -706,5 +706,10 @@ namespace SanteDB.OrmLite
             return new OrmResultSet<TData>(this.Context, withStatement);
         }
 
+        /// <inheritdoc/>
+        public IOrmResultSet CloneOnContext(DataContext context)
+        {
+            return new OrmResultSet<TData>(context, this.Statement);
+        }
     }
 }

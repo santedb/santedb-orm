@@ -304,31 +304,27 @@ namespace SanteDB.OrmLite
             }
 
             // Get a readonly context
-            var context = provider.GetReadonlyConnection();
+            try
             {
-                try
+                DateTime startTime = DateTime.Now;
+                var sqlStmt = new SqlStatement(stmt, values.ToArray());
+                this.m_tracer.TraceInfo("Executing BI Query: {0}", sqlStmt.ToString());
+                var results = new OrmResultSet<ExpandoObject>(provider.GetReadonlyConnection(), sqlStmt).Skip(offset);
+                if (count.HasValue)
                 {
-                    context.Open();
-                    DateTime startTime = DateTime.Now;
-                    var sqlStmt = new SqlStatement(stmt, values.ToArray());
-                    this.m_tracer.TraceInfo("Executing BI Query: {0}", sqlStmt.ToString());
-                    var results = context.Query<ExpandoObject>(sqlStmt).Skip(offset);
-                    if(count.HasValue)
-                    {
-                        results = results.Take(count.Value);
-                    }
-                    return new BisResultContext(
-                        queryDefinition,
-                        parameters,
-                        this,
-                        results.ToArray(),
-                        startTime);
+                    results = results.Take(count.Value);
                 }
-                catch (Exception e)
-                {
-                    this.m_tracer.TraceError("Error executing BIS data query {1} \r\n SQL: {2}\r\n Error: {0}", e, queryDefinition.Id, stmt);
-                    throw new DataPersistenceException($"Error executing BIS data query", e);
-                }
+                return new BisResultContext(
+                    queryDefinition,
+                    parameters,
+                    this,
+                    new OrmBiEnumerator(results),
+                    startTime);
+            }
+            catch (Exception e)
+            {
+                this.m_tracer.TraceError("Error executing BIS data query {1} \r\n SQL: {2}\r\n Error: {0}", e, queryDefinition.Id, stmt);
+                throw new DataPersistenceException($"Error executing BIS data query", e);
             }
         }
 

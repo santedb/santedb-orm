@@ -45,6 +45,11 @@ namespace SanteDB.OrmLite
         Type ElementType { get; }
 
         /// <summary>
+        /// Clone on a new context
+        /// </summary>
+        IOrmResultSet CloneOnContext(DataContext context);
+
+        /// <summary>
         /// Counts the number of records
         /// </summary>
         int Count();
