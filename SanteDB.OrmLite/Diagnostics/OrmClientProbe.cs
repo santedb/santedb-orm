@@ -270,6 +270,7 @@ namespace SanteDB.OrmLite.Diagnostics
             }
 
             this.m_disposed = true;
+            this.m_resetEvent.Set();
             this.m_resetEvent.Dispose();
         }
 
