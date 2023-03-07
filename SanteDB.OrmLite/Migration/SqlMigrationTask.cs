@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using SanteDB.Core.Configuration;
 using SanteDB.Core.Services;
@@ -82,7 +82,9 @@ namespace SanteDB.OrmLite.Migration
             try
             {
                 if (!this.VerifyState(configuration))
+                {
                     return true;
+                }
 
                 var config = this.Feature.Configuration as OrmConfigurationBase;
                 using (var conn = config.Provider.GetWriteConnection())

@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using SanteDB.OrmLite.Attributes;
 using System;
@@ -34,7 +34,7 @@ namespace SanteDB.OrmLite
         // Hashmap
         private Dictionary<String, ColumnMapping> m_mappings = new Dictionary<string, ColumnMapping>();
 
-        // Tabl mappings 
+        // Tabl mappings
         private static Dictionary<Type, TableMapping> m_tableMappings = new Dictionary<Type, TableMapping>();
 
         // Primary key cache
@@ -68,7 +68,10 @@ namespace SanteDB.OrmLite
             get
             {
                 if (this.m_primaryKey == null)
+                {
                     this.m_primaryKey = this.Columns.Where(o => o.IsPrimaryKey);
+                }
+
                 return this.m_primaryKey;
             }
         }
@@ -78,14 +81,14 @@ namespace SanteDB.OrmLite
         /// </summary>
         private TableMapping(Type t)
         {
-
             this.OrmType = t;
             this.TableName = t.GetCustomAttribute<TableAttribute>()?.Name ?? t.Name;
             this.HasName = this.TableName != t.Name;
             this.Columns = t.GetProperties().Where(o => o.GetCustomAttribute<ColumnAttribute>() != null).Select(o => ColumnMapping.Get(o, this)).ToList();
             foreach (var itm in this.Columns)
+            {
                 this.m_mappings.Add(itm.SourceProperty.Name, itm);
-
+            }
         }
 
         /// <summary>
@@ -95,12 +98,17 @@ namespace SanteDB.OrmLite
         {
             TableMapping retVal = null;
             if (!m_tableMappings.TryGetValue(t, out retVal))
+            {
                 lock (m_tableMappings)
                 {
                     retVal = new TableMapping(t);
                     if (!m_tableMappings.ContainsKey(t))
+                    {
                         m_tableMappings.Add(t, retVal);
+                    }
                 }
+            }
+
             return retVal;
         }
 
@@ -113,7 +121,10 @@ namespace SanteDB.OrmLite
             var shadowMap = Get(shadow);
             var invalidMaps = retVal.m_mappings.Where(c => !shadowMap.Columns.Any(s => s.Name == c.Value.Name));
             foreach (var i in invalidMaps.ToArray())
+            {
                 retVal.m_mappings.Remove(i.Key);
+            }
+
             retVal.TableName = shadowMap.TableName;
             return retVal;
         }
@@ -153,17 +164,20 @@ namespace SanteDB.OrmLite
             return map;
         }
 
-
         /// <summary>
         /// Gets the association table mapping
         /// </summary>
         public TableMapping AssociationWith(TableMapping subTableMap)
         {
             var att = this.OrmType.GetCustomAttributes<AssociativeTableAttribute>().FirstOrDefault(o => o.TargetTable == subTableMap.OrmType);
-            if (att == null) return null;
+            if (att == null)
+            {
+                return null;
+            }
             else
+            {
                 return TableMapping.Get(att.AssociationTable);
+            }
         }
     }
-
 }

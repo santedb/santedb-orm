@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using SanteDB.Core;
 using SanteDB.Core.Configuration;
@@ -37,7 +37,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Get the invariant name
         /// </summary>
-        public override string Invariant => "FirebirdSQL";
+        public override string Invariant => FirebirdSQLProvider.InvariantName;
 
         /// <summary>
         /// Get the name
@@ -55,6 +55,11 @@ namespace SanteDB.OrmLite.Providers.Firebird
         public override Type DbProviderType => typeof(FirebirdSQLProvider);
 
         /// <summary>
+        /// Get the provider factory
+        /// </summary>
+        public override Type AdoNetFactoryType => Type.GetType(FirebirdSQLProvider.ProviderFactoryType);
+
+        /// <summary>
         /// Get the options
         /// </summary>
         public override IDictionary<string, ConfigurationOptionType> Options => new Dictionary<string, ConfigurationOptionType>()
@@ -67,7 +72,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Create a connection string from the specified options
         /// </summary>
-        public override ConnectionString CreateConnectionString(Dictionary<string, object> options)
+        public override ConnectionString CreateConnectionString(IDictionary<string, object> options)
         {
             return this.CorrectConnectionString(new ConnectionString(this.Invariant, options));
         }
@@ -79,7 +84,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             if (!String.IsNullOrEmpty(connectionString.GetComponent("initial catalog")) &&
                 !String.IsNullOrEmpty(connectionString.GetComponent("user id")))
+            {
                 return base.TestConnectionString(connectionString);
+            }
+
             return false;
         }
 
@@ -91,11 +99,17 @@ namespace SanteDB.OrmLite.Providers.Firebird
         private ConnectionString CorrectConnectionString(ConnectionString connectionString)
         {
             if (String.IsNullOrEmpty(connectionString.GetComponent("server type")))
+            {
                 connectionString.SetComponent("server type", "Embedded");
+            }
+
             if (!String.IsNullOrEmpty(connectionString.GetComponent("initial catalog"))
                 && !connectionString.GetComponent("initial catalog").StartsWith("|DataDirectory|")
                 && !Path.IsPathRooted(connectionString.GetComponent("initial catalog")))
+            {
                 connectionString.SetComponent("initial catalog", $"|DataDirectory|\\{connectionString.GetComponent("initial catalog")}");
+            }
+
             connectionString.SetComponent("Charset", "NONE");
             connectionString.SetComponent("client library", "fbclient.dll");
             return connectionString;
@@ -112,11 +126,16 @@ namespace SanteDB.OrmLite.Providers.Firebird
             connectionString.SetComponent("client library", "fbclient.dll");
             var fbConnectionType = Type.GetType("FirebirdSql.Data.FirebirdClient.FbConnection, FirebirdSql.Data.FirebirdClient");
             if (fbConnectionType == null)
-                throw new InvalidOperationException("Cannot find FirebirdSQL provider");
+            {
+                throw new InvalidOperationException($"Cannot find FirebirdSQL provider library, ensure that: \r\n\t - fbclient.dll is present and is compiled for {(Environment.Is64BitProcess ? "x64" : "x86")}\r\n\t - The Firebird provider has been installed in this SanteDB Server");
+            }
 
             var createDbMethod = fbConnectionType.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).SingleOrDefault(o => o.Name == "CreateDatabase" && o.GetParameters().Length == 4);
             if (createDbMethod == null)
+            {
                 throw new InvalidOperationException("Cannot find FirebirdSQL CreateDatabase method. Perhaps this is an invalid version of ADO.NET provider");
+            }
+
             var dbPath = Path.ChangeExtension(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), databaseName), "fdb");
             dbPath = dbPath.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString());
             connectionString.SetComponent("initial catalog", dbPath);
@@ -171,5 +190,9 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             ConnectionString = this.CorrectConnectionString(connectionString).Value
         };
+
+        /// <inheritdoc/>
+        public override DataConfigurationCapabilities Capabilities => new DataConfigurationCapabilities("initial catalog", "user id", "password", null, true);
+
     }
 }

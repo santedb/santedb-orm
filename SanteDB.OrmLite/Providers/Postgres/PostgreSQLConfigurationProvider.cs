@@ -16,35 +16,42 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using SanteDB.Core;
 using SanteDB.Core.Configuration;
 using SanteDB.Core.Configuration.Data;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.OrmLite.Providers.Postgres
 {
     /// <summary>
     /// PostgreSQL data provider for the configuration system
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public class PostgreSQLConfigurationProvider : AdoNetConfigurationProvider
     {
         /// <summary>
         /// Gets the invariant
         /// </summary>
-        public override string Name => "ADO.NET PostgreSQL 9 & 10";
+        public override string Name => "ADO.NET PostgreSQL 10+";
 
         /// <summary>
         /// Invariant name
         /// </summary>
-        public override string Invariant => "npgsql";
+        public override string Invariant => PostgreSQLProvider.InvariantName;
 
         /// <summary>
         /// Get the platform that this supports
         /// </summary>
         public override OperatingSystemID Platform => OperatingSystemID.Android | OperatingSystemID.Linux | OperatingSystemID.MacOS | OperatingSystemID.Win32 | OperatingSystemID.Other;
+
+        /// <summary>
+        /// Get the provider factory
+        /// </summary>
+        public override Type AdoNetFactoryType => Type.GetType(PostgreSQLProvider.ProviderFactoryType);
 
         /// <summary>
         /// Get the options for connecting
@@ -87,14 +94,17 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 !String.IsNullOrEmpty(connectionString.GetComponent("password")) &&
                 !String.IsNullOrEmpty(connectionString.GetComponent("database")) &&
                 !String.IsNullOrEmpty(connectionString.GetComponent("user id")))
+            {
                 return base.TestConnectionString(connectionString);
+            }
+
             return false;
         }
 
         /// <summary>
         /// Create connection string
         /// </summary>
-        public override ConnectionString CreateConnectionString(Dictionary<string, object> options)
+        public override ConnectionString CreateConnectionString(IDictionary<string, object> options)
         {
             if (!options.ContainsKey("port") || String.IsNullOrEmpty(options["port"].ToString()))
             {
@@ -121,8 +131,13 @@ namespace SanteDB.OrmLite.Providers.Postgres
                         cmd.CommandText = "SELECT datname FROM pg_database;";
                         List<String> retVal = new List<string>(10);
                         using (var reader = cmd.ExecuteReader())
+                        {
                             while (reader.Read())
+                            {
                                 retVal.Add(Convert.ToString(reader[0]));
+                            }
+                        }
+
                         return retVal.ToArray();
                     }
                 }
@@ -184,5 +199,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
             return connectionString;
         }
+
+        /// <inheritdoc/>
+        public override DataConfigurationCapabilities Capabilities => new DataConfigurationCapabilities("database", "user id", "password", "host", true);
+
     }
 }

@@ -1,4 +1,24 @@
-﻿using SanteDB.OrmLite.Attributes;
+﻿/*
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
+ * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ *
+ * User: fyfej
+ * Date: 2022-5-30
+ */
+using SanteDB.OrmLite.Attributes;
 using System;
 using System.Diagnostics.CodeAnalysis;
 
@@ -10,37 +30,40 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     [Table("sec_usr_tbl")]
     [ExcludeFromCodeCoverage]
     public class DbSecurityUser : DbNonVersionedBaseData
-	{
+    {
 
-		/// <summary>
-		/// Gets or sets the email.
-		/// </summary>
-		/// <value>The email.</value>
-		[Column("email")]
-		public String Email {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the email.
+        /// </summary>
+        /// <value>The email.</value>
+        [Column("email")]
+        public String Email
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the invalid login attempts.
-		/// </summary>
-		/// <value>The invalid login attempts.</value>
-		[Column("fail_login"), NotNull]
-		public int? InvalidLoginAttempts {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the invalid login attempts.
+        /// </summary>
+        /// <value>The invalid login attempts.</value>
+        [Column("fail_login"), NotNull]
+        public int? InvalidLoginAttempts
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets a value indicating whether this <see cref="DbSecurityUser"/> lockout enabled.
-		/// </summary>
-		/// <value><c>true</c> if lockout enabled; otherwise, <c>false</c>.</value>
-		[Column("locked")]
-		public DateTimeOffset? Lockout {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets a value indicating whether this <see cref="DbSecurityUser"/> lockout enabled.
+        /// </summary>
+        /// <value><c>true</c> if lockout enabled; otherwise, <c>false</c>.</value>
+        [Column("locked")]
+        public DateTimeOffset? Lockout
+        {
+            get;
+            set;
+        }
 
         /// <summary>
         /// Sets whether the lockout was explicitly set
@@ -52,60 +75,66 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
         /// </summary>
         /// <value>The password hash.</value>
         [Column("passwd"), Secret]
-		public String Password {
-			get;
-			set;
-		}
+        public String Password
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the security stamp.
-		/// </summary>
-		/// <value>The security stamp.</value>
-		[Column("sec_stmp")]
-		public String SecurityHash {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the security stamp.
+        /// </summary>
+        /// <value>The security stamp.</value>
+        [Column("sec_stmp")]
+        public String SecurityHash
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets a value indicating whether this instance is two factor enabled.
-		/// </summary>
-		/// <value><c>true</c> if this instance is two factor enabled; otherwise, <c>false</c>.</value>
-		[Column("tfa_enabled")]
-		public bool TwoFactorEnabled {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is two factor enabled.
+        /// </summary>
+        /// <value><c>true</c> if this instance is two factor enabled; otherwise, <c>false</c>.</value>
+        [Column("tfa_enabled")]
+        public bool TwoFactorEnabled
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the name of the user.
-		/// </summary>
-		/// <value>The name of the user.</value>
-		[Column("usr_name")]
-		public String UserName {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the name of the user.
+        /// </summary>
+        /// <value>The name of the user.</value>
+        [Column("usr_name")]
+        public String UserName
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the last login.
-		/// </summary>
-		/// <value>The last login.</value>
-		[Column("last_login_utc")]
-		public DateTime? LastLoginTime {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the last login.
+        /// </summary>
+        /// <value>The last login.</value>
+        [Column("last_login_utc")]
+        public DateTime? LastLoginTime
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the phone number.
-		/// </summary>
-		/// <value>The phone number.</value>
-		[Column("phn_num")]
-		public String PhoneNumber {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the phone number.
+        /// </summary>
+        /// <value>The phone number.</value>
+        [Column("phn_num")]
+        public String PhoneNumber
+        {
+            get;
+            set;
+        }
 
         /// <summary>
         /// User classification
@@ -118,7 +147,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
         /// </summary>
         [Column("email_cnf")]
         public bool EmailConfirmed { get; set; }
-        
+
         /// <summary>
         /// Phone confirmed
         /// </summary>
@@ -131,7 +160,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
         [Column("usr_id"), PrimaryKey, AutoGenerated]
         public override Guid Key { get; set; }
 
-        
+
     }
 
     /// <summary>
@@ -139,8 +168,8 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
     /// </summary>
     [ExcludeFromCodeCoverage]
     [Table("sec_usr_rol_assoc_tbl")]
-	public class DbSecurityUserRole 
-	{
+    public class DbSecurityUserRole
+    {
         /// <summary>
         /// Gets or sets the user key
         /// </summary>

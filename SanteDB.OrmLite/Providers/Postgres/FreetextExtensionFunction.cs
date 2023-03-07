@@ -16,12 +16,10 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2022-1-12
+ * Date: 2022-5-30
  */
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace SanteDB.OrmLite.Providers.Postgres
 {
@@ -33,20 +31,20 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Gets the provider
         /// </summary>
-        public string Provider => "pgsql";
+        public string Provider => PostgreSQLProvider.InvariantName;
 
         /// <summary>
         /// Gets the name of the function
         /// </summary>
-        public string Name => "freetext";
+        public string Name => SanteDB.Core.Model.Query.FilterExtension.FreetextQueryFilterExtension.FilterName;
 
         /// <summary>
         /// Create the SQL statement for the extension function
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type operandType)
         {
-            
-            if(parms.Length == 1)
+
+            if (parms.Length == 1)
             {
                 if (!String.IsNullOrEmpty(parms[0]))
                 {
@@ -70,7 +68,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 }
                 else
                 {
-                    return current.Append( $"{filterColumn} IS NULL"); // Return no results
+                    return current.Append($"{filterColumn} IS NULL"); // Return no results
                 }
             }
             else

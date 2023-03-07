@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using System;
 using System.Collections.Generic;
@@ -33,13 +33,13 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Hacks the query in some manner
         /// </summary>
-        /// <param name="sqlStatement">The current vanilla (no WHERE clause) query</param>
+        /// <param name="sqlStatementBuilder">The current vanilla (no WHERE clause) query</param>
         /// <param name="whereClause">The current where clause</param>
         /// <param name="property">The property which is currently being hacked</param>
         /// <param name="predicate">The current predicate</param>
         /// <param name="scopedTables">The tables that are scoped for the current query</param>
         /// <returns></returns>
-        bool HackQuery(QueryBuilder builder, SqlStatement sqlStatement, SqlStatement whereClause, Type tmodel, PropertyInfo property, String queryPrefix, QueryPredicate predicate, Object values, IEnumerable<TableMapping> scopedTables, params KeyValuePair<String, Object>[] queryFilter);
+        bool HackQuery(QueryBuilder builder, SqlStatementBuilder sqlStatementBuilder, SqlStatementBuilder whereClause, Type tmodel, PropertyInfo property, String queryPrefix, QueryPredicate predicate, String[] values, IEnumerable<TableMapping> scopedTables, IDictionary<String, String[]> queryFilter);
 
     }
 }

@@ -16,14 +16,15 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
+using SanteDB.Core.i18n;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite
 {
@@ -33,15 +34,21 @@ namespace SanteDB.OrmLite
     /// <typeparam name="TData">The type of record this result set holds</typeparam>
     public class OrmResultSet<TData> : IEnumerable<TData>, IOrmResultSet
     {
+
         /// <summary>
-        /// Gets the SQL statement that this result set is based on
+        /// Get the SQL statement
         /// </summary>
         public SqlStatement Statement { get; }
-
+        
         /// <summary>
         /// Get the context
         /// </summary>
         public DataContext Context { get; }
+
+        /// <summary>
+        /// Element type
+        /// </summary>
+        public Type ElementType => typeof(TData);
 
         /// <summary>
         /// Create a new result set based on the context and statement
@@ -55,21 +62,23 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Modify the SqlStatment in this result set
+        /// </summary>
+        private OrmResultSet<TData> ModifyStatement(Func<SqlStatementBuilder, SqlStatementBuilder> modifierFn)
+        {
+            return new OrmResultSet<TData>(this.Context, modifierFn(this.Context.CreateSqlStatementBuilder(this.Statement)).Statement);
+        }
+
+        /// <summary>
         /// Instructs the reader to skip n records
         /// </summary>
-        public OrmResultSet<TData> Skip(int n)
-        {
-            return new OrmResultSet<TData>(this.Context, this.Statement.Build().Offset(n));
-        }
+        public OrmResultSet<TData> Skip(int n) => this.ModifyStatement((s) => s.Offset(n));
 
         /// <summary>
         /// Instructs the reader to take <paramref name="n"/> records
         /// </summary>
         /// <param name="n">The number of records to take</param>
-        public OrmResultSet<TData> Take(int n)
-        {
-            return new OrmResultSet<TData>(this.Context, this.Statement.Build().Limit(n));
-        }
+        public OrmResultSet<TData> Take(int n) => this.ModifyStatement((s) => s.Limit(n));
 
         /// <summary>
         /// Instructs the reader to count the number of records
@@ -87,22 +96,95 @@ namespace SanteDB.OrmLite
             return this.Context.Any(this.Statement);
         }
 
+        ///// <summary>
+        ///// Extract the first statement from union
+        ///// </summary>
+        ///// <returns></returns>
+        //private SqlStatementBuilder ExtractFirstFromUnionIntersect()
+        //{
+        //    var innerQuery = this.m_statementBuilder.BuildStatement();
+        //    var unionMatch = Constants.ExtractUnionIntersectRegex.Match(innerQuery.SQL);
+        //    if (unionMatch.Success)
+        //    {
+        //        return this.Context.CreateSqlStatement(unionMatch.Groups[1].Value);
+        //    }
+        //    else
+        //    {
+        //        return innerQuery;
+        //    }
+        //}
+
+        ///// <summary>
+        ///// Transforms all the sub-select statements in a UNION or INTERSECT
+        ///// </summary>
+        //[Obsolete("", false)]
+        //private SqlStatementBuilder TransformAll(Func<SqlStatementBuilder, SqlStatementBuilder> transformer)
+        //{
+        //    var innerQuery = this.m_statementBuilder.BuildStatement();
+        //    var unionMatch = Constants.ExtractUnionIntersectRegex.Match(innerQuery.SQL);
+        //    if (unionMatch.Success)
+        //    {
+        //        SqlStatementBuilder retVal = new SqlStatementBuilder(this.Context.Provider.StatementFactory, "", innerQuery.Arguments.ToArray());
+        //        while (unionMatch.Success)
+        //        {
+        //            // Transform the first match
+        //            retVal = retVal.Append(transformer(this.Context.CreateSqlStatement(unionMatch.Groups[1].Value.Trim()))).Append($" {unionMatch.Groups[2].Value} ");
+        //            var secondStatement = unionMatch.Groups[3].Value;
+        //            unionMatch = Constants.ExtractUnionIntersectRegex.Match(secondStatement);
+        //            // If union match is successful we have a UNION b UNION c
+        //            if (!unionMatch.Success) // no more intersects
+        //            {
+        //                retVal = retVal.Append(transformer(this.Context.CreateSqlStatement(secondStatement.Trim())));
+        //            }
+        //        }
+        //        return retVal;
+        //    }
+        //    else
+        //    {
+        //        return transformer(innerQuery);
+        //    }
+        //}
+
         /// <summary>
         /// Instructs the reader to order by specified records
         /// </summary>
-        /// <param name="selector">The key to order by</param>
-        public OrmResultSet<TData> OrderBy(Expression<Func<TData, dynamic>> keySelector)
+        /// <param name="sortFieldSelector">The field to order the results by</param>
+        public OrmResultSet<TData> OrderBy(Expression<Func<TData, dynamic>> sortFieldSelector)
         {
-            return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy<TData>(keySelector, Core.Model.Map.SortOrderType.OrderBy));
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
+            if (sqlParts.Success)
+            {
+                var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
+                    .WrapAsSubQuery()
+                    .OrderBy(sortFieldSelector, Core.Model.Map.SortOrderType.OrderBy)
+                    .Statement;
+                return new OrmResultSet<TData>(this.Context, stmt);
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderBy)));
+            }
         }
 
         /// <summary>
         /// Instructs the reader to order by specified records
         /// </summary>
-        /// <param name="selector">The selector to order by </param>
-        public OrmResultSet<TData> OrderByDescending(Expression<Func<TData, dynamic>> keySelector)
+        /// <param name="orderSelector">The selector to order by </param>
+        public OrmResultSet<TData> OrderByDescending(Expression<Func<TData, dynamic>> orderSelector)
         {
-            return new OrmResultSet<TData>(this.Context, this.Statement.Build().OrderBy<TData>(keySelector, Core.Model.Map.SortOrderType.OrderByDescending));
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
+            if (sqlParts.Success)
+            {
+                var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
+                    .WrapAsSubQuery()
+                    .OrderBy(orderSelector, Core.Model.Map.SortOrderType.OrderByDescending)
+                    .Statement;
+                return new OrmResultSet<TData>(this.Context, stmt);
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderByDescending)));
+            }
         }
 
         /// <summary>
@@ -112,7 +194,10 @@ namespace SanteDB.OrmLite
         {
             TData retVal = this.FirstOrDefault();
             if (retVal == null)
+            {
                 throw new InvalidOperationException("Sequence contains no elements");
+            }
+
             return retVal;
         }
 
@@ -145,12 +230,19 @@ namespace SanteDB.OrmLite
         /// </summary>
         public OrmResultSet<TData> Distinct()
         {
-            var innerQuery = this.Statement.Build();
-            if (!this.Statement.SQL.StartsWith("SELECT DISTINCT"))
-                return new OrmResultSet<TData>(this.Context, this.Context.CreateSqlStatement($"SELECT DISTINCT {innerQuery.SQL.Substring(7)}", innerQuery.Arguments.ToArray()));
-            else
-                return this;
+
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
+            if (!sqlParts.Success)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Distinct)));
+            }
+            var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
+                    .WrapAsSubQuery()
+                    .Statement;
+            return new OrmResultSet<TData>(this.Context, stmt);
+
         }
+
 
         /// <summary>
         /// Gets the specified keys from the object
@@ -158,58 +250,136 @@ namespace SanteDB.OrmLite
         public OrmResultSet<T> Keys<T>(bool qualifyKeyTableName = true)
         {
             if (typeof(T) == typeof(TData))
+            {
                 return new OrmResultSet<T>(this.Context, this.Statement);
+            }
             else
             {
-                var innerQuery = this.Statement.Build();
                 var tm = TableMapping.Get(typeof(TData));
                 if (tm.TableName.StartsWith("CompositeResult"))
                 {
                     tm = TableMapping.Get(typeof(TData).GetGenericArguments().Last());
                 }
                 if (tm.PrimaryKey.Count() != 1)
-                    throw new InvalidOperationException("Cannot execute KEY query on object with no keys");
-
-                // HACK: Swap out SELECT * if query starts with it
-                if (innerQuery.SQL.StartsWith("SELECT * "))
                 {
-                    if (qualifyKeyTableName)
-                        innerQuery = this.Context.CreateSqlStatement($"SELECT {tm.TableName}.{tm.PrimaryKey.First().Name} {innerQuery.SQL.Substring(9)}", innerQuery.Arguments.ToArray());
-                    else
-                        innerQuery = this.Context.CreateSqlStatement($"SELECT {tm.PrimaryKey.First().Name} {innerQuery.SQL.Substring(9)}", innerQuery.Arguments.ToArray());
+                    throw new InvalidOperationException("Cannot execute KEY query on object with no keys");
                 }
 
-                return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (").Append(innerQuery).Append(") AS I"));
+                // HACK: Swap out SELECT * if query starts with it
+                var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(Statement.ToString());
+                if (!sqlParts.Success)
+                {
+                    throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Keys)));
+                }
+                else
+                {
+                    
+                    var newStmt = this.Context.CreateSqlStatementBuilder(this.Statement)
+                        .WrapAsSubQuery(tm.PrimaryKey.ToArray())
+                        .Statement;
+                    return new OrmResultSet<T>(this.Context, newStmt);
+                }
             }
         }
 
         /// <summary>
-        /// Get member information from lambda
+        /// Correct the where clause
         /// </summary>
-        protected MemberInfo GetMember(Expression expression)
+        private string CorrectWhereClause(string value) => String.IsNullOrEmpty(value) ? "true" : value;
+
+        /// <summary>
+        /// Get only those objects with the specified keys
+        /// </summary>
+        public IOrmResultSet HavingKeys(IEnumerable keyList, string keyColumnName = null)
         {
-            if (expression is MemberExpression mex)
+            ColumnMapping keyColumn = null;
+            if (typeof(CompositeResult).IsAssignableFrom(typeof(TData)))
             {
-                if (mex.Member.Name == "Value" && mex.Expression.Type.IsGenericType && mex.Expression.Type.GetGenericTypeDefinition() == typeof(Nullable<>))
+                if (String.IsNullOrEmpty(keyColumnName))
                 {
-                    return GetMember(mex.Expression);
+                    keyColumn = TableMapping.Get(typeof(TData).GetGenericArguments().Last()).PrimaryKey.Single();
                 }
                 else
                 {
-                    return mex.Member;
+                    keyColumn = typeof(TData).GetGenericArguments().Select(o => TableMapping.Get(o).GetColumn(keyColumnName)).OfType<ColumnMapping>().First();
                 }
             }
-            else if (expression is UnaryExpression) return this.GetMember((expression as UnaryExpression).Operand);
-            else throw new InvalidOperationException($"{expression} not supported, please use a member access expression");
+            else
+            {
+                keyColumn = String.IsNullOrEmpty(keyColumnName) ? TableMapping.Get(typeof(TData)).PrimaryKey.First() :
+                    TableMapping.Get(typeof(TData)).GetColumn(keyColumnName);
+            }
+
+            // Union is not permitted
+
+            // HACK: Find a better way to dissassembly the query - basically we want to get the SELECT * FROM XXXX WHERE ----- and swap out the WHERE clause to only those keys in our set
+            var stmt = this.Statement.Prepare();
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(stmt.ToString());
+            if (sqlParts.Success)
+            {
+
+                // Is the inner query a sub-query?
+                if (sqlParts.Groups[Constants.SQL_GROUP_FROM].Value.TrimStart().StartsWith("("))
+                {
+                    return new OrmResultSet<TData>(this.Context, 
+                        new SqlStatement(stmt.Alias, $"{sqlParts.Groups[Constants.SQL_GROUP_FROM].Value.TrimStart().Substring(1)} WHERE {sqlParts.Groups[Constants.SQL_GROUP_WHERE].Value}".Replace($") AS {stmt.Alias}", ""), stmt.Arguments)
+                    ).HavingKeys(keyList, keyColumnName);
+                }
+
+                var offset = 0;
+                var keyArray = keyList.OfType<Object>();
+                var sqlStatementBuilder = this.Context.CreateSqlStatementBuilder();
+                while (offset <= keyArray.Count())
+                {
+
+                    sqlStatementBuilder.Append($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_COLUMNS].Value} FROM {sqlParts.Groups[Constants.SQL_GROUP_FROM].Value} WHERE ").Append("FALSE").Append(" OR ");
+
+                    var keyBatch = keyArray.Skip(offset).Take(500);
+                    if (keyBatch.Any())
+                    {
+                        sqlStatementBuilder.Append(String.Join(" OR ", keyBatch.Select(o => $" {keyColumn.Table.TableName}.{keyColumn.Name} = ? ")), keyBatch.ToArray());
+                        sqlStatementBuilder.Append(this.Context.Provider.StatementFactory.CreateSqlKeyword(Providers.SqlKeyword.UnionAll));
+                    }
+                    else if (offset > 0)
+                    {
+                        sqlStatementBuilder.RemoveLast(out _).RemoveLast(out _).RemoveLast(out _);
+                    }
+                    offset += 500;
+
+                }
+
+                sqlStatementBuilder.RemoveLast(out _).UsingAlias(stmt.Alias).WrapAsSubQuery();
+
+                return new OrmResultSet<TData>(this.Context, sqlStatementBuilder.Statement);
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(HavingKeys)));
+            }
         }
 
+        
         /// <summary>
         /// Select the specified column
         /// </summary>
         public OrmResultSet<T> Select<T>(Expression<Func<TData, T>> column)
         {
-            var mapping = TableMapping.Get(typeof(TData)).GetColumn(this.GetMember(column.Body));
-            return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT I.{mapping.Name} FROM (").Append(this.Statement).Append(") AS I"));
+            var mapping = TableMapping.Get(typeof(TData)).GetColumn(column.Body.GetMember());
+            var sqlParts = Constants.ExtractColumnBindingRegex.Match(this.Statement.ToString());
+            if (sqlParts.Success)
+            {
+                var newStmt = this.Context.CreateSqlStatementBuilder($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {mapping.Name} AS v FROM (")
+                    .Append(this.Statement)
+                    .Append(") AS I")
+                    .UsingAlias("I")
+                    .Statement;
+                return new OrmResultSet<T>(this.Context, newStmt);
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Select)));
+            }
+
         }
 
         /// <summary>
@@ -217,8 +387,17 @@ namespace SanteDB.OrmLite
         /// </summary>
         public T Max<T>(Expression<Func<TData, T>> column)
         {
-            var mapping = TableMapping.Get(typeof(TData)).GetColumn(this.GetMember(column.Body));
-            return this.Context.ExecuteScalar<T>(this.Context.CreateSqlStatement($"SELECT MAX({mapping.Name}) FROM (").Append(this.Statement).Append(") AS I"));
+            var mapping = TableMapping.Get(typeof(TData)).GetColumn(column.Body.GetMember());
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
+            if (!sqlParts.Success)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Max)));
+            }
+            else
+            {
+                var stmt = this.Context.CreateSqlStatementBuilder($"SELECT MAX({mapping.Name}) FROM (").Append(this.Statement).Append(") AS I").Statement;
+                return this.Context.ExecuteScalar<T>(stmt);
+            }
         }
 
         /// <summary>
@@ -226,8 +405,17 @@ namespace SanteDB.OrmLite
         /// </summary>
         public T Min<T>(Expression<Func<TData, T>> column)
         {
-            var mapping = TableMapping.Get(typeof(TData)).GetColumn(this.GetMember(column.Body));
-            return this.Context.ExecuteScalar<T>(this.Context.CreateSqlStatement($"SELECT MIN({mapping.Name}) FROM (").Append(this.Statement).Append(") AS I"));
+            var mapping = TableMapping.Get(typeof(TData)).GetColumn(column.Body.GetMember());
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
+            if (!sqlParts.Success)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Min)));
+            }
+            else
+            {
+                var stmt = this.Context.CreateSqlStatementBuilder($"SELECT MIN({mapping.Name}) FROM (").Append(this.Statement).Append(") AS I").Statement;
+                return this.Context.ExecuteScalar<T>(stmt);
+            }
         }
 
         /// <summary>
@@ -235,8 +423,21 @@ namespace SanteDB.OrmLite
         /// </summary>
         public OrmResultSet<dynamic> Select(params Expression<Func<TData, dynamic>>[] columns)
         {
-            var mapping = TableMapping.Get(typeof(TData));
-            return new OrmResultSet<dynamic>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", columns.Select(o => mapping.GetColumn(this.GetMember(o.Body))).Select(o => o.Name))} FROM (").Append(this.Statement).Append(") AS I"));
+            var mapping = columns.Select(o => TableMapping.Get(typeof(TData)).GetColumn(o.Body.GetMember()));
+            var sqlParts = Constants.ExtractColumnBindingRegex.Match(this.Statement.ToString());
+            if (sqlParts.Success)
+            {
+                var newStmt = this.Context.CreateSqlStatementBuilder($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {String.Join(",", mapping.Select(o => o.Name))} AS v FROM (")
+                    .Append(this.Statement)
+                    .Append(") AS I")
+                    .UsingAlias("I")
+                    .Statement;
+                return new OrmResultSet<dynamic>(this.Context, newStmt);
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Select)));
+            }
         }
 
         /// <summary>
@@ -244,17 +445,25 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IEnumerable<T> Keys<TKeyTable, T>()
         {
-            var innerQuery = this.Statement.Build();
             var tm = TableMapping.Get(typeof(TKeyTable));
 
             if (tm.PrimaryKey.Count() != 1)
-                throw new InvalidOperationException("Cannot execute KEY query on object with no keys");
+                throw new InvalidOperationException(String.Format(ErrorMessages.DATA_STRUCTURE_NOT_APPROPRIATE, nameof(Keys), "nokeys"));
 
-            // HACK: Swap out SELECT * if query starts with it
-            if (innerQuery.SQL.StartsWith("SELECT * "))
-                innerQuery = this.Context.CreateSqlStatement($"SELECT {tm.TableName}.{tm.PrimaryKey.First().Name} {innerQuery.SQL.Substring(9)}", innerQuery.Arguments.ToArray());
-
-            return new OrmResultSet<T>(this.Context, this.Context.CreateSqlStatement($"SELECT {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (").Append(innerQuery).Append(") AS I"));
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
+            if (!sqlParts.Success)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Keys)));
+            }
+            else
+            {
+                var newStmt = this.Context.CreateSqlStatementBuilder($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {String.Join(",", tm.PrimaryKey.Select(o => o.Name))} FROM (")
+                    .Append(this.Statement)
+                    .Append(") AS I")
+                    .UsingAlias("I")
+                    .Statement;
+                return new OrmResultSet<T>(this.Context, newStmt);
+            }
         }
 
         /// <summary>
@@ -282,20 +491,20 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Convert to an SQL statement
+        /// Intersect the data
         /// </summary>
-        public SqlStatement ToSqlStatement()
+        public OrmResultSet<TData> Union(OrmResultSet<TData> other)
         {
-            return this.Statement.Build();
+            var sql = this.Statement + " UNION " + other.Statement;
+            return new OrmResultSet<TData>(this.Context, sql);
         }
 
         /// <summary>
         /// Intersect the data
         /// </summary>
-        public OrmResultSet<TData> Union(OrmResultSet<TData> other)
+        public OrmResultSet<TData> Intersect(OrmResultSet<TData> other)
         {
-            var sql = this.ToSqlStatement();
-            sql = sql.Append(" UNION ").Append(other.ToSqlStatement());
+            var sql = this.Statement + " INTERSECT " + other.Statement;
             return new OrmResultSet<TData>(this.Context, sql);
         }
 
@@ -313,6 +522,194 @@ namespace SanteDB.OrmLite
         public IOrmResultSet Intersect(IOrmResultSet other)
         {
             return this.Intersect((OrmResultSet<TData>)other);
+        }
+
+        /// <summary>
+        ///Get the first or default of the object in the result set
+        /// </summary>
+        object IOrmResultSet.FirstOrDefault() => this.FirstOrDefault();
+
+        /// <summary>
+        /// Order by the provided expression
+        /// </summary>
+        public IOrmResultSet OrderBy(LambdaExpression orderExpression)
+        {
+            if (orderExpression is Expression<Func<TData, dynamic>> expr)
+            {
+                return this.OrderBy(expr);
+            }
+            else if (orderExpression is LambdaExpression le &&
+                (typeof(CompositeResult).IsAssignableFrom(typeof(TData)) &&
+                typeof(TData).GetGenericArguments().Contains(le.Parameters[0].Type) ||
+                typeof(TData) == le.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
+            {
+                var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
+                if (sqlParts.Success)
+                {
+                    var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
+                        .WrapAsSubQuery()
+                        .OrderBy(orderExpression, Core.Model.Map.SortOrderType.OrderBy)
+                        .Statement;
+                    return new OrmResultSet<TData>(this.Context, stmt);
+                }
+                else
+                {
+                    throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderBy)));
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, orderExpression.GetType(), typeof(Expression<Func<TData, Boolean>>)));
+            }
+        }
+
+        /// <summary>
+        /// Order by descending
+        /// </summary>
+        public IOrmResultSet OrderByDescending(LambdaExpression orderExpression)
+        {
+            if (orderExpression is Expression<Func<TData, dynamic>> expr)
+            {
+                return this.OrderByDescending(expr);
+            }
+            else if (orderExpression is LambdaExpression le &&
+                (typeof(CompositeResult).IsAssignableFrom(typeof(TData)) &&
+                typeof(TData).GetGenericArguments().Contains(le.Parameters[0].Type) ||
+                typeof(TData) == le.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
+            {
+
+                var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
+                if (sqlParts.Success)
+                {
+                    var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
+                        .WrapAsSubQuery()
+                        .OrderBy(orderExpression, Core.Model.Map.SortOrderType.OrderByDescending)
+                        .Statement;
+                    return new OrmResultSet<TData>(this.Context, stmt);
+                }
+                else
+                {
+                    throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderByDescending)));
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, orderExpression.GetType(), typeof(Expression<Func<TData, dynamic>>)));
+            }
+        }
+
+        /// <summary>
+        /// A non-genericized select statement
+        /// </summary>
+        public OrmResultSet<TElement> Select<TElement>(String field)
+        {
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
+            if (!sqlParts.Success)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Select)));
+            }
+            else if (typeof(CompositeResult).IsAssignableFrom(typeof(TData)))
+            {
+                // Get the appropriate mapping for the TData field
+                foreach (var itm in typeof(TData).GetGenericArguments())
+                {
+                    var mapping = TableMapping.Get(itm).GetColumn(field);
+                    if (mapping != null)
+                    {
+                        var newStmt = this.Context.CreateSqlStatementBuilder($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {mapping.Name} FROM (")
+                            .Append(this.Statement)
+                            .Append(") AS I")
+                            .UsingAlias("I")
+                            .Statement;
+                        return new OrmResultSet<TElement>(this.Context, newStmt);
+                    }
+                }
+                throw new InvalidOperationException(String.Format(ErrorMessages.FIELD_NOT_FOUND, field));
+            }
+            else
+            {
+                var mapping = TableMapping.Get(typeof(TData)).GetColumn(field);
+                var newStmt = this.Context.CreateSqlStatementBuilder($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {mapping.Name} FROM (")
+                    .Append(this.Statement)
+                    .Append(") AS I")
+                    .UsingAlias("I")
+                    .Statement;
+                return new OrmResultSet<TElement>(this.Context, newStmt);
+            }
+        }
+
+        /// <summary>
+        /// Distinct objects only
+        /// </summary>
+        IOrmResultSet IOrmResultSet.Distinct() => this.Distinct();
+
+        /// <summary>
+        /// Filter expression with a SELECT * FROM (XXXXXX) WHERE
+        /// </summary>
+        public IOrmResultSet Where(Expression whereExpression)
+        {
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
+             if (whereExpression is LambdaExpression le &&
+                (typeof(CompositeResult).IsAssignableFrom(typeof(TData)) &&
+                typeof(TData).GetGenericArguments().Contains(le.Parameters[0].Type) ||
+                typeof(TData) == le.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
+            {
+                var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
+                    .WrapAsSubQuery()
+                    .Where(le)
+                    .Statement;
+                return new OrmResultSet<TData>(this.Context, stmt);
+            }
+            else if (!sqlParts.Success)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderBy)));
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_EXPRESSION_TYPE, typeof(Expression<Func<TData, bool>>), whereExpression.GetType()));
+            }
+
+        }
+
+        /// <summary>
+        /// Remove ordering
+        /// </summary>
+        public IOrmResultSet WithoutOrdering()
+        {
+            var builder = this.Context.CreateSqlStatementBuilder(this.Statement).RemoveOrderBy(out var orderBy);
+            return new OrmResultSet<TData>(this.Context, builder.Statement);
+        }
+
+        /// <summary>
+        /// Remove the skip
+        /// </summary>
+        public IOrmResultSet WithoutSkip(out int originalSkip)
+        {
+            var newStmt = this.Context.CreateSqlStatementBuilder(this.Statement).RemoveOffset(out originalSkip);
+            var retVal = new OrmResultSet<TData>(this.Context, newStmt.Statement);
+            return retVal;
+        }
+
+        /// <summary>
+        /// Remove the take instruction
+        /// </summary>
+        public IOrmResultSet WithoutTake(out int originalTake)
+        {
+            var newStmt = this.Context.CreateSqlStatementBuilder(this.Statement).RemoveLimit(out originalTake);
+            var retVal = new OrmResultSet<TData>(this.Context, newStmt.Statement);
+            return retVal;
+        }
+
+        /// <inheritdoc/>
+        public IOrmResultSet Clone(SqlStatement withStatement)
+        {
+            return new OrmResultSet<TData>(this.Context, withStatement);
+        }
+
+        /// <inheritdoc/>
+        public IOrmResultSet CloneOnContext(DataContext context)
+        {
+            return new OrmResultSet<TData>(context, this.Statement);
         }
     }
 }

@@ -16,31 +16,47 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using System;
+using System.Collections;
+using System.Collections.Generic;
 
-namespace SanteDB.OrmLite.Attributes
+namespace SanteDB.OrmLite
 {
     /// <summary>
-    /// The skip hint attribute allows the more complex auto-joining 
-    /// tools to understand when skipping a join can be performed
+    /// ORM BI enumerator
     /// </summary>
-    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
-    public class SkipHintAttribute : Attribute
+    internal class OrmBiEnumerator : IEnumerable<object>
     {
+        private readonly IOrmResultSet m_ormResultSet;
 
         /// <summary>
-        /// Skip attribute
+        /// Result set of the ORM enumerator
         /// </summary>
-        public SkipHintAttribute(string queryHint)
+        public OrmBiEnumerator(IOrmResultSet ormResultSet)
         {
-            this.QueryHint = queryHint;
+            this.m_ormResultSet = ormResultSet;
         }
 
         /// <summary>
-        /// Gets the query path which , if not present in the query, indicates the class can be skipped
+        /// Get the enumerator
         /// </summary>
-        public String QueryHint { get; }
+        public IEnumerator<object> GetEnumerator()
+        {
+            using(var context = this.m_ormResultSet.Context.OpenClonedContext())
+            {
+                context.Open();
+                foreach(var itm in this.m_ormResultSet.CloneOnContext(context))
+                {
+                    yield return itm;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get enumerator
+        /// </summary>
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
     }
 }

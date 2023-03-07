@@ -16,11 +16,9 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2022-1-23
+ * Date: 2022-5-30
  */
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SanteDB.OrmLite.Providers
 {
@@ -46,7 +44,7 @@ namespace SanteDB.OrmLite.Providers
         /// <param name="indexName">The index name</param>
         /// <param name="column">The column to be indexed</param>
         /// <param name="tableName">The table to be indexed</param>
-        SqlStatement CreateIndex(String indexName, String tableName, String column);
+        SqlStatementBuilder CreateIndex(String indexName, String tableName, String column);
 
 
     }

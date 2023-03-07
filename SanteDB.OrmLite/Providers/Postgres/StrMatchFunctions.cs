@@ -16,9 +16,10 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite.Providers.Postgres
@@ -26,9 +27,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// <summary>
     /// PostgreSQL LEFT() function
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public class PostgresSubstringFunction : IDbFilterFunction
     {
-
         /// <summary>
         /// Get the name for the function
         /// </summary>
@@ -37,31 +38,42 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => "pgsql";
+        public string Provider => PostgreSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL for first
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type type)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms,
+            string operand, Type type)
         {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
+            if (String.IsNullOrEmpty(op))
+            {
+                op = "=";
+            }
 
             switch (parms.Length)
             {
                 case 1:
-                    return current.Append($"SUBSTRING({filterColumn} FROM {parms[0]}) {op} SUBSTRING(? FROM {parms[0]})", QueryBuilder.CreateParameterValue(value, type));
+                    return current.Append(
+                        $"SUBSTRING({filterColumn} FROM {parms[0]}) {op} SUBSTRING(? FROM {parms[0]})",
+                        QueryBuilder.CreateParameterValue(value, type));
                 case 2:
-                    return current.Append($"SUBSTRING({filterColumn} FROM {parms[0]} FOR {parms[1]}) {op} SUBSTRING(? FROM {parms[0]} FOR {parms[1]})", QueryBuilder.CreateParameterValue(value, type));
+                    return current.Append(
+                        $"SUBSTRING({filterColumn} FROM {parms[0]} FOR {parms[1]}) {op} SUBSTRING(? FROM {parms[0]} FOR {parms[1]})",
+                        QueryBuilder.CreateParameterValue(value, type));
             }
-            return current.Append($"SUBSTRING({filterColumn}, {parms[0]}) {op} LEFT(?, {parms[0]})", QueryBuilder.CreateParameterValue(value, type));
+
+            return current.Append($"SUBSTRING({filterColumn}, {parms[0]}) {op} LEFT(?, {parms[0]})",
+                QueryBuilder.CreateParameterValue(value, type));
         }
     }
 
     /// <summary>
     /// PostgreSQL RIGHT() function
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public class PostgresLastFunction : IDbFilterFunction
     {
         /// <summary>
@@ -70,26 +82,32 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public string Name => "last";
 
         /// <summary>
-        /// Provider 
+        /// Provider    
         /// </summary>
-        public string Provider => "pgsql";
+        public string Provider => PostgreSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type type)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms,
+            string operand, Type type)
         {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
-            return current.Append($"RIGHT({filterColumn}, {parms[0]}) {op} RIGHT(?, {parms[0]})", QueryBuilder.CreateParameterValue(value, type));
-        }
+            if (String.IsNullOrEmpty(op))
+            {
+                op = "=";
+            }
 
+            return current.Append($"RIGHT({filterColumn}, {parms[0]}) {op} RIGHT(?, {parms[0]})",
+                QueryBuilder.CreateParameterValue(value, type));
+        }
     }
 
     /// <summary>
     /// PostgreSQL RIGHT() function
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public class PostgresNocaseFunction : IDbFilterFunction
     {
         /// <summary>
@@ -100,15 +118,16 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => "pgsql";
+        public string Provider => PostgreSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type type)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms,
+            string operand, Type type)
         {
-            return current.Append($"LOWER({filterColumn}) = LOWER(?)", QueryBuilder.CreateParameterValue(operand, type));
+            return current.Append($"LOWER({filterColumn}) = LOWER(?)",
+                QueryBuilder.CreateParameterValue(operand, type));
         }
-
     }
 }

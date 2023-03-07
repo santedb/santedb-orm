@@ -1,11 +1,30 @@
-﻿using System;
-using System.Configuration;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Linq;
+﻿/*
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
+ * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ *
+ * User: fyfej
+ * Date: 2022-5-30
+ */
 using NUnit.Framework;
 using SanteDB.OrmLite.Providers.Firebird;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
+using System;
+using System.Configuration;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
 
 namespace SanteDB.OrmLite.Tests
 {
@@ -23,6 +42,7 @@ namespace SanteDB.OrmLite.Tests
         [SetUp]
         public void ClassSetup()
         {
+            var sql = new SqlStatement("foo");
             AppDomain.CurrentDomain.SetData(
               "DataDirectory",
               Path.Combine(TestContext.CurrentContext.TestDirectory, string.Empty));
@@ -34,7 +54,7 @@ namespace SanteDB.OrmLite.Tests
         [Test]
         public void TestCanDoSimpleQuery()
         {
-            using(var context = this.m_provider.GetReadonlyConnection())
+            using (var context = this.m_provider.GetReadonlyConnection())
             {
                 context.Open();
 
@@ -44,7 +64,7 @@ namespace SanteDB.OrmLite.Tests
             }
         }
 
-
+        
         /// <summary>
         /// Test that a simple query can be executed
         /// </summary>
@@ -109,10 +129,14 @@ namespace SanteDB.OrmLite.Tests
 
                 var systemQuery = context.Query<DbSecurityPolicy>(o => o.CreationTime > DateTime.MinValue);
                 foreach (var result in systemQuery)
+                {
                     Assert.IsNotNull(result);
+                }
 
                 foreach (var result in systemQuery.Skip(10).Take(10))
+                {
                     Assert.IsNotNull(result);
+                }
             }
         }
     }

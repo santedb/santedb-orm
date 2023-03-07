@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using System;
 
@@ -38,6 +38,8 @@ namespace SanteDB.OrmLite.Providers
         StrictSubQueryColumnNames = 0x40,
         MustNameSubQuery = 0x80,
         SetTimeout = 0x100,
-        MaterializedViews = 0x200
+        ReturnedUpdatesAsReader = 0x200,
+        MaterializedViews = 0x400,
+        AutoGenerateSequences = 0x800
     }
 }

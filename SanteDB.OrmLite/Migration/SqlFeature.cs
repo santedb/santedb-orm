@@ -16,9 +16,11 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using SanteDB.Core.Configuration.Data;
+using SanteDB.OrmLite.Providers.Firebird;
+using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -33,7 +35,7 @@ namespace SanteDB.OrmLite.Migration
     {
 
         // Metadata regex
-        private static Regex m_metaRegx = new Regex(@"\/\*\*(.*?)\*\/");
+        private static Regex m_metaRegx = new Regex(@"\/\*\*(.*?)\*\/", RegexOptions.Compiled);
 
         // Deploy sql
         private string m_deploySql;
@@ -73,7 +75,9 @@ namespace SanteDB.OrmLite.Migration
 
             // Get deployment sql
             using (var sr = new StreamReader(source))
+            {
                 retVal.m_deploySql = sr.ReadToEnd();
+            }
 
             var xmlSql = m_metaRegx.Match(retVal.m_deploySql.Replace("\r", "").Replace("\n", ""));
             if (xmlSql.Success)
@@ -95,7 +99,9 @@ namespace SanteDB.OrmLite.Migration
 
             }
             else
+            {
                 throw new InvalidOperationException("Invalid SQL update file");
+            }
 
             return retVal;
         }
@@ -134,25 +140,37 @@ namespace SanteDB.OrmLite.Migration
         {
             if (String.IsNullOrEmpty(this.m_checkSql))
             {
-                var updateRange = this.m_checkRange.Split('-');
-                switch (this.InvariantName.ToLower())
+                var updateRange = this.m_checkRange?.Split('-');
+                switch (this.InvariantName)
                 {
-                    case "npgsql":
+                    case PostgreSQLProvider.InvariantName:
                         if (String.IsNullOrEmpty(this.m_checkRange))
+                        {
                             return "SELECT TRUE";
+                        }
                         else
+                        {
                             return $"select not(string_to_array(get_sch_vrsn(), '.')::int[] between string_to_array('{updateRange[0]}','.')::int[] and string_to_array('{updateRange[1]}', '.')::int[])";
-                    case "FirebirdSQL":
+                        }
+
+                    case FirebirdSQLProvider.InvariantName:
                         if (String.IsNullOrEmpty(this.m_checkRange))
+                        {
                             return "SELECT true FROM rdb$database";
+                        }
                         else
+                        {
                             throw new NotSupportedException($"This update provider does not support {this.InvariantName}");
+                        }
+
                     default:
                         throw new InvalidOperationException($"This update provider does not support {this.InvariantName}");
                 }
             }
             else
+            {
                 return this.m_checkSql;
+            }
         }
 
 
@@ -171,5 +189,8 @@ namespace SanteDB.OrmLite.Migration
         {
             return this.m_deploySql;
         }
+
+        /// <inheritdoc/>
+        public override string ToString() => this.Id;
     }
 }

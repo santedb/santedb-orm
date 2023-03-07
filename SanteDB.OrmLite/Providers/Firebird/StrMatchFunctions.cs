@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using System;
 using System.Text.RegularExpressions;
@@ -37,16 +37,19 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => "FirebirdSQL";
+        public string Provider => FirebirdSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL for first
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type type)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type type)
         {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
+            if (String.IsNullOrEmpty(op))
+            {
+                op = "=";
+            }
 
             switch (parms.Length)
             {
@@ -62,7 +65,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
     /// <summary>
     /// PostgreSQL RIGHT() function
     /// </summary>
-    public class PostgresLastFunction : IDbFilterFunction
+    public class FirebirdLastFunction : IDbFilterFunction
     {
         /// <summary>
         /// Get the name for the function
@@ -72,16 +75,20 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => "FirebirdSQL";
+        public string Provider => FirebirdSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type type)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type type)
         {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
+            if (String.IsNullOrEmpty(op))
+            {
+                op = "=";
+            }
+
             return current.Append($"RIGHT({filterColumn}, {parms[0]}) {op} RIGHT(?, {parms[0]})", QueryBuilder.CreateParameterValue(value, type));
         }
 
@@ -90,7 +97,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
     /// <summary>
     /// PostgreSQL RIGHT() function
     /// </summary>
-    public class PostgresNocaseFunction : IDbFilterFunction
+    public class FirebirdNocaseFunction : IDbFilterFunction
     {
         /// <summary>
         /// Get the name for the function
@@ -100,12 +107,12 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider 
         /// </summary>
-        public string Provider => "FirebirdSQL";
+        public string Provider => FirebirdSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type type)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type type)
         {
             return current.Append($"LOWER({filterColumn}) = LOWER(?)", QueryBuilder.CreateParameterValue(operand, type));
         }

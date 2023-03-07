@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 namespace SanteDB.OrmLite.Providers
 {
@@ -56,6 +56,38 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Refresh materialized view
         /// </summary>
-        RefreshMaterializedView
+        RefreshMaterializedView,
+        /// <summary>
+        /// Create a view
+        /// </summary>
+        CreateView,
+        /// <summary>
+        /// Create a materialized view
+        /// </summary>
+        CreateMaterializedView,
+        /// <summary>
+        /// Intersect 
+        /// </summary>
+        Intersect,
+        /// <summary>
+        /// Union distinct
+        /// </summary>
+        Union,
+        /// <summary>
+        /// UnionAll
+        /// </summary>
+        UnionAll,
+        /// <summary>
+        /// VACUUM FULL
+        /// </summary>
+        Vacuum,
+        /// <summary>
+        /// Reindex
+        /// </summary>
+        Reindex,
+        /// <summary>
+        /// Analyze
+        /// </summary>
+        Analyze
     }
 }

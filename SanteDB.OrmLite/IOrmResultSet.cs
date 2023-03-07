@@ -16,28 +16,48 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
+using System;
 using System.Collections;
+using System.Linq.Expressions;
 
 namespace SanteDB.OrmLite
 {
-
     /// <summary>
     /// Non-generic interface
     /// </summary>
     public interface IOrmResultSet : IEnumerable
     {
-
         /// <summary>
         /// Gets the SQL statement that this result set is based on
         /// </summary>
         SqlStatement Statement { get; }
 
         /// <summary>
+        /// Gets the data context
+        /// </summary>
+        DataContext Context { get; }
+
+        /// <summary>
+        /// Gets the type of data in the property
+        /// </summary>
+        Type ElementType { get; }
+
+        /// <summary>
+        /// Clone on a new context
+        /// </summary>
+        IOrmResultSet CloneOnContext(DataContext context);
+
+        /// <summary>
         /// Counts the number of records
         /// </summary>
         int Count();
+
+        /// <summary>
+        /// Return only distinct objects
+        /// </summary>
+        IOrmResultSet Distinct();
 
         /// <summary>
         /// Skip N results
@@ -55,9 +75,31 @@ namespace SanteDB.OrmLite
         IOrmResultSet Keys<TKey>();
 
         /// <summary>
-        /// Convert this result set to an SQL statement
+        /// Returns only those objects in the result set whos primary keys are listed 
         /// </summary>
-        SqlStatement ToSqlStatement();
+        IOrmResultSet HavingKeys(IEnumerable keys, String keyColumnName);
+
+        /// <summary>
+        /// Get first or default item in collection
+        /// </summary>
+        Object FirstOrDefault();
+
+        /// <summary>
+        /// Order in ascending order accoridng to expression
+        /// </summary>
+        IOrmResultSet OrderBy(LambdaExpression orderExpression);
+
+        /// <summary>
+        /// Order by descending according to expression
+        /// </summary>
+        /// <param name="orderExpression"></param>
+        /// <returns></returns>
+        IOrmResultSet OrderByDescending(LambdaExpression orderExpression);
+
+        /// <summary>
+        /// Wraps the query in this result set in another query with  a where clause matching <paramref name="whereExpression"/>
+        /// </summary>
+        IOrmResultSet Where(Expression whereExpression);
 
         /// <summary>
         /// Union keys
@@ -74,5 +116,35 @@ namespace SanteDB.OrmLite
         /// </summary>
         OrmResultSet<TKey> Keys<TKey>(bool qualifyTables = true);
 
+        /// <summary>
+        /// True if there are any matching
+        /// </summary>
+        bool Any();
+
+        /// <summary>
+        /// Select the
+        /// </summary>
+        /// <param name="property">The fields to be selected</param>
+        OrmResultSet<TElement> Select<TElement>(string property);
+
+        /// <summary>
+        /// Remove the odering instructions
+        /// </summary>
+        IOrmResultSet WithoutOrdering();
+
+        /// <summary>
+        /// Remove the skip instructions
+        /// </summary>
+        IOrmResultSet WithoutSkip(out int originalOffset);
+
+        /// <summary>
+        /// Remove the take instruction
+        /// </summary>
+        IOrmResultSet WithoutTake(out int originalTake);
+
+        /// <summary>
+        /// Clone the current result set with the specified sqlstatement
+        /// </summary>
+        IOrmResultSet Clone(SqlStatement statement);
     }
 }

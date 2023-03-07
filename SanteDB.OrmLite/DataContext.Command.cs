@@ -16,9 +16,9 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
-using SanteDB.Core.Model;
+using SanteDB.Core.Diagnostics.Performance;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
@@ -37,7 +37,6 @@ namespace SanteDB.OrmLite
     /// </summary>
     public partial class DataContext
     {
-
         // Lock
         private object m_lockObject = new object();
 
@@ -85,27 +84,31 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IEnumerable<TModel> Query<TModel>(String spName, params object[] arguments)
         {
-#if DEBUG 
+#if DEBUG
             var sw = new Stopwatch();
             sw.Start();
             try
             {
 #endif
-                lock (this.m_lockObject)
+                lock (this.m_lockObject) // Ensures only one query is being executed on this context at a time
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments);
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-                        using (var rdr = dbc.ExecuteReader())
-                            while (rdr.Read())
-                                yield return this.MapObject<TModel>(rdr);
-                    }
-                    finally
-                    {
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
+                        try
+                        {
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                            using (var rdr = dbc.ExecuteReader())
+                            {
+                                while (rdr.Read())
+                                {
+                                    yield return this.MapObject<TModel>(rdr);
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                        }
                     }
                 }
 #if DEBUG 
@@ -113,7 +116,8 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "QUERY {0} executed in {1} ms", spName, sw.ElapsedMilliseconds);
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -152,19 +156,41 @@ namespace SanteDB.OrmLite
         /// </summary>
         public bool Exists<TModel>(TModel obj)
         {
-            var sqlStatement = this.CreateSqlStatement();
+            var sqlStatement = this.CreateSqlStatementBuilder();
             foreach (var cm in TableMapping.Get(typeof(TModel)).Columns.Where(o => o.IsPrimaryKey))
+            {
                 sqlStatement.And($"{cm.Name} = ?", cm.SourceProperty.GetValue(obj));
-            sqlStatement = this.CreateSqlStatement<TModel>().SelectFrom(ColumnMapping.One).Where(sqlStatement);
-            return this.Any(sqlStatement);
+            }
+
+            sqlStatement = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel), ColumnMapping.One).Where(sqlStatement.Statement);
+            return this.Any(sqlStatement.Statement);
         }
 
         /// <summary>
-        /// Map an object 
+        /// Determines if <paramref name="modelKey"/> of type <paramref name="type"/> exists in the database
+        /// </summary>
+        public bool Exists(Type type, Guid modelKey)
+        {
+            var sqlStatement = this.CreateSqlStatementBuilder();
+            foreach (var cm in TableMapping.Get(type).Columns.Where(o => o.IsPrimaryKey))
+            {
+                sqlStatement.And($"{cm.Name} = ?", modelKey);
+            }
+
+            sqlStatement = this.CreateSqlStatementBuilder().SelectFrom(type, ColumnMapping.One).Where(sqlStatement.Statement);
+            return this.Any(sqlStatement.Statement);
+        }
+
+        /// <summary>
+        /// Map an object
         /// </summary>
         private TModel MapObject<TModel>(IDataReader rdr)
         {
-            if (typeof(CompositeResult).IsAssignableFrom(typeof(TModel)))
+            if (typeof(Object) == typeof(TModel))
+            {
+                return default(TModel);
+            }
+            else if (typeof(CompositeResult).IsAssignableFrom(typeof(TModel)))
             {
                 var retVal = Activator.CreateInstance(typeof(TModel));
                 (retVal as CompositeResult).ParseValues(rdr, this.m_provider);
@@ -174,16 +200,30 @@ namespace SanteDB.OrmLite
             {
                 var obj = rdr[0];
                 if (obj == DBNull.Value)
+                {
                     return default(TModel);
+                }
                 else if (typeof(TModel).IsAssignableFrom(obj.GetType()))
+                {
                     return (TModel)obj;
+                }
                 else
+                {
                     return (TModel)this.m_provider.ConvertValue(obj, typeof(TModel));
+                }
+            }
+            else if (typeof(Object) == typeof(TModel)) // Any old object
+            {
+                return (TModel)this.m_provider.ConvertValue(rdr[0], typeof(TModel));
             }
             else if (typeof(ExpandoObject).IsAssignableFrom(typeof(TModel)))
+            {
                 return this.MapExpando<TModel>(rdr);
+            }
             else
+            {
                 return (TModel)this.MapObject(typeof(TModel), rdr);
+            }
         }
 
         /// <summary>
@@ -195,16 +235,29 @@ namespace SanteDB.OrmLite
             for (int i = 0; i < rdr.FieldCount; i++)
             {
                 var value = rdr[i];
-                if (value == DBNull.Value)
-                    value = null;
                 var name = rdr.GetName(i).ToLowerInvariant();
+                if (value == DBNull.Value)
+                {
+                    value = null;
+                }
+                else
+                {
+                    var type = rdr.GetFieldType(i);
+                    if(name.EndsWith("_utc") || name.EndsWith("_time")) // HACK: For sqlite
+                    {
+                        type = typeof(DateTime);
+                    }
+                    
+                    value = this.m_provider.ConvertValue(value, type);
+                }
+
                 retVal.Add(name, value);
             }
             return (TModel)retVal;
         }
 
         /// <summary>
-        /// Map an object 
+        /// Map an object
         /// </summary>
         private object MapObject(Type tModel, IDataReader rdr)
         {
@@ -217,7 +270,9 @@ namespace SanteDB.OrmLite
                 {
                     object value = this.m_provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
                     if (!itm.IsSecret)
+                    {
                         itm.SourceProperty.SetValue(result, value);
+                    }
                 }
                 catch (Exception e)
                 {
@@ -227,52 +282,6 @@ namespace SanteDB.OrmLite
             }
 
             return result;
-
-        }
-
-        /// <summary>
-        /// Resets the specified sequence according to the logic in the provider
-        /// </summary>
-        public void ResetSequence(string sequenceName, object sequenceValue)
-        {
-#if DEBUG
-            var sw = new Stopwatch();
-            sw.Start();
-            try
-            {
-#endif
-                lock (this.m_lockObject)
-                {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, this.m_provider.GetResetSequence(sequenceName, sequenceValue));
-                    try
-                    {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-                        dbc.ExecuteNonQuery();
-                    }
-                    catch (TimeoutException)
-                    {
-                        try { dbc.Cancel(); } catch { }
-                        throw;
-                    }
-                    finally
-                    {
-#if DBPERF
-                        this.PerformanceMonitor(stmt, sw);
-#endif
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                    }
-                }
-#if DEBUG
-            }
-            finally
-            {
-                sw.Stop();
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "RESET SEQUENCE{0} to {1}", sequenceName, sequenceValue);
-                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-            }
-#endif
         }
 
         /// <summary>
@@ -288,32 +297,31 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt.Limit(1));
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
+                        try
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+                            using (var rdr = dbc.ExecuteReader())
+                            {
+                                return this.ReaderToResult(returnType, rdr);
+                            }
                         }
-                        using (var rdr = dbc.ExecuteReader())
-                            return this.ReaderToResult(returnType, rdr);
+                        catch (TimeoutException)
+                        {
+                            try { dbc.Cancel(); } catch { }
+                            throw;
+                        }
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
-                    }
-                    catch (TimeoutException)
-                    {
-                        try { dbc.Cancel(); } catch { }
-                        throw;
-                    }
-                    finally
-                    {
-#if DBPERF
-                        this.PerformanceMonitor(stmt, sw);
-#endif
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
+                        }
                     }
                 }
 #if DEBUG
@@ -321,8 +329,8 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "QUERY {0} executed in {1} ms", this.GetQueryLiteral(stmt), sw.ElapsedMilliseconds);
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
 
 
             }
@@ -342,28 +350,24 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments);
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
+                        try
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+                            using (var rdr = dbc.ExecuteReader())
+                            {
+                                return this.ReaderToResult<TModel>(rdr);
+                            }
                         }
-                        using (var rdr = dbc.ExecuteReader())
-                            return this.ReaderToResult<TModel>(rdr);
-                    }
-                    catch (TimeoutException)
-                    {
-                        try { dbc.Cancel(); } catch { }
-                        throw;
-                    }
-                    finally
-                    {
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
+                        catch (TimeoutException)
+                        {
+                            try { dbc.Cancel(); } catch { }
+                            throw;
+                        }
                     }
                 }
 #if DEBUG
@@ -372,7 +376,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "FIRST {0} executed in {1} ms", spName, sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -388,35 +393,34 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec).Limit(1);
+                var builder = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel)).Where(querySpec).Limit(1);
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, builder.Statement))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
+                        try
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+                            using (var rdr = dbc.ExecuteReader())
+                            {
+                                return this.ReaderToResult<TModel>(rdr);
+                            }
                         }
-                        using (var rdr = dbc.ExecuteReader())
-                            return this.ReaderToResult<TModel>(rdr);
-                    }
-                    catch (TimeoutException)
-                    {
-                        try { dbc.Cancel(); } catch { }
-                        throw;
-                    }
-                    finally
-                    {
+                        catch (TimeoutException)
+                        {
+                            try { dbc.Cancel(); } catch { }
+                            throw;
+                        }
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
-#if DBPERF
-                        this.PerformanceMonitor(stmt, sw);
-#endif
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
+                        }
                     }
                 }
 #if DEBUG
@@ -425,7 +429,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "FIRST {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -443,31 +448,32 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt.Build().Limit(1));
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
+                        try
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }
-                        using (var rdr = dbc.ExecuteReader())
-                            return this.ReaderToResult<TModel>(rdr);
-                    }
-                    catch (TimeoutException)
-                    {
-                        try { dbc.Cancel(); } catch { }
-                        throw;
-                    }
-                    finally
-                    {
-#if DBPERF
-                        this.PerformanceMonitor(stmt, sw);
-#endif
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+
+                            using (var rdr = dbc.ExecuteReader())
+                            {
+                                return this.ReaderToResult<TModel>(rdr);
+                            }
+                        }
+                        catch (TimeoutException)
+                        {
+                            try { dbc.Cancel(); } catch { }
+                            throw;
+                        }
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                        }
                     }
                 }
 
@@ -477,11 +483,11 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "FIRST {0} executed in {1} ms", this.GetQueryLiteral(stmt), sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
-
 
         /// <summary>
         /// Returns only if only one result is available
@@ -494,40 +500,44 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec).Limit(2);
+                var stmt = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel)).Where(querySpec).Limit(2).Statement;
 
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
+                        try
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+
+                            using (var rdr = dbc.ExecuteReader())
+                            {
+                                var retVal = this.ReaderToResult<TModel>(rdr);
+                                if (!rdr.Read())
+                                {
+                                    return retVal;
+                                }
+                                else
+                                {
+                                    throw new InvalidOperationException("Sequence contains more than one element");
+                                }
+                            }
                         }
-                        using (var rdr = dbc.ExecuteReader())
+                        catch (TimeoutException)
                         {
-                            var retVal = this.ReaderToResult<TModel>(rdr);
-                            if (!rdr.Read()) return retVal;
-                            else throw new InvalidOperationException("Sequence contains more than one element");
+                            try { dbc.Cancel(); } catch { }
+                            throw;
                         }
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
-                    }
-                    catch (TimeoutException)
-                    {
-                        try { dbc.Cancel(); } catch { }
-                        throw;
-                    }
-                    finally
-                    {
-#if DBPERF
-                        this.PerformanceMonitor(stmt, sw);
-#endif
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
+                        }
                     }
                 }
 
@@ -537,7 +547,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "SINGLE {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -555,30 +566,29 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, sqlStatement);
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, sqlStatement))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
+                        try
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }
-                        return (TReturn)dbc.ExecuteScalar();
-                    }
-                    catch (TimeoutException)
-                    {
-                        try { dbc.Cancel(); } catch { }
-                        throw;
-                    }
-                    finally
-                    {
-#if DBPERF
-                        this.PerformanceMonitor(stmt, sw);
-#endif
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+
+                            return (TReturn)dbc.ExecuteScalar();
+                        }
+                        catch (TimeoutException)
+                        {
+                            try { dbc.Cancel(); } catch { }
+                            throw;
+                        }
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                        }
                     }
                 }
 
@@ -588,7 +598,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "SCALAR {0} executed in {1} ms", sqlStatement, sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -604,30 +615,32 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.m_provider.Exists(this.CreateSqlStatement<TModel>().SelectFrom(ColumnMapping.One).Where(querySpec));
+                var stmt = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel), ColumnMapping.One).Where(querySpec).Statement;
+                stmt = this.m_provider.StatementFactory.Exists(stmt);
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
+                        try
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }
-                        return (bool)dbc.ExecuteScalar();
-                    }
-                    catch (TimeoutException)
-                    {
-                        try { dbc.Cancel(); } catch { }
-                        throw;
-                    }
-                    finally
-                    {
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+                            return this.Provider.ConvertValue<bool>(dbc.ExecuteScalar());
+                        }
+                        catch (TimeoutException)
+                        {
+                            try { dbc.Cancel(); } catch { }
+                            throw;
+                        }
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                        }
                     }
                 }
 
@@ -637,7 +650,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "ANY {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -653,33 +667,34 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.m_provider.Exists(querySpec);
+                var stmt = this.m_provider.StatementFactory.Exists(querySpec);
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
+                        try
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }
-                        return (bool)dbc.ExecuteScalar();
-                    }
-                    catch (TimeoutException)
-                    {
-                        try { dbc.Cancel(); } catch { }
-                        throw;
-                    }
-                    finally
-                    {
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+
+                            return this.m_provider.ConvertValue<bool>(dbc.ExecuteScalar());
+                        }
+                        catch (TimeoutException)
+                        {
+                            try { dbc.Cancel(); } catch { }
+                            throw;
+                        }
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                        }
                     }
                 }
-
 
 #if DEBUG
             }
@@ -687,7 +702,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "ANY {0} executed in {1} ms", this.GetQueryLiteral(querySpec), sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -703,30 +719,33 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.m_provider.Count(this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec));
+                var stmt = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel)).Where(querySpec).Statement;
+                stmt = this.m_provider.StatementFactory.Count(stmt);
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
+                        try
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }
-                        return (long)dbc.ExecuteScalar();
-                    }
-                    catch (TimeoutException)
-                    {
-                        try { dbc.Cancel(); } catch { }
-                        throw;
-                    }
-                    finally
-                    {
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+
+                            return (long)dbc.ExecuteScalar();
+                        }
+                        catch (TimeoutException)
+                        {
+                            try { dbc.Cancel(); } catch { }
+                            throw;
+                        }
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                        }
                     }
                 }
 
@@ -736,7 +755,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "COUNT {0} executed in {1} ms", querySpec, sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -752,29 +772,32 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var stmt = this.m_provider.Count(querySpec);
+                var stmt = this.m_provider.StatementFactory.Count(querySpec);
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
+                        try
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+
+                            return Convert.ToInt32(dbc.ExecuteScalar());
                         }
-                        return Convert.ToInt32(dbc.ExecuteScalar());
-                    }
-                    catch (TimeoutException)
-                    {
-                        try { dbc.Cancel(); } catch { }
-                        throw;
-                    }
-                    finally
-                    {
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                        catch (TimeoutException)
+                        {
+                            try { dbc.Cancel(); } catch { }
+                            throw;
+                        }
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                        }
 
                     }
                 }
@@ -785,7 +808,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "COUNT {0} executed in {1} ms", this.GetQueryLiteral(querySpec), sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -795,8 +819,14 @@ namespace SanteDB.OrmLite
         /// </summary>
         private TModel ReaderToResult<TModel>(IDataReader rdr)
         {
-            if (rdr.Read()) return this.MapObject<TModel>(rdr);
-            else return default(TModel);
+            if (rdr.Read())
+            {
+                return this.MapObject<TModel>(rdr);
+            }
+            else
+            {
+                return default(TModel);
+            }
         }
 
         /// <summary>
@@ -804,8 +834,14 @@ namespace SanteDB.OrmLite
         /// </summary>
         private object ReaderToResult(Type returnType, IDataReader rdr)
         {
-            if (rdr.Read()) return this.MapObject(returnType, rdr);
-            else return null;
+            if (rdr.Read())
+            {
+                return this.MapObject(returnType, rdr);
+            }
+            else
+            {
+                return null;
+            }
         }
 
         /// <summary>
@@ -813,15 +849,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         public OrmResultSet<TModel> Query<TModel>(Expression<Func<TModel, bool>> querySpec)
         {
-            return new OrmResultSet<TModel>(this, this.CreateSqlStatement<TModel>().SelectFrom().Where(querySpec));
-        }
-
-        /// <summary>
-        /// Adds data in a safe way
-        /// </summary>
-        public void AddData(string key, object value)
-        {
-            this.m_dataDictionary.TryAdd(key, value);
+            var stmt = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel)).Where(querySpec).Statement;
+            return new OrmResultSet<TModel>(this, stmt);
         }
 
         /// <summary>
@@ -845,37 +874,39 @@ namespace SanteDB.OrmLite
 #endif
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
+                        try
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }
-                        using (var rdr = dbc.ExecuteReader())
-                            while (rdr.Read())
-                                yield return this.MapObject<TModel>(rdr);
-                    }
-                    finally
-                    {
-#if DBPERF
-                        this.PerformanceMonitor(query, sw);
-#endif
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+                            using (var rdr = dbc.ExecuteReader())
+                            {
+                                while (rdr.Read())
+                                {
+                                    yield return this.MapObject<TModel>(rdr);
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                        }
                     }
                 }
-
 #if DEBUG
             }
             finally
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "QUERY {0} executed in {1} ms", this.GetQueryLiteral(query), sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
@@ -915,7 +946,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Bulk update data
         /// </summary>
-        public IEnumerable<TModel> Update<TModel>(IEnumerable<TModel> source, Func<TModel, TModel> changor)
+        public IEnumerable<TModel> UpdateAll<TModel>(IEnumerable<TModel> source, Func<TModel, TModel> changor)
         {
             return source.Select(o => this.Update(changor(o))).ToList();
         }
@@ -934,8 +965,8 @@ namespace SanteDB.OrmLite
                 // First we want to map object to columns
                 var tableMap = TableMapping.Get(typeof(TModel));
 
-                SqlStatement columnNames = this.CreateSqlStatement(),
-                    values = this.CreateSqlStatement();
+                SqlStatementBuilder columnNames = this.CreateSqlStatementBuilder(),
+                    values = this.CreateSqlStatementBuilder();
                 foreach (var col in tableMap.Columns)
                 {
                     var val = col.SourceProperty.GetValue(value);
@@ -949,24 +980,34 @@ namespace SanteDB.OrmLite
                         val.Equals(default(DateTime)) ||
                         val.Equals(default(DateTimeOffset)) ||
                         val.Equals(default(Decimal))))
-                        val = null;
+                    {
+                        val = col.DefaultValue;
+                    }
 
                     if (col.IsAutoGenerated && val == null)
                     {
                         // Uh-oh, the column is auto-gen, the type of uuid and the engine can't do it!
                         if (col.SourceProperty.PropertyType.StripNullable() == typeof(Guid) &&
-                            !this.m_provider.Features.HasFlag(SqlEngineFeatures.AutoGenerateGuids))
+                            !this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.AutoGenerateGuids))
                         {
                             val = Guid.NewGuid();
                             col.SourceProperty.SetValue(value, val);
                         }
-                        else
+                        else if((col.SourceProperty.PropertyType.StripNullable() == typeof(long) ||
+                            col.SourceProperty.PropertyType.StripNullable() == typeof(int)) && 
+                            !this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.AutoGenerateSequences))
+                        {
+                            columnNames.Append($"{col.Name}").Append(",");
+                            values.Append("(").Append(this.Provider.StatementFactory.GetNextSequenceValue(tableMap.TableName)).Append(")").Append(",");
                             continue;
+                        }
+                        else
+                        {
+                            continue;
+                        }
                     }
 
-
                     columnNames.Append($"{col.Name}");
-
 
                     // Append value
                     values.Append("?", val);
@@ -974,132 +1015,158 @@ namespace SanteDB.OrmLite
                     values.Append(",");
                     columnNames.Append(",");
                 }
-                values.RemoveLast();
-                columnNames.RemoveLast();
+                values.RemoveLast(out _);
+                columnNames.RemoveLast(out _);
 
                 var returnKeys = tableMap.Columns.Where(o => o.IsAutoGenerated);
 
                 // Return arrays
-                var stmt = this.m_provider.Returning(
-                    this.CreateSqlStatement($"INSERT INTO {tableMap.TableName} (").Append(columnNames).Append(") VALUES (").Append(values).Append(")"),
-                    returnKeys.ToArray()
-                );
+                var stmt = $"INSERT INTO {tableMap.TableName} (" + columnNames.Statement + ") VALUES (" + values.Statement + ") "
+                    + this.m_provider.StatementFactory.Returning(returnKeys.ToArray());
 
                 // Execute
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                        try
+                        {
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
-                        if (this.CommandTimeout.HasValue)
-                        {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }
-
-                        // There are returned keys and we support simple mode returned inserts
-                        if (returnKeys.Any() && this.m_provider.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsReader))
-                        {
-                            using (var rdr = dbc.ExecuteReader())
-                                if (rdr.Read())
-                                    foreach (var itm in returnKeys)
-                                    {
-                                        object ov = this.m_provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
-                                        if (ov != null)
-                                            itm.SourceProperty.SetValue(value, ov);
-                                    }
-                        }
-                        // There are returned keys and the provider requires an output parameter to hold the keys
-                        else if (returnKeys.Any() && this.m_provider.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsParms))
-                        {
-                            // Define output parameters
-                            foreach (var rt in returnKeys)
+                            if (this.CommandTimeout.HasValue)
                             {
-                                var parm = dbc.CreateParameter();
-                                parm.ParameterName = rt.Name;
-                                parm.DbType = this.m_provider.MapParameterType(rt.SourceProperty.PropertyType);
-                                parm.Direction = ParameterDirection.Output;
-                                dbc.Parameters.Add(parm);
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
                             }
 
-                            dbc.ExecuteNonQuery();
-
-                            // Get the parameter values
-                            foreach (IDataParameter parm in dbc.Parameters)
+                            // There are returned keys and we support simple mode returned inserts
+                            if (returnKeys.Any() && this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsReader))
                             {
-                                if (parm.Direction != ParameterDirection.Output) continue;
-
-                                var itm = returnKeys.First(o => o.Name == parm.ParameterName);
-                                object ov = this.m_provider.ConvertValue(parm.Value, itm.SourceProperty.PropertyType);
-                                if (ov != null)
-                                    itm.SourceProperty.SetValue(value, ov);
-                            }
-                        }
-                        else // Provider does not support returned keys
-                        {
-                            dbc.ExecuteNonQuery();
-
-                            // But... the query wants the keys so we have to query them back if the RETURNING clause fields aren't populated in the source object
-                            if (returnKeys.Count() > 0 &&
-                                returnKeys.Any(o => o.SourceProperty.GetValue(value) == (o.SourceProperty.PropertyType.IsValueType ? Activator.CreateInstance(o.SourceProperty.PropertyType) : null)))
-                            {
-                                dbc.Dispose();
-                                this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-
-                                var pkcols = tableMap.Columns.Where(o => o.IsPrimaryKey);
-                                var where = new SqlStatement<TModel>(this.m_provider);
-                                foreach (var pk in pkcols)
-                                    where.And($"{pk.Name} = ?", pk.SourceProperty.GetValue(value));
-                                stmt = new SqlStatement<TModel>(this.m_provider).SelectFrom().Where(where);
-
-                                // Create command and exec
-                                dbc = this.m_provider.CreateCommand(this, stmt);
-
-                                this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                                if (this.CommandTimeout.HasValue)
-                                {
-                                    dbc.CommandTimeout = this.CommandTimeout.Value;
-                                }
                                 using (var rdr = dbc.ExecuteReader())
+                                {
                                     if (rdr.Read())
+                                    {
                                         foreach (var itm in returnKeys)
                                         {
                                             object ov = this.m_provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
                                             if (ov != null)
+                                            {
                                                 itm.SourceProperty.SetValue(value, ov);
+                                            }
                                         }
+                                    }
+                                }
+                            }
+                            // There are returned keys and the provider requires an output parameter to hold the keys
+                            else if (returnKeys.Any() && this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.ReturnedInsertsAsParms))
+                            {
+                                // Define output parameters
+                                foreach (var rt in returnKeys)
+                                {
+                                    var parm = dbc.CreateParameter();
+                                    parm.ParameterName = rt.Name;
+                                    parm.DbType = this.m_provider.MapParameterType(rt.SourceProperty.PropertyType);
+                                    parm.Direction = ParameterDirection.Output;
+                                    dbc.Parameters.Add(parm);
+                                }
 
+                                dbc.ExecuteNonQuery();
+
+                                // Get the parameter values
+                                foreach (IDataParameter parm in dbc.Parameters)
+                                {
+                                    if (parm.Direction != ParameterDirection.Output)
+                                    {
+                                        continue;
+                                    }
+
+                                    var itm = returnKeys.First(o => o.Name == parm.ParameterName);
+                                    object ov = this.m_provider.ConvertValue(parm.Value, itm.SourceProperty.PropertyType);
+                                    if (ov != null)
+                                    {
+                                        itm.SourceProperty.SetValue(value, ov);
+                                    }
+                                }
+                            }
+                            else // Provider does not support returned keys
+                            {
+                                dbc.ExecuteNonQuery();
+                                // But... the query wants the keys so we have to query them back if the RETURNING clause fields aren't populated in the source object
+                                if (returnKeys.Count() > 0 &&
+                                    returnKeys.Any(o => o.SourceProperty.GetValue(value) == (o.SourceProperty.PropertyType.IsValueType ? Activator.CreateInstance(o.SourceProperty.PropertyType) : null)))
+                                {
+
+
+                                    var pkcols = tableMap.Columns.Where(o => o.IsPrimaryKey);
+                                    var where = new SqlStatementBuilder(this.m_provider.StatementFactory);
+                                    foreach (var pk in pkcols)
+                                    {
+                                        where.And($"{pk.Name} = ?", pk.SourceProperty.GetValue(value));
+                                    }
+
+                                    stmt = new SqlStatementBuilder(this.m_provider.StatementFactory).SelectFrom(typeof(TModel)).Where(where.Statement).Statement;
+
+                                    // Create command and exec
+                                    using (var dbcSelect = this.m_provider.CreateCommand(this, stmt))
+                                    {
+                                        try
+                                        {
+                                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                                            if (this.CommandTimeout.HasValue)
+                                            {
+                                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                                            }
+
+                                            using (var rdr = dbcSelect.ExecuteReader())
+                                            {
+                                                if (rdr.Read())
+                                                {
+                                                    foreach (var itm in returnKeys)
+                                                    {
+                                                        object ov = this.m_provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
+                                                        if (ov != null)
+                                                        {
+                                                            itm.SourceProperty.SetValue(value, ov);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        finally
+                                        {
+                                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                                        }
+                                    }
+                                }
                             }
                         }
-                    }
-                    finally
-                    {
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                        }
 
                     }
+
+                    return value;
                 }
-
-                return value;
 #if DEBUG
             }
             finally
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "INSERT executed in {0} ms", sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
-
         }
+
 
         /// <summary>
         /// Delete from the database
         /// </summary>
-        public void Delete<TModel>(SqlStatement keyFilter)
+        public void DeleteAll(Type tmodel, SqlStatement whereClause)
         {
 #if DEBUG
             var sw = new Stopwatch();
@@ -1107,26 +1174,26 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var keyColumnName = TableMapping.Get(typeof(TModel)).Columns.First(o => o.IsPrimaryKey);
-                var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where($"{keyColumnName.Name} IN (").Append(keyFilter).Append(")");
+                var query = this.CreateSqlStatementBuilder().DeleteFrom(tmodel).Where(whereClause).Statement;
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
+                        try
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }
-                        dbc.ExecuteNonQuery();
-                    }
-                    finally
-                    {
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+                            dbc.ExecuteNonQuery();
+                        }
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                        }
                     }
                 }
 
@@ -1136,51 +1203,8 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "DELETE executed in {0} ms", sw.ElapsedMilliseconds);
-            }
-#endif
-        }
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
 
-        /// <summary>
-        /// Delete from the database
-        /// </summary>
-        public void Delete<TModel>(Expression<Func<TModel, bool>> where)
-        {
-#if DEBUG
-            var sw = new Stopwatch();
-            sw.Start();
-            try
-            {
-#endif
-                var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where(where);
-                lock (this.m_lockObject)
-                {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
-                    try
-                    {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
-                        {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }
-                        dbc.ExecuteNonQuery();
-                    }
-                    finally
-                    {
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                    }
-                }
-
-#if DEBUG
-            }
-            finally
-            {
-                sw.Stop();
-                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "DELETE executed in {0} ms", sw.ElapsedMilliseconds);
             }
 #endif
         }
@@ -1196,34 +1220,35 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                var tableMap = TableMapping.Get(typeof(TModel));
-                SqlStatement whereClause = this.CreateSqlStatement();
-                foreach (var itm in tableMap.Columns)
+
+                var tableMap = TableMapping.Get(obj.GetType());
+                SqlStatementBuilder whereClauseBuilder = this.CreateSqlStatementBuilder();
+                foreach (var itm in tableMap.PrimaryKey)
                 {
                     var itmValue = itm.SourceProperty.GetValue(obj);
-                    if (itm.IsPrimaryKey)
-                        whereClause.And($"{itm.Name} = ?", itmValue);
+                    whereClauseBuilder.And($"{itm.Name} = ?", itmValue);
                 }
 
-                var query = this.CreateSqlStatement<TModel>().DeleteFrom().Where(whereClause);
+                var query = this.CreateSqlStatementBuilder().DeleteFrom(obj.GetType()).Where(whereClauseBuilder.Statement).Statement;
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
+                        try
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }
-                        dbc.ExecuteNonQuery();
-                    }
-                    finally
-                    {
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+                            dbc.ExecuteNonQuery();
+                        }
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                        }
                     }
                 }
 
@@ -1233,11 +1258,11 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "DELETE executed in {0} ms", sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
-
 
         /// <summary>
         /// Updates the specified object
@@ -1251,9 +1276,9 @@ namespace SanteDB.OrmLite
             {
 #endif
                 // Build the command
-                var tableMap = TableMapping.Get(typeof(TModel));
-                SqlStatement<TModel> query = this.CreateSqlStatement<TModel>().UpdateSet();
-                SqlStatement whereClause = this.CreateSqlStatement();
+                var tableMap = TableMapping.Get(value.GetType());
+                SqlStatementBuilder queryBuilder = this.CreateSqlStatementBuilder().UpdateSet(value.GetType());
+                SqlStatementBuilder whereClauseBuilder = this.CreateSqlStatementBuilder();
                 int nUpdatedColumns = 0;
                 foreach (var itm in tableMap.Columns)
                 {
@@ -1267,17 +1292,24 @@ namespace SanteDB.OrmLite
                         itmValue.Equals(default(DateTime)) ||
                         itmValue.Equals(default(DateTimeOffset)) ||
                         itmValue.Equals(default(Decimal))))
+                    {
                         itmValue = null;
+                    }
 
                     // Only update if specified
                     if (itmValue == null &&
                         !itm.SourceSpecified(value))
+                    {
                         continue;
+                    }
+
                     nUpdatedColumns++;
-                    query.Append($"{itm.Name} = ? ", itmValue ?? DBNull.Value);
-                    query.Append(",");
+                    queryBuilder.Append($"{itm.Name} = ? ", itmValue ?? DBNull.Value);
+                    queryBuilder.Append(",");
                     if (itm.IsPrimaryKey)
-                        whereClause.And($"{itm.Name} = ?", itmValue);
+                    {
+                        whereClauseBuilder.And($"{itm.Name} = ?", itmValue);
+                    }
                 }
 
                 // Nothing being updated
@@ -1287,28 +1319,28 @@ namespace SanteDB.OrmLite
                     return value;
                 }
 
-                query.RemoveLast();
-                query.Where(whereClause);
+                queryBuilder.RemoveLast(out _).Where(whereClauseBuilder.Statement);
 
                 // Now update
                 lock (this.m_lockObject)
                 {
-                    var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query);
-                    try
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, queryBuilder.Statement))
                     {
-                        this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
-
-                        if (this.CommandTimeout.HasValue)
+                        try
                         {
-                            dbc.CommandTimeout = this.CommandTimeout.Value;
-                        }
-                        dbc.ExecuteNonQuery();
-                    }
-                    finally
-                    {
-                        dbc.Dispose();
-                        this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+                            this.IncrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
 
+                            if (this.CommandTimeout.HasValue)
+                            {
+                                dbc.CommandTimeout = this.CommandTimeout.Value;
+                            }
+                            dbc.ExecuteNonQuery();
+                        }
+                        finally
+                        {
+                            this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
+
+                        }
                     }
                 }
 
@@ -1318,10 +1350,147 @@ namespace SanteDB.OrmLite
             finally
             {
                 sw.Stop();
-                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "UPDATE executed in {0} ms", sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
+        }
+
+        /// <summary>
+        /// Updates the specified object
+        /// </summary>
+        public void UpdateAll<TModel>(Expression<Func<TModel, bool>> whereExpression, params Expression<Func<TModel, dynamic>>[] updateStatements)
+        {
+            this.UpdateAll<TModel, TModel>(whereExpression, updateStatements);
+        }
+
+        /// <summary>
+        /// Update all data matching <paramref name="whereExpression"/> to <paramref name="updateStatements"/>
+        /// </summary>
+        /// <typeparam name="TModel">The type of object to update</typeparam>
+        /// <typeparam name="TUpdateModel">The type that update statements should be treated as</typeparam>
+        /// <param name="whereExpression">The filter expression</param>
+        /// <param name="updateStatements">The update statements to append to the SQL clause</param>
+        public void UpdateAll<TModel, TUpdateModel>(Expression<Func<TModel, bool>> whereExpression, params Expression<Func<TUpdateModel, dynamic>>[] updateStatements)
+        {
+            this.UpdateAll(typeof(TModel), whereExpression, updateStatements);
+        }
+
+        /// <summary>
+        /// Update all 
+        /// </summary>
+        public void UpdateAll(Type tmodel, LambdaExpression whereExpression, params LambdaExpression[] updateStatements)
+        {
+            // Convert where clause
+            var tableMap = TableMapping.Get(tmodel);
+            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
+            queryBuilder.Visit(whereExpression.Body);
+
+            this.UpdateAll(tmodel, queryBuilder.StatementBuilder.Statement, updateStatements);
+        }
+
+        /// <summary>
+        /// Update all with specified Sql based statement
+        /// </summary>
+        public void UpdateAll<TModel>(SqlStatement whereExpression, params Expression<Func<TModel, dynamic>>[] updateStatements)
+        {
+            if(whereExpression.Contains("SELECT"))
+            {
+                whereExpression = whereExpression.Prepare();
+                var match = Constants.ExtractRawSqlStatementRegex.Match(whereExpression.Sql);
+                var where = match.Groups[Constants.SQL_GROUP_WHERE].Value;
+                whereExpression = new SqlStatement(where, whereExpression.Arguments);
+            }
+            this.UpdateAll(typeof(TModel), whereExpression, updateStatements);
+        }
+
+        /// <summary>
+        /// Update all data with specified where clause
+        /// </summary>
+        public void UpdateAll(Type tmodel, SqlStatement whereClause, params LambdaExpression[] updateStatements)
+        { 
+#if DEBUG
+            var sw = new Stopwatch();
+            sw.Start();
+            try
+            {
+#endif
+
+                // Build the command
+                var tableMap = TableMapping.Get(tmodel);
+                var updateStatementBuilder = this.CreateSqlStatementBuilder().UpdateSet(tmodel);
+                var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
+                var setClause = SqlStatement.Empty;
+                foreach (var updateFunc in updateStatements)
+                {
+                    queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory, false);
+                    queryBuilder.Visit(updateFunc);
+                    setClause += queryBuilder.StatementBuilder.Statement + ",";
+                }
+
+                updateStatementBuilder.Append(setClause.RemoveLast(out _))
+                    .Where(whereClause);
+
+                // Now update
+                lock (this.m_lockObject)
+                {
+                    using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, updateStatementBuilder.Statement))
+                    {
+                        dbc.ExecuteNonQuery();
+                    }
+                }
+
+#if DEBUG
+            }
+            finally
+            {
+                sw.Stop();
+                this.AddProbeResponseTime(sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
+            }
+#endif
+        }
+
+        /// <summary>
+        /// Delete from the database
+        /// </summary>
+        public void DeleteAll<TModel>(Expression<Func<TModel, bool>> where) => this.DeleteAll(typeof(TModel), where);
+
+        /// <summary>
+        /// Update all 
+        /// </summary>
+        public void DeleteAll(Type tmodel, LambdaExpression whereExpression)
+        {
+            // Convert where clause
+            var tableMap = TableMapping.Get(tmodel);
+            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
+            queryBuilder.Visit(whereExpression.Body);
+
+            this.DeleteAll(tmodel, queryBuilder.StatementBuilder.Statement);
+        }
+
+        /// <summary>
+        /// Update all with specified Sql based statement
+        /// </summary>
+        public void DeleteAll<TModel>(SqlStatement whereExpression)
+        {
+            if (whereExpression.Contains("SELECT"))
+            {
+                whereExpression = whereExpression.Prepare();
+                var match = Constants.ExtractRawSqlStatementRegex.Match(whereExpression.Sql);
+                var where = match.Groups[Constants.SQL_GROUP_WHERE].Value;
+                whereExpression = new SqlStatement(where, whereExpression.Arguments);
+            }
+            this.DeleteAll(typeof(TModel), whereExpression);
+        }
+
+        /// <summary>
+        /// Execute the specified SQL
+        /// </summary>
+        public void ExecuteNonQuery(String sql, params object[] args)
+        {
+            this.ExecuteNonQuery(new SqlStatement(sql, args));
         }
 
         /// <summary>
@@ -1363,11 +1532,11 @@ namespace SanteDB.OrmLite
             {
                 sw.Stop();
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
-                this.m_tracer.TraceEvent(EventLevel.Verbose, "EXECUTE NON QUERY executed in {0} ms", sw.ElapsedMilliseconds);
+                PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
+
             }
 #endif
         }
-
 
     }
 }

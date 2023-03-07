@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using SanteDB.Core.Configuration;
 using SanteDB.OrmLite.Providers;
@@ -64,7 +64,10 @@ namespace SanteDB.OrmLite.Configuration
         {
             var provider = this.Providers.FirstOrDefault(o => o.Invariant.Equals(invariant, StringComparison.InvariantCultureIgnoreCase));
             if (provider == null)
+            {
                 throw new KeyNotFoundException($"Provider {invariant} not registered");
+            }
+
             return Activator.CreateInstance(provider.Type) as IDbProvider;
         }
     }
@@ -88,7 +91,7 @@ namespace SanteDB.OrmLite.Configuration
         /// <summary>
         /// Create a new type with invariant
         /// </summary>
-        public ProviderRegistrationConfiguration(string invariant, Type type) : base(type.AssemblyQualifiedName)
+        public ProviderRegistrationConfiguration(string invariant, Type type) : base(type)
         {
             this.Invariant = invariant;
         }

@@ -16,19 +16,16 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using SanteDB.Core.Diagnostics;
-using SanteDB.Core.Model;
 using SanteDB.Core.Model.Map;
-using SanteDB.Core.Model.Warehouse;
 using SanteDB.OrmLite.Diagnostics;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics.Tracing;
 using System.Linq;
 using System.Text;
 
@@ -50,13 +47,10 @@ namespace SanteDB.OrmLite
 
         // Data dictionary
         private ConcurrentDictionary<String, Object> m_dataDictionary = new ConcurrentDictionary<string, object>();
-
-        // Items to be added to cache after an action
-        private ConcurrentDictionary<Guid, IdentifiedData> m_cacheCommit = new ConcurrentDictionary<Guid, IdentifiedData>();
+        private bool m_opened;
 
         // Trace source
         private Tracer m_tracer = new Tracer(Constants.TracerName);
-        private bool m_opened;
 
 
         /// <summary>
@@ -95,12 +89,14 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Connection
         /// </summary>
-        public IDbConnection Connection { get { return this.m_connection; } }
+        public IDbConnection Connection
+        { get { return this.m_connection; } }
 
         /// <summary>
-        /// Load state
+        /// Temporary lookup values used during this context's use
         /// </summary>
-        public LoadState LoadState { get; set; }
+        public IDictionary<String, Object> Data
+        { get { return this.m_dataDictionary; } }
 
         /// <summary>
         /// Overrides the command timeout for any command executed on this data context
@@ -108,38 +104,22 @@ namespace SanteDB.OrmLite
         public int? CommandTimeout { get; set; }
 
         /// <summary>
-        /// Data dictionary
-        /// </summary>
-        public IDictionary<String, Object> Data { get { return this.m_dataDictionary; } }
-
-        /// <summary>
         /// Internal utility method to get provider
         /// </summary>
         internal IDbProvider Provider => this.m_provider;
 
         /// <summary>
-        /// Cache on commit
-        /// </summary>
-        public IEnumerable<IdentifiedData> CacheOnCommit
-        {
-            get
-            {
-                return this.m_cacheCommit.Values;
-            }
-        }
-
-
-        /// <summary>
         /// Current Transaction
         /// </summary>
-        public IDbTransaction Transaction { get { return this.m_transaction; } }
+        public IDbTransaction Transaction
+        { get { return this.m_transaction; } }
 
         /// <summary>
         /// Query builder
         /// </summary>
         public QueryBuilder GetQueryBuilder(ModelMapper map)
         {
-            return new QueryBuilder(map, this.m_provider);
+            return new QueryBuilder(map, this.m_provider.StatementFactory);
         }
 
         /// <summary>
@@ -178,8 +158,30 @@ namespace SanteDB.OrmLite
         public IDbTransaction BeginTransaction()
         {
             if (this.m_transaction == null)
+            {
                 this.m_transaction = this.m_connection.BeginTransaction();
+            }
+
             return this.m_transaction;
+        }
+
+        /// <summary>
+        /// Close the connection however don't dispose
+        /// </summary>
+        public void Close()
+        {
+            this.ThrowIfDisposed();
+            if (this.m_transaction != null)
+            {
+                this.m_transaction.Rollback();
+                this.m_transaction.Dispose();
+            }
+            if (this.m_opened)
+            {
+                this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+                this.m_opened = false;
+            }
+            this.m_connection.Close();
         }
 
         /// <summary>
@@ -187,13 +189,12 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Open()
         {
+            this.ThrowIfDisposed();
+
+
             if (this.m_connection.State == ConnectionState.Closed)
             {
-                if(this.m_opened)
-                    this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
-
                 this.m_connection.Open();
-                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
             }
             else if (this.m_connection.State == ConnectionState.Broken)
             {
@@ -202,14 +203,16 @@ namespace SanteDB.OrmLite
             }
             else if (this.m_connection.State != ConnectionState.Open)
             {
-                if (this.m_opened)
-                    this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
-
                 this.m_connection.Open();
-                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
-
             }
-            this.m_opened = true;
+
+            _ = this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
+
+            if(!this.m_opened)
+            {
+                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+               this.m_opened = true;
+            }
         }
 
         /// <summary>
@@ -217,12 +220,10 @@ namespace SanteDB.OrmLite
         /// </summary>
         public DataContext OpenClonedContext()
         {
-            if (this.Transaction != null)
-                throw new InvalidOperationException("Cannot clone connection in transaction");
+
             var retVal = this.m_provider.CloneConnection(this);
             retVal.Open();
             retVal.m_dataDictionary = this.m_dataDictionary; // share data
-            retVal.LoadState = this.LoadState;
             //retVal.PrepareStatements = this.PrepareStatements;
             return retVal;
         }
@@ -232,10 +233,16 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Dispose()
         {
-            
+
             if (this.m_lastCommand != null)
             {
-                try { if (this.m_provider.CanCancelCommands) this.m_lastCommand?.Cancel(); }
+                try
+                {
+                    if (this.m_provider.CanCancelCommands)
+                    {
+                        this.m_lastCommand?.Cancel();
+                    }
+                }
                 catch { }
                 finally { this.m_lastCommand?.Dispose(); this.m_lastCommand = null; }
             }
@@ -243,10 +250,9 @@ namespace SanteDB.OrmLite
             if (this.m_connection != null && this.m_opened)
             {
                 this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+                this.m_opened = false;
             }
 
-            this.m_cacheCommit?.Clear();
-            this.m_cacheCommit = null;
             this.m_transaction?.Dispose();
             this.m_transaction = null;
             this.m_connection?.Dispose();
@@ -257,85 +263,32 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Add cache commit
+        /// Throw an exception if this context is disposed
         /// </summary>
-        public void AddCacheCommit(IdentifiedData data)
+        private void ThrowIfDisposed()
         {
-            try
+            if (this.m_connection == null)
             {
-                IdentifiedData existing = null;
-                if (data.Key.HasValue && !this.m_cacheCommit.TryGetValue(data.Key.Value, out existing))
-                {
-                    this.m_cacheCommit.TryAdd(data.Key.Value, data);
-                }
-                else if (data.Key.HasValue && data.LoadState > (existing?.LoadState ?? 0))
-                    this.m_cacheCommit[data.Key.Value] = data;
+                throw new ObjectDisposedException(nameof(DataContext));
             }
-            catch (Exception e)
-            {
-                this.m_tracer.TraceEvent(EventLevel.Warning, "Object {0} won't be added to cache: {1}", data, e);
-            }
-        }
-
-        /// <summary>
-        /// Add cache commit
-        /// </summary>
-        public IdentifiedData GetCacheCommit(Guid key)
-        {
-            IdentifiedData retVal = null;
-            this.m_cacheCommit.TryGetValue(key, out retVal);
-            return retVal;
         }
 
         /// <summary>
         /// Create sql statement
         /// </summary>
-        public SqlStatement CreateSqlStatement()
+        public SqlStatementBuilder CreateSqlStatementBuilder(SqlStatement statement = null)
         {
-            return new SqlStatement(this.m_provider);
+            return new SqlStatementBuilder(this.m_provider.StatementFactory, statement);
         }
+
 
         /// <summary>
         /// Create sql statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(String sql, params object[] args)
+        public SqlStatementBuilder CreateSqlStatementBuilder(String sql, params object[] parameters)
         {
-            return new SqlStatement(this.m_provider, sql, args);
+            return new SqlStatementBuilder(this.m_provider.StatementFactory, new SqlStatement(sql, parameters));
         }
 
-        /// <summary>
-        /// Create SQL statement
-        /// </summary>
-        public SqlStatement<T> CreateSqlStatement<T>()
-        {
-            return new SqlStatement<T>(this.m_provider);
-        }
-
-        /// <summary>
-        /// Query
-        /// </summary>
-        public String GetQueryLiteral(SqlStatement query)
-        {
-            query = query.Build();
-            StringBuilder retVal = new StringBuilder(query.SQL);
-            String sql = retVal.ToString();
-            var qList = query.Arguments?.ToArray() ?? new object[0];
-            int parmId = 0;
-            int lastIndex = 0;
-            while (sql.IndexOf("?", lastIndex) > -1)
-            {
-                var pIndex = sql.IndexOf("?", lastIndex);
-                retVal.Remove(pIndex, 1);
-                var obj = qList[parmId++];
-                if (obj is String || obj is Guid || obj is Guid? || obj is DateTime || obj is DateTimeOffset)
-                    obj = $"'{obj}'";
-                else if (obj == null)
-                    obj = "null";
-                retVal.Insert(pIndex, obj);
-                sql = retVal.ToString();
-                lastIndex = pIndex + obj.ToString().Length;
-            }
-            return retVal.ToString();
-        }
     }
 }

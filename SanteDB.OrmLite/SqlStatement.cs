@@ -16,200 +16,600 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
+using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Map;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite
 {
     /// <summary>
-    /// Represents a SQL statement builder tool
+    /// Represents a finalized SqlStatement
     /// </summary>
-    public class SqlStatement
+    /// TODO: Figure out how to make this a readonly struct?
+    public sealed class SqlStatement
     {
-        // Provider
-        protected IDbProvider m_provider = null;
+        private readonly string m_sql;
+        private readonly object[] m_arguments;
+        private readonly string m_alias;
+        private SqlStatement m_next;
+        private readonly bool m_isPrepared;
 
         /// <summary>
-        /// The SQL statement
+        /// Get an empty SQL statement
         /// </summary>
-        private string m_sql = null;
+        public static readonly SqlStatement Empty = new SqlStatement(String.Empty);
 
         /// <summary>
-        /// RHS of the SQL statement
+        /// True if this statement has been prepared 
         /// </summary>
-        protected SqlStatement m_rhs = null;
+        public bool IsPrepared => this.m_isPrepared;
 
         /// <summary>
-        /// Arguments for the SQL statement
+        /// Gets the SQL 
         /// </summary>
-        protected List<object> m_arguments = null;
+        public String Sql => this.m_sql;
 
         /// <summary>
-        /// True if the sql statement is finalized
+        /// Gets the arguments
         /// </summary>
-        public bool IsFinalized { get; private set; }
-        
-        /// <summary>
-        /// Get the DB provider
-        /// </summary>
-        public IDbProvider DbProvider => this.m_provider;
+        public Object[] Arguments => this.m_arguments;
 
         /// <summary>
-        /// Arguments for the SQL Statement
+        /// Gets the alias
         /// </summary>
-        public IEnumerable<Object> Arguments
+        public String Alias => this.m_alias;
+
+        /// <summary>
+        /// Create a new SQL statement
+        /// </summary>
+        private SqlStatement(String alias, String sql, SqlStatement next, bool isPrepared, params object[] arguments)
         {
-            get
+            sql = sql ?? String.Empty;
+            if (sql.Contains("--") == true)
             {
-                return this.m_arguments;
+                // Strip out comments
+                this.m_sql = Constants.ExtractCommentsRegex.Replace(sql ?? "", (m) => m.Groups[1].Value).Replace("\r", " ").Replace("\n", " ");
+            }
+            else if (sql.Contains("\n"))
+            {
+                this.m_sql = sql?.Replace("\r", "").Replace("\n", "");
+            }
+            else
+            {
+                this.m_sql = sql;
+            }
+
+            this.m_isPrepared = isPrepared;
+            this.m_alias = alias;
+            this.m_arguments = arguments ?? new object[0];
+            this.m_next = next;
+        }
+
+        /// <summary>
+        /// Create a new SqlStatmeent
+        /// </summary>
+        public SqlStatement(String sql, params object[] arguments) : this(null, sql, null, false, arguments) { }
+
+        /// <summary>
+        /// Create new SQL statement
+        /// </summary>
+        public SqlStatement(String alias, String sql, params object[] arguments) : this(alias, sql, null, false, arguments)
+        {
+            var expected = sql.Count(c => c == '?');
+            if (expected != arguments.Length)
+            {
+                throw new ArgumentOutOfRangeException(String.Format(ErrorMessages.ARGUMENT_COUNT_MISMATCH, expected, arguments.Length));
             }
         }
 
         /// <summary>
+        /// Build a sql statement from a copy
+        /// </summary>
+        public SqlStatement(SqlStatement copyFrom, String alias = null) : this(alias ?? copyFrom.m_alias, copyFrom.m_sql, copyFrom.m_next?.Copy(), false, copyFrom.m_arguments) { }
+
+        /// <summary>
+        /// Copy this object
+        /// </summary>
+        private SqlStatement Copy()
+        {
+            return new SqlStatement(this);
+        }
+
+        /// <summary>
+        /// Collapses this SqlStatement into a single statement for execution
+        /// </summary>
+        /// <returns></returns>
+        public SqlStatement Prepare()
+        {
+            if (this.m_isPrepared)
+            {
+                return this;
+            }
+
+            StringBuilder sb = new StringBuilder();
+
+            // Parameters
+            LinkedList<object> parameters = new LinkedList<object>();
+
+            SqlStatement focus = this;
+            while (focus != null)
+            {
+                sb.Append(focus.m_sql);
+                // Add parms
+                foreach (var itm in focus.m_arguments)
+                {
+                    parameters.AddLast(itm);
+                }
+
+                focus = focus.m_next;
+            }
+
+            return new SqlStatement(this.m_alias, sb.ToString(), null, true, parameters.ToArray());
+        }
+
+        /// <summary>
+        /// True if the statement is empty
+        /// </summary>
+        public bool IsEmpty() => String.IsNullOrEmpty(this.m_sql.Trim()) && this.m_arguments.Length == 0 && (this.m_next == null || this.m_next.IsEmpty());
+
+        /// <summary>
+        /// True if any of the components in this statement end with <paramref name="partialStatement"/>
+        /// </summary>
+        /// <param name="partialStatement">The partial statement</param>
+        /// <param name="stringComparison">The comparison mode</param>
+        /// <returns>True if any part of this statement ends with</returns>
+        public bool EndsWith(String partialStatement, StringComparison stringComparison)
+        {
+            return this.Last().Sql.TrimEnd().EndsWith(partialStatement, stringComparison);
+        }
+
+        /// <summary>
+        /// True if this sql statement contains <paramref name="partialStatement"/>
+        /// </summary>
+        /// <param name="partialStatement">The statement keyword to search</param>
+        public bool Contains(String partialStatement)
+        {
+            var search = this;
+            while (true)
+            {
+                if (search.m_sql.Contains(partialStatement))
+                {
+                    return true;
+                }
+                if (search.m_next != null)
+                {
+                    search = (SqlStatement)search.m_next;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Concatenate the two sql statements together
+        /// </summary>
+        public static SqlStatement operator +(SqlStatement a, SqlStatement b)
+        {
+            return a.Append(b);
+        }
+
+        /// <summary>
+        /// Concatenate with a simple string
+        /// </summary>
+        public static SqlStatement operator +(SqlStatement a, string b)
+        {
+            return a.Append(b);
+        }
+
+        /// <summary>
+        /// Concatenate with a simple string
+        /// </summary>
+        public static SqlStatement operator +(string a, SqlStatement b)
+        {
+            return new SqlStatement(null, a, b, false);
+        }
+
+        /// <summary>
+        /// Append sql statement <paramref name="other"/> to this and return a new SqlStatement
+        /// </summary>
+        public SqlStatement Append(SqlStatement other)
+        {
+            var retVal = new SqlStatement(this);
+            var focus = retVal;
+            retVal.Last().m_next = new SqlStatement(other);
+            return retVal;
+        }
+
+        /// <summary>
+        /// Append sql statement <paramref name="other"/> to this and return a new SqlStatement
+        /// </summary>
+        public SqlStatement Append(String other)
+        {
+            return this.Append(new SqlStatement(other));
+        }
+
+        /// <summary>
+        /// Remove the first component matching the specified <paramref name="pattern"/>
+        /// </summary>
+        internal SqlStatement RemoveMatching(Regex pattern, out SqlStatement removed)
+        {
+            var retVal = new SqlStatement(this);
+            var focus = retVal;
+            removed = null;
+            while (focus?.m_next != null)
+            {
+                if (pattern.IsMatch(focus.m_next.Sql))
+                {
+                    removed = focus.m_next;
+                    focus.m_next = focus.m_next.m_next; // skip this node in copy tree
+                    focus = focus.m_next;
+                }
+                focus = focus?.m_next;
+            }
+            return retVal;
+        }
+
+        /// <summary>
+        /// Get the last in the tree
+        /// </summary>
+        public SqlStatement Last()
+        {
+            var focal = this;
+            while (focal.m_next != null)
+            {
+                focal = focal.m_next;
+            }
+            return focal;
+        }
+
+        /// <summary>
+        /// Remove the last statement from this SqlStatement
+        /// </summary>
+        public SqlStatement RemoveLast(out SqlStatement lastStatement)
+        {
+            var retVal = new SqlStatement(this);
+            var focal = retVal;
+            while(focal.m_next?.m_next != null)
+            {
+                focal = focal.m_next;
+            }
+            lastStatement = focal.m_next;
+            focal.m_next = null;
+            return retVal;
+             
+        }
+
+        /// <inheritdoc/>
+        public override string ToString()
+        {
+            StringBuilder sb = new StringBuilder();
+            var focus = this;
+            while (focus != null)
+            {
+                sb.Append(focus.m_sql);
+                focus = focus.m_next;
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Represent as a literal query string
+        /// </summary>
+        public string ToLiteral()
+        {
+            var query = this.Prepare();
+            StringBuilder retVal = new StringBuilder(query.ToString());
+            String sql = retVal.ToString();
+            int parmId = 0;
+            int lastIndex = 0;
+            while (sql.IndexOf("?", lastIndex) > -1)
+            {
+                var pIndex = sql.IndexOf("?", lastIndex);
+                retVal.Remove(pIndex, 1);
+                var obj = query.m_arguments[parmId++];
+                if (obj is String || obj is Guid || obj is Guid? || obj is DateTime || obj is DateTimeOffset)
+                {
+                    obj = $"'{obj}'";
+                }
+                else if (obj == null)
+                {
+                    obj = "null";
+                }
+
+                retVal.Insert(pIndex, obj);
+                sql = retVal.ToString();
+                lastIndex = pIndex + obj.ToString().Length;
+            }
+            return retVal.ToString();
+        }
+
+        /// <summary>
+        /// Reduces any empty statements from this chain
+        /// </summary>
+        /// <returns></returns>
+        public SqlStatement Reduce()
+        {
+            if(this.m_next == null)
+            {
+                return this;
+            }
+
+            SqlStatement retVal = null, readFocal = this, workFocal = null;
+            while(readFocal != null)
+            {
+                if(!String.IsNullOrEmpty(readFocal.Sql))
+                {
+                    if(retVal != null)
+                    {
+                        workFocal = workFocal.m_next = new SqlStatement(readFocal);
+                    }
+                    else
+                    {
+                        workFocal = retVal = new SqlStatement(readFocal);
+                    }
+                }
+                else if(workFocal != null)
+                {
+                    workFocal.m_next = null;
+                }
+                readFocal = readFocal.m_next;
+            }
+            return retVal;
+        }
+    }
+
+    /// <summary>
+    /// Represents a SQL statement builder tool
+    /// </summary>
+    public class SqlStatementBuilder
+    {
+        // Provider
+        private readonly IDbStatementFactory m_statementFactory = null;
+
+        /// <summary>
+        /// The SQL statement
+        /// </summary>
+        private SqlStatement m_sqlStatement = SqlStatement.Empty;
+
+        /// <summary>
+        /// Get the DB provider
+        /// </summary>
+        public IDbStatementFactory DbProvider => this.m_statementFactory;
+
+        /// <summary>
         /// Gets the constructed or set SQL
         /// </summary>
-        public string SQL
-        { get { return this.m_sql; } }
+        public SqlStatement Statement => this.m_sqlStatement;
 
         /// <summary>
         /// Creates a new empty SQL statement
         /// </summary>
-        public SqlStatement(IDbProvider provider)
+        public SqlStatementBuilder(IDbStatementFactory statementFactory, SqlStatement statement = null)
         {
-            this.m_provider = provider;
+            this.m_statementFactory = statementFactory;
+            this.m_sqlStatement = statement?.Reduce() ?? SqlStatement.Empty;
+
         }
 
         /// <summary>
         /// Create a new sql statement from the specified sql
         /// </summary>
-        public SqlStatement(IDbProvider provider, string sql, params object[] parms) : this(provider)
+        public SqlStatementBuilder(IDbStatementFactory statementFactory, string sql, params object[] parms) : this(statementFactory)
         {
-            var sqlParms = this.m_sql?.Count(o => o == '?') ?? 0;
-            if (sqlParms > parms.Length)
-            {
-                throw new ArgumentException($"SQL Statement expects {sqlParms} arguments but only {parms.Length} were supplied");
-            }
+            this.m_sqlStatement = new SqlStatement(sql, parms);
+        }
 
-            this.m_sql = sql;
-            this.m_arguments = new List<object>(parms);
+        /// <summary>
+        /// Construct a SELECT FROM statement with the specified selectors
+        /// </summary>
+        /// <param name="primaryTable">The primary table from which to select columns</param>
+        /// <param name="scopedTables">The types from which to select columns</param>
+        /// <returns>The constructed sql statement</returns>
+        public SqlStatementBuilder SelectFrom(params Type[] scopedTables)
+        {
+            if(scopedTables.Length == 0)
+            {
+                throw new ArgumentException(String.Format(ErrorMessages.ARGUMENT_COUNT_MISMATCH, 1, 0), nameof(scopedTables));
+            }
+            var existingCols = new List<String>();
+            var tableMap = TableMapping.Get(scopedTables[0]);
+            // Column list of distinct columns
+            var columnList = String.Join(",", scopedTables.Select(o => TableMapping.Get(o)).SelectMany(o => o.Columns).Where(o =>
+            {
+                if (!existingCols.Contains(o.Name))
+                {
+                    existingCols.Add(o.Name);
+                    return true;
+                }
+                return false;
+            }).Select(o => $"{(!o.Table.HasName ? "" : o.Table.TableName + ".")}{o.Name}"));
+
+            // Append the result to query
+            this.Append($"SELECT {columnList} FROM {tableMap.TableName} AS {tableMap.TableName}");
+            return this;
+        }
+
+        /// <summary>
+        /// Wrap as a subquery
+        /// </summary>
+        public SqlStatementBuilder WrapAsSubQuery(params ColumnMapping[] columns)
+        {
+            var alias = this.IncrementSubqueryAlias();
+            this.m_sqlStatement = new SqlStatement(alias, $"SELECT {String.Join(",", columns.Select(o => $"{alias}.{o.Name}").Distinct())} FROM (") +
+                this.m_sqlStatement + $") AS {alias}";
+            return this;
+        }
+
+        /// <summary>
+        /// Wrap as a subquery
+        /// </summary>
+        public SqlStatementBuilder WrapAsSubQuery()
+        {
+            var alias = this.IncrementSubqueryAlias();
+            var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
+            if (sqlParts.Success)
+            {
+                this.m_sqlStatement = new SqlStatement(alias, $"SELECT {sqlParts.Groups[Constants.SQL_GROUP_DISTINCT].Value} {this.RebindColumnSelector(sqlParts.Groups[Constants.SQL_GROUP_COLUMNS].Value, alias)} FROM (") +
+                    this.m_sqlStatement + $") AS {alias}";
+                return this;
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(WrapAsSubQuery)));
+            }
+        }
+
+        /// <summary>
+        /// Increment the sub-query alias
+        /// </summary>
+        private string IncrementSubqueryAlias()
+        {
+            if(String.IsNullOrEmpty(this.m_sqlStatement.Alias))
+            {
+                return "SA0";
+            }
+            else if(Int32.TryParse(this.m_sqlStatement.Alias.Substring(2), out var sqi))
+            {
+                return $"SQ{++sqi}";
+            }
+            else
+            {
+                return "SQ9";
+            }
+        }
+
+        /// <summary>
+        /// Re-binds columns from a select statement to <paramref name="newTableAlias"/>
+        /// </summary>
+        /// <param name="columnSelector">The column selector example <c>SELECT table.col, table.col2, col3</c> becomes <c>SELECT newTable.col, newTable.col2, newTable.col3</c></param>
+        /// <param name="newTableAlias">The new table alias</param>
+        private string RebindColumnSelector(string columnSelector, string newTableAlias)
+        {
+            var matchedColumns = Constants.ExtractColumnBindingRegex.Matches(columnSelector).OfType<Match>().Select(o => $"{newTableAlias}.{o.Groups[2].Value}").Distinct();
+            return String.Join(",", matchedColumns);
         }
 
         /// <summary>
         /// Append the SQL statement
         /// </summary>
-        public SqlStatement Append(SqlStatement sql)
+        public SqlStatementBuilder Append(SqlStatement sql)
         {
-            if (this.IsFinalized) throw new InvalidOperationException();
+            this.m_sqlStatement += sql;
+            return this;
+        }
 
-            if (this.m_rhs != null)
-                this.m_rhs.Append(sql);
-            else
-                this.m_rhs = sql;
+
+        /// <summary>
+        /// Append all the commands in <paramref name="otherBuilder"/>
+        /// </summary>
+        public SqlStatementBuilder Append(SqlStatementBuilder otherBuilder)
+        {
+            this.m_sqlStatement += otherBuilder.m_sqlStatement;
             return this;
         }
 
         /// <summary>
         /// Append the specified SQL
         /// </summary>
-        public SqlStatement Append(string sql, params object[] parms)
+        public SqlStatementBuilder Append(string sql, params object[] parms)
         {
-            return this.Append(new SqlStatement(this.m_provider, sql, parms));
-        }
-
-        /// <summary>
-        /// Build the special SQL statement
-        /// </summary>
-        /// <returns></returns>
-        public SqlStatement Build()
-        {
-            StringBuilder sb = new StringBuilder();
-
-            // Parameters
-            List<object> parameters = new List<object>();
-
-            var focus = this;
-            do
-            {
-                sb.Append(focus.m_sql);
-                // Add parms
-                if (focus.Arguments != null)
-                    parameters.AddRange(focus.Arguments);
-                focus = focus.m_rhs;
-            } while (focus != null);
-
-            return new SqlStatement(this.m_provider, sb.ToString(), parameters.ToArray());
+            this.m_sqlStatement += new SqlStatement(sql, parms);
+            return this;
         }
 
         /// <summary>
         /// Where clause
         /// </summary>
-        /// <param name="clause"></param>
-        /// <returns></returns>
-        public SqlStatement Where(SqlStatement clause)
+        public SqlStatementBuilder Where(SqlStatement clause)
         {
-            if (String.IsNullOrEmpty(clause.SQL) && clause.m_rhs == null)
+            if (clause.IsEmpty())
+            {
                 return this;
-            return this.Append(new SqlStatement(this.m_provider, "WHERE ").Append(clause));
+            }
+            else if (clause.Sql.StartsWith("WHERE", StringComparison.OrdinalIgnoreCase))
+            {
+                this.m_sqlStatement += clause;
+            }
+            else
+            {
+                this.m_sqlStatement += " WHERE " + clause;
+            }
+            return this;
         }
 
         /// <summary>
         /// Construct a where clause on the expression tree
         /// </summary>
-        public SqlStatement Where(String whereClause, params object[] args)
+        public SqlStatementBuilder Where(String whereClause, params object[] args)
         {
-            return this.Where(new SqlStatement(this.m_provider, whereClause, args));
+            return this.Where(new SqlStatement(whereClause, args));
         }
 
         /// <summary>
         /// Append an AND condition
         /// </summary>
-        public SqlStatement And(SqlStatement clause)
+        public SqlStatementBuilder And(SqlStatement clause)
         {
-            if (String.IsNullOrEmpty(this.m_sql) && (this.m_rhs == null || this.m_rhs.Build().SQL.TrimEnd().EndsWith("where", StringComparison.InvariantCultureIgnoreCase)))
-                return this.Append(clause);
+            if (this.m_sqlStatement.IsEmpty() || this.m_sqlStatement.EndsWith("where", StringComparison.CurrentCultureIgnoreCase)
+                || this.m_sqlStatement.ToString().TrimEnd().EndsWith("and", StringComparison.CurrentCultureIgnoreCase))// || clause.AnyEndsWith("where", StringComparison.OrdinalIgnoreCase))
+            {
+                this.m_sqlStatement += clause;
+            }
             else
-                return this.Append(" AND ").Append(clause.Build());
+            {
+                this.m_sqlStatement += " AND " + clause;
+            }
+            return this;
         }
 
         /// <summary>
         /// Construct a where clause on the expression tree
         /// </summary>
-        public SqlStatement And(String clause, params object[] args)
+        public SqlStatementBuilder And(String clause, params object[] args)
         {
-            return this.And(new SqlStatement(this.m_provider, clause, args));
+            return this.And(new SqlStatement(clause, args));
         }
 
         /// <summary>
         /// Append an AND condition
         /// </summary>
-        public SqlStatement Or(SqlStatement clause)
+        public SqlStatementBuilder Or(SqlStatement clause)
         {
-            if (String.IsNullOrEmpty(this.m_sql) && this.m_rhs == null)
-                return this.Append(clause);
+            if (this.m_sqlStatement.IsEmpty() || this.m_sqlStatement.EndsWith("where", StringComparison.CurrentCultureIgnoreCase)
+               || this.m_sqlStatement.ToString().TrimEnd().EndsWith("or", StringComparison.CurrentCultureIgnoreCase))// || clause.AnyEndsWith("where", StringComparison.OrdinalIgnoreCase))
+            {
+                this.m_sqlStatement += clause;
+            }
             else
-                return this.Append(new SqlStatement(this.m_provider, " OR ")).Append(clause.Build());
+            {
+                this.m_sqlStatement += " OR " + clause;
+            }
+            return this;
         }
 
         /// <summary>
         /// Construct a where clause on the expression tree
         /// </summary>
-        public SqlStatement Or(String clause, params object[] args)
+        public SqlStatementBuilder Or(String clause, params object[] args)
         {
-            return this.Or(new SqlStatement(this.m_provider, clause, args));
+            return this.Or(new SqlStatement(clause, args));
         }
 
         /// <summary>
         /// Inner join
         /// </summary>
-        public SqlStatement InnerJoin<TLeft, TRight>(Expression<Func<TLeft, dynamic>> leftColumn, Expression<Func<TRight, dynamic>> rightColumn)
+        public SqlStatementBuilder InnerJoin<TLeft, TRight>(Expression<Func<TLeft, dynamic>> leftColumn, Expression<Func<TRight, dynamic>> rightColumn)
         {
             return this.Join<TLeft, TRight>("INNER", leftColumn, rightColumn);
         }
@@ -217,144 +617,187 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Join by specific type of join
         /// </summary>
-        public SqlStatement Join<TLeft, TRight>(String joinType, Expression<Func<TLeft, dynamic>> leftColumn, Expression<Func<TRight, dynamic>> rightColumn)
+        public SqlStatementBuilder Join<TLeft, TRight>(String joinType, Expression<Func<TLeft, dynamic>> leftColumn, Expression<Func<TRight, dynamic>> rightColumn)
         {
             var leftMap = TableMapping.Get(typeof(TLeft));
             var rightMap = TableMapping.Get(typeof(TRight));
-            var joinStatement = this.Append($"{joinType} JOIN {rightMap.TableName} ON");
-            var rhsPk = rightMap.GetColumn(this.GetMember(rightColumn.Body));
-            var lhsPk = leftMap.GetColumn(this.GetMember(leftColumn.Body));
-            return joinStatement.Append($"({lhsPk.Table.TableName}.{lhsPk.Name} = {rhsPk.Table.TableName}.{rhsPk.Name}) ");
+            this.m_sqlStatement += $" {joinType} JOIN {rightMap.TableName} ON ";
+            var rhsPk = rightMap.GetColumn(rightColumn.GetMember());
+            var lhsPk = leftMap.GetColumn(leftColumn.GetMember());
+            this.m_sqlStatement += $" ({lhsPk.Table.TableName}.{lhsPk.Name} = {rhsPk.Table.TableName}.{rhsPk.Name}) ";
+            return this;
+        }
+
+
+        /// <summary>
+        /// Return a delete from
+        /// </summary>
+        public SqlStatementBuilder DeleteFrom(Type dataType)
+        {
+            var tableMap = TableMapping.Get(dataType);
+            this.m_sqlStatement += $"DELETE FROM {tableMap.TableName} ";
+            return this;
         }
 
         /// <summary>
-        /// Inner join left and right
+        /// Return a select from
         /// </summary>
-        public SqlStatement InnerJoin(Type tLeft, Type tRight)
+        public SqlStatementBuilder SelectFrom(Type dataType, params ColumnMapping[] columns)
         {
-            var tableMap = TableMapping.Get(tRight);
-            var joinStatement = this.Append($"INNER JOIN {tableMap.TableName} ON ");
-
-            // For RHS we need to find a column which references the tLEFT table ...
-            var rhsPk = tableMap.Columns.SingleOrDefault(o => o.ForeignKey?.Table == tLeft);
-            ColumnMapping lhsPk = null;
-            if (rhsPk == null) // look for primary key instead
+            if (columns.Length == 0)
             {
-                rhsPk = tableMap.Columns.SingleOrDefault(o => o.IsPrimaryKey);
-                lhsPk = TableMapping.Get(tLeft).Columns.SingleOrDefault(o => o.ForeignKey?.Table == rhsPk.Table.OrmType && o.ForeignKey?.Column == rhsPk.SourceProperty.Name);
+                return this.SelectFrom(new Type[] { dataType });
             }
             else
-                lhsPk = TableMapping.Get(rhsPk.ForeignKey.Table).GetColumn(rhsPk.ForeignKey.Column);
-
-            if (lhsPk == null || rhsPk == null) // Try a natural join
             {
-                rhsPk = tableMap.Columns.SingleOrDefault(o => TableMapping.Get(tLeft).Columns.Any(l => o.Name == l.Name));
-                lhsPk = TableMapping.Get(tLeft).Columns.SingleOrDefault(o => o.Name == rhsPk?.Name);
-                if (rhsPk == null || lhsPk == null)
-                    throw new InvalidOperationException("Unambiguous linked keys not found");
-            }
-            joinStatement.Append($"({lhsPk.Table.TableName}.{lhsPk.Name} = {rhsPk.Table.TableName}.{rhsPk.Name}) ");
-            return joinStatement;
-        }
-
-        /// <summary>
-        /// Get member information from lambda
-        /// </summary>
-        protected MemberInfo GetMember(Expression expression)
-        {
-            if (expression is MemberExpression mex)
-            {
-                if (mex.Member.Name == "Value" && mex.Expression.Type.IsGenericType && mex.Expression.Type.GetGenericTypeDefinition() == typeof(Nullable<>))
+                var tableMap = TableMapping.Get(dataType);
+                var colnames = String.Join(",", columns.Select(o =>
                 {
-                    return GetMember(mex.Expression);
-                }
-                else
-                {
-                    return mex.Member;
-                }
+                    if (o.Table != null)
+                    {
+                        return $"{this.m_sqlStatement.Alias ?? o.Table.TableName}.{o.Name}";
+                    }
+                    else
+                    {
+                        return o.Name;
+                    }
+                }));
+                this.m_sqlStatement += $"SELECT {colnames} FROM {tableMap.TableName} AS {tableMap.TableName} ";
+                return this;
             }
-            else if (expression is UnaryExpression) return this.GetMember((expression as UnaryExpression).Operand);
-            else throw new InvalidOperationException($"{expression} not supported, please use a member access expression");
-        }
-
-        /// <summary>
-        /// Return a select from
-        /// </summary>
-        public SqlStatement SelectFrom(Type dataType)
-        {
-            var tableMap = TableMapping.Get(dataType);
-            return this.Append(new SqlStatement(this.m_provider, $"SELECT * FROM {tableMap.TableName} AS {tableMap.TableName} "));
-        }
-
-        /// <summary>
-        /// Return a select from
-        /// </summary>
-        public SqlStatement SelectFrom(Type dataType, params ColumnMapping[] columns)
-        {
-            var tableMap = TableMapping.Get(dataType);
-            return this.Append(new SqlStatement(this.m_provider, $"SELECT {String.Join(",", columns.Select(o => $"{o.Table.TableName}.{o.Name}"))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
         }
 
         /// <summary>
         /// Construct a where clause on the expression tree
         /// </summary>
-        public SqlStatement Where<TExpression>(Expression<Func<TExpression, bool>> expression)
+        public SqlStatementBuilder Where<TExpression>(Expression<Func<TExpression, bool>> expression) => this.Where((LambdaExpression)expression);
+
+        /// <summary>
+        /// Construct a where clause
+        /// </summary>
+        public SqlStatementBuilder Where(LambdaExpression lambdaExpression)
         {
-            var tableMap = TableMapping.Get(typeof(TExpression));
-            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
-            queryBuilder.Visit(expression.Body);
-            return this.Append(new SqlStatement(this.m_provider, "WHERE ").Append(queryBuilder.SqlStatement));
+            var tableMap = TableMapping.Get(lambdaExpression.Parameters[0].Type);
+            var queryBuilder = new SqlQueryExpressionBuilder(this.m_sqlStatement.Alias, this.m_statementFactory);
+            queryBuilder.Visit(lambdaExpression.Body);
+            this.m_sqlStatement += " WHERE " + queryBuilder.StatementBuilder.Statement;
+            return this;
         }
 
-        internal void Append(object like)
-        {
-            throw new NotImplementedException();
-        }
 
         /// <summary>
         /// Expression
         /// </summary>
-        public SqlStatement And<TExpression>(Expression<Func<TExpression, bool>> expression)
+        public SqlStatementBuilder And<TExpression>(Expression<Func<TExpression, bool>> expression)
         {
             var tableMap = TableMapping.Get(typeof(TExpression));
-            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider);
+            var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_statementFactory);
             queryBuilder.Visit(expression.Body);
-            return this.And(queryBuilder.SqlStatement);
+            this.And(queryBuilder.StatementBuilder.Statement);
+            return this;
         }
 
         /// <summary>
         /// Append an offset statement
         /// </summary>
-        public SqlStatement Offset(int offset)
+        public SqlStatementBuilder Offset(int offset)
         {
-            if (this.m_provider.Features.HasFlag(SqlEngineFeatures.LimitOffset))
-                return this.Append($" OFFSET {offset} ");
-            else if (this.m_provider.Features.HasFlag(SqlEngineFeatures.FetchOffset))
-                return this.Append($" OFFSET {offset} ROW ");
+            this.RemoveOffset(out _);
+            if (this.m_statementFactory.Features.HasFlag(SqlEngineFeatures.LimitOffset))
+            {
+                // Need a limit before this statement
+                this.m_sqlStatement += $" OFFSET {offset} ";
+            }
+            else if (this.m_statementFactory.Features.HasFlag(SqlEngineFeatures.FetchOffset))
+            {
+                this.m_sqlStatement += $" OFFSET {offset} ROW ";
+            }
             else
+            {
                 throw new InvalidOperationException("SQL Engine does not support OFFSET n ROW or OFFSET n");
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// Remove the offset instruction
+        /// </summary>
+        public SqlStatementBuilder RemoveOffset(out int offset)
+        {
+            this.m_sqlStatement = this.m_sqlStatement.RemoveMatching(Constants.ExtractOffsetRegex, out var removed);
+            if (removed != null)
+            {
+                offset = Int32.Parse(Constants.ExtractOffsetRegex.Match(removed.Sql).Groups[1].Value);
+            }
+            else
+            {
+                offset = 0;
+            }
+            return this;
         }
 
         /// <summary>
         /// Limit of the
         /// </summary>
-        public SqlStatement Limit(int limit)
+        public SqlStatementBuilder Limit(int limit)
         {
-            if (this.m_provider.Features.HasFlag(SqlEngineFeatures.LimitOffset))
-                return this.Append($" LIMIT {limit} ");
-            else if (this.m_provider.Features.HasFlag(SqlEngineFeatures.FetchOffset))
-                return this.Append($" FETCH FIRST {limit} ROWS ONLY");
+            this.RemoveLimit(out _);
+
+            if (this.m_statementFactory.Features.HasFlag(SqlEngineFeatures.LimitOffset))
+            {
+                this.m_sqlStatement += $" LIMIT {limit} ";
+            }
+            else if (this.m_statementFactory.Features.HasFlag(SqlEngineFeatures.FetchOffset))
+            {
+                this.m_sqlStatement += $" FETCH FIRST {limit} ROWS ONLY";
+            }
             else
+            {
                 throw new InvalidOperationException("SQL Engine does not support FETCH FIRST n ROWS ONLY or LIMIT n functionality");
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// Remove the limit instruction
+        /// </summary>
+        public SqlStatementBuilder RemoveLimit(out int count)
+        {
+            this.m_sqlStatement = this.m_sqlStatement.RemoveMatching(Constants.ExtractLimitRegex, out var removed);
+            if (removed != null)
+            {
+                count = Int32.Parse(Constants.ExtractLimitRegex.Match(removed.Sql).Groups[1].Value);
+            }
+            else
+            {
+                count = -1;
+            }
+            return this;
+
         }
 
         /// <summary>
         /// Construct an order by
         /// </summary>
-        public SqlStatement OrderBy<TExpression>(Expression<Func<TExpression, dynamic>> orderField, SortOrderType sortOperation = SortOrderType.OrderBy)
+        public SqlStatementBuilder OrderBy<TData>(Expression<Func<TData, dynamic>> orderExpression, SortOrderType sortOperation = SortOrderType.OrderBy) => this.OrderBy((LambdaExpression)orderExpression, sortOperation);
+
+        /// <summary>
+        /// Using an alias for column references
+        /// </summary>
+        /// <param name="alias">The alias to use</param>
+        public SqlStatementBuilder UsingAlias(String alias)
         {
-            var orderMap = TableMapping.Get(typeof(TExpression));
-            var fldRef = orderField.Body;
+            this.m_sqlStatement = new SqlStatement(this.m_sqlStatement, alias);
+            return this;
+        }
+
+        /// <summary>
+        /// Construct an order by
+        /// </summary>
+        public SqlStatementBuilder OrderBy(LambdaExpression orderExpression, SortOrderType sortOperation = SortOrderType.OrderBy)
+        {
+            var orderMap = TableMapping.Get(orderExpression.Parameters[0].Type);
+            var fldRef = orderExpression.Body;
             while (fldRef.NodeType != ExpressionType.MemberAccess)
             {
                 switch (fldRef.NodeType)
@@ -368,225 +811,41 @@ namespace SanteDB.OrmLite
                         break;
                 }
             }
-            var orderCol = orderMap.GetColumn(this.GetMember(fldRef));
+            var orderCol = orderMap.GetColumn(fldRef.GetMember());
 
             // Is there already an orderby in the previous statement?
-            bool hasOrder = false;
-            var t = this;
-            do
-            {
-                hasOrder |= t.SQL?.Contains("ORDER BY") == true;
-                t = t.m_rhs;
-            } while (t != null);
-
-            // Append order by?
-            return this.Append($"{(!hasOrder ? " ORDER BY " : ",")} {orderCol.Name} {(sortOperation == SortOrderType.OrderBy ? " ASC " : " DESC ")}");
-        }
-
-        /// <summary>
-        /// Removes the last statement from the list
-        /// </summary>
-        public bool RemoveLast(out SqlStatement last)
-        {
-            last = this.RemoveLast();
-            return last != null;
-        }
-
-        /// <summary>
-        /// Get the last statement
-        /// </summary>
-        public SqlStatement GetLast()
-        {
-            var t = this;
-            while (t.m_rhs?.m_rhs != null)
-                t = t.m_rhs;
-            return t;
-        }
-
-        /// <summary>
-        /// Removes the last statement from the list
-        /// </summary>
-        public SqlStatement RemoveLast()
-        {
-            var t = this.GetLast();
-            if (t != null)
-            {
-                var m = t.m_rhs;
-                t.m_rhs = null;
-                return m;
-            }
-            else
-                return null;
-        }
-
-        /// <summary>
-        /// Represent as string
-        /// </summary>
-        public override string ToString()
-        {
-            return this.Build().SQL;
-        }
-    }
-
-    /// <summary>
-    /// Represents a strongly typed SQL Statement
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    public class SqlStatement<T> : SqlStatement
-    {
-        // The alias of the table if needed
-        private String m_alias;
-
-        /// <summary>
-        /// Gets the table type
-        /// </summary>
-        public Type TableType
-        { get { return typeof(T); } }
-
-        /// <summary>
-        /// Creates a new empty SQL statement
-        /// </summary>
-        public SqlStatement(IDbProvider provider) : base(provider)
-        {
-        }
-
-        /// <summary>
-        /// Create a new sql statement from the specified sql
-        /// </summary>
-        public SqlStatement(IDbProvider provider, string sql, params object[] parms) : base(provider, sql, parms)
-        {
-        }
-
-        /// <summary>
-        /// Append the SQL statement
-        /// </summary>
-        public SqlStatement<T> Append(SqlStatement<T> sql)
-        {
-            if (this.IsFinalized) throw new InvalidOperationException();
-
-            if (this.m_rhs != null)
-                this.m_rhs.Append(sql);
-            else
-                this.m_rhs = sql;
+            var prefix =  this.m_sqlStatement.Contains(" ORDER BY ") ? "," : " ORDER BY ";
+            this.m_sqlStatement += $"{prefix} {this.m_sqlStatement.Alias ?? orderCol.Table.TableName}.{orderCol.Name} {(sortOperation == SortOrderType.OrderBy ? " ASC " : " DESC ")}";
             return this;
         }
 
         /// <summary>
-        /// Inner join
+        /// Remove the ORDER BY clause
         /// </summary>
-        public SqlStatement<T> InnerJoin<TRight>(Expression<Func<T, dynamic>> leftColumn, Expression<Func<TRight, dynamic>> rightColumn)
+        public SqlStatementBuilder RemoveOrderBy(out SqlStatement orderBy)
         {
-            var leftMap = TableMapping.Get(typeof(T));
-            var rightMap = TableMapping.Get(typeof(TRight));
-            var joinStatement = this.Append($"INNER JOIN {rightMap.TableName} ON ");
-            var rhsPk = rightMap.GetColumn(this.GetMember(rightColumn.Body));
-            var lhsPk = leftMap.GetColumn(this.GetMember(leftColumn.Body));
-            var retVal = new SqlStatement<T>(this.m_provider);
-            retVal.Append(joinStatement).Append($"({lhsPk.Table.TableName}.{lhsPk.Name} = {rhsPk.Table.TableName}.{rhsPk.Name}) ");
-            return retVal;
+            this.m_sqlStatement = this.m_sqlStatement.RemoveMatching(Constants.ExtractOrderByRegex, out orderBy);
+            return this;
         }
 
         /// <summary>
-        /// Construct a where clause on the expression tree
+        /// Removes the last statement from the list
         /// </summary>
-        public SqlStatement Where(Expression<Func<T, bool>> expression)
+        public SqlStatementBuilder RemoveLast(out SqlStatement lastStatement)
         {
-            var tableMap = TableMapping.Get(typeof(T));
-            var queryBuilder = new SqlQueryExpressionBuilder(this.m_alias ?? tableMap.TableName, this.m_provider);
-            queryBuilder.Visit(expression.Body);
-            return this.Append(new SqlStatement(this.m_provider, "WHERE ").Append(queryBuilder.SqlStatement));
-        }
-
-        /// <summary>
-        /// Appends an inner join
-        /// </summary>
-        public SqlStatement<TReturn> AutoJoin<TJoinTable, TReturn>()
-        {
-            var retVal = new SqlStatement<TReturn>(this.m_provider);
-            retVal.Append(this).InnerJoin(typeof(T), typeof(TJoinTable));
-            return retVal;
-        }
-
-        /// <summary>
-        /// Create a delete from
-        /// </summary>
-        public SqlStatement<T> DeleteFrom()
-        {
-            var tableMap = TableMapping.Get(typeof(T));
-            return this.Append(new SqlStatement<T>(this.m_provider, $"DELETE FROM {tableMap.TableName} "));
-        }
-
-        /// <summary>
-        /// Construct a SELECT FROM statement
-        /// </summary>
-        public SqlStatement<T> SelectFrom()
-        {
-            var tableMap = TableMapping.Get(typeof(T));
-            SqlStatement<T> retVal = new SqlStatement<T>(this.m_provider, "SELECT ");
-            if (this.m_provider.Features.HasFlag(SqlEngineFeatures.StrictSubQueryColumnNames))
-                retVal.Append(new SqlStatement<T>(this.m_provider, $"{String.Join(",", tableMap.Columns.Select(c => $"{tableMap.TableName}.{c.Name}").ToArray())}")
-                {
-                    m_alias = tableMap.TableName
-                });
-            else
-                retVal.Append(new SqlStatement<T>(this.m_provider, $"*")
-                {
-                    m_alias = tableMap.TableName
-                });
-
-            retVal.Append(new SqlStatement<T>(this.m_provider, $" FROM {tableMap.TableName} AS {tableMap.TableName} "));
-            return retVal;
-        }
-
-        /// <summary>
-        /// Construct a SELECT FROM statement with the specified selectors
-        /// </summary>
-        /// <param name="selector">The types from which to select columns</param>
-        /// <returns>The constructed sql statementB</returns>
-        public SqlStatement<T> SelectFrom(params ColumnMapping[] columns)
-        {
-            var tableMap = TableMapping.Get(typeof(T));
-            return this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {String.Join(",", columns.Select(o => o.Table == null ? o.Name : $"{o.Table.TableName}.{o.Name}"))} FROM {tableMap.TableName} AS {tableMap.TableName} "));
-        }
-
-        /// <summary>
-        /// Construct a SELECT FROM statement with the specified selectors
-        /// </summary>
-        /// <param name="selector">The types from which to select columns</param>
-        /// <returns>The constructed sql statement</returns>
-        public SqlStatement<T> SelectFrom(params Type[] scopedTables)
-        {
-            var existingCols = new List<String>();
-            var tableMap = TableMapping.Get(typeof(T));
-            // Column list of distinct columns
-            var columnList = String.Join(",", scopedTables.Select(o => TableMapping.Get(o)).SelectMany(o => o.Columns).Where(o =>
-              {
-                  if (!existingCols.Contains(o.Name))
-                  {
-                      existingCols.Add(o.Name);
-                      return true;
-                  }
-                  return false;
-              }).Select(o => $"{(!o.Table.HasName ? "" : o.Table.TableName + ".")}{o.Name}"));
-
-            // Append the result to query
-            var retVal = this.Append(new SqlStatement<T>(this.m_provider, $"SELECT {columnList} ")
-            {
-                m_alias = tableMap.TableName
-            });
-
-            retVal.Append($" FROM {tableMap.TableName} AS {tableMap.TableName} ");
-
-            return retVal;
+            this.m_sqlStatement = this.m_sqlStatement.RemoveLast(out lastStatement);
+            return this;
         }
 
         /// <summary>
         /// Generate an update statement
         /// </summary>
-        public SqlStatement<T> UpdateSet()
+        public SqlStatementBuilder UpdateSet(Type tableType)
         {
-            var tableMap = TableMapping.Get(typeof(T));
-            return this.Append(new SqlStatement<T>(this.m_provider, $"UPDATE {tableMap.TableName} SET "));
+            var tableMap = TableMapping.Get(tableType);
+            this.m_sqlStatement += $"UPDATE {tableMap.TableName} SET ";
+            return this;
         }
     }
+
 }

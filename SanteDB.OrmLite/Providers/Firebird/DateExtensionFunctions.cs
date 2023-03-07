@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using System;
 using System.Text.RegularExpressions;
@@ -35,7 +35,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Get the provider
         /// </summary>
-        public string Provider => "FirebirdSQL";
+        public string Provider => FirebirdSQLProvider.InvariantName;
 
         /// <summary>
         /// Get the name 
@@ -45,11 +45,15 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Create SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type operandType)
         {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
+            if (String.IsNullOrEmpty(op))
+            {
+                op = "=";
+            }
+
             if (parms.Length == 1) // There is a threshold
             {
                 var dtValue = DateTime.Parse(value);
@@ -60,7 +64,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     case "M":
                         return current.Append($"{filterColumn} BETWEEN ? AND ?", new DateTime(dtValue.Year, dtValue.Month, 01), new DateTime(dtValue.Year, dtValue.Month, DateTime.DaysInMonth(dtValue.Year, dtValue.Month), 23, 59, 59));
                     case "d":
-                        return current.Append($"{filterColumn} BETWEEN ? AND ?", dtValue.Date, dtValue.Date.AddHours(23).AddMinutes(59).AddSeconds(59) );
+                        return current.Append($"{filterColumn} BETWEEN ? AND ?", dtValue.Date, dtValue.Date.AddHours(23).AddMinutes(59).AddSeconds(59));
                     default:
                         throw new NotSupportedException("Date truncate precision must be y, M, or d");
                 }
@@ -90,16 +94,19 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider
         /// </summary>
-        public string Provider => "FirebirdSQL";
+        public string Provider => FirebirdSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type operandType)
         {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
+            if (String.IsNullOrEmpty(op))
+            {
+                op = "=";
+            }
 
             match = new Regex(@"^(\d*?)([yMdwhms])$").Match(value);
             if (match.Success)
@@ -173,23 +180,30 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Provider
         /// </summary>
-        public string Provider => "FirebirdSQL";
+        public string Provider => FirebirdSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type operandType)
         {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
+            if (String.IsNullOrEmpty(op))
+            {
+                op = "=";
+            }
 
             if (TimeSpan.TryParse(value, out TimeSpan timespan))
             {
                 if (parms.Length == 1)
+                {
                     return current.Append($"ABS(DATEDIFF(millisecond, {filterColumn}, cast(? as TIMESTAMP))) {op} {timespan.TotalSeconds}", QueryBuilder.CreateParameterValue(parms[0], operandType));
+                }
                 else
+                {
                     return current.Append($"ABS(DATEDIFF(millisecond, {filterColumn}, CURRENT_TIMESTAMP))) {op} {timespan.TotalSeconds}");
+                }
             }
             else
             {
@@ -199,9 +213,13 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     timespan = XmlConvert.ToTimeSpan(value);
 
                     if (parms.Length == 1)
+                    {
                         return current.Append($"ABS(DATEDIFF(millisecond, {filterColumn}, cast(? as TIMESTAMP))) {op} {timespan.TotalSeconds}", QueryBuilder.CreateParameterValue(parms[0], operandType));
+                    }
                     else
+                    {
                         return current.Append($"ABS(DATEDIFF(millisecond, {filterColumn}, CURRENT_TIMESTAMP))) {op} {timespan.TotalSeconds}");
+                    }
                 }
                 catch
                 {

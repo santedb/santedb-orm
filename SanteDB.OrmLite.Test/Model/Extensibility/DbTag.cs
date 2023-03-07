@@ -1,4 +1,24 @@
-﻿using SanteDB.OrmLite.Attributes;
+﻿/*
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
+ * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ *
+ * User: fyfej
+ * Date: 2022-5-30
+ */
+using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Acts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Entities;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
@@ -13,7 +33,7 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
     /// </summary>
     [ExcludeFromCodeCoverage]
     public abstract class DbTag : DbAssociation, IDbBaseData
-	{
+    {
         /// <summary>
         /// Gets or sets the key
         /// </summary>
@@ -49,20 +69,22 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
         /// </summary>
         /// <value>The key.</value>
         [Column("tag_name")]
-		public String TagKey {
-			get;
-			set;
-		}
+        public String TagKey
+        {
+            get;
+            set;
+        }
 
-		/// <summary>
-		/// Gets or sets the value.
-		/// </summary>
-		/// <value>The value.</value>
-		[Column("tag_value")]
-		public String Value {
-			get;
-			set;
-		}
+        /// <summary>
+        /// Gets or sets the value.
+        /// </summary>
+        /// <value>The value.</value>
+        [Column("tag_value")]
+        public String Value
+        {
+            get;
+            set;
+        }
 
         /// <summary>
         /// Gets or sets whether obsoleted by key is specified (for undelete)
@@ -75,13 +97,13 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
         public bool ObsoletionTimeSpecified { get; set; }
     }
 
-	/// <summary>
-	/// Represents a tag associated with an enttiy
-	/// </summary>
-	[Table("ent_tag_tbl")]
+    /// <summary>
+    /// Represents a tag associated with an enttiy
+    /// </summary>
+    [Table("ent_tag_tbl")]
     [ExcludeFromCodeCoverage]
     public class DbEntityTag : DbTag
-	{
+    {
 
         /// <summary>
         /// Gets or sets the source.
@@ -95,13 +117,13 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Extensibility
         }
     }
 
-	/// <summary>
-	/// Represents a tag associated with an act
-	/// </summary>
-	[Table("act_tag_tbl")]
+    /// <summary>
+    /// Represents a tag associated with an act
+    /// </summary>
+    [Table("act_tag_tbl")]
     [ExcludeFromCodeCoverage]
     public class DbActTag : DbTag
-	{
+    {
         /// <summary>
         /// Gets or sets the source.
         /// </summary>

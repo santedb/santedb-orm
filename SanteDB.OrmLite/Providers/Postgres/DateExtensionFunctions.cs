@@ -16,9 +16,10 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 using System.Xml;
 
@@ -32,6 +33,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// <example><code>
     /// ?dateOfBirth=:(diff|2018-01-01)&lt;3w</code>
     /// </example>
+    [ExcludeFromCodeCoverage]
     public class PostgreDateDiffFunction : IDbFilterFunction
     {
         /// <summary>
@@ -42,21 +44,24 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Provider
         /// </summary>
-        public string Provider => "pgsql";
+        public string Provider => PostgreSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type operandType)
         {
             // Is the parameter null? If so return the error
-            if(parms.Length == 0 || parms[0] == null)
+            if (parms.Length == 0 || parms[0] == null)
             {
                 throw new InvalidOperationException("Cannot execute a date_diff function with a null parameter");
             }
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
+            if (String.IsNullOrEmpty(op))
+            {
+                op = "=";
+            }
 
             match = new Regex(@"^(\d*?)([yMdwhms])$").Match(value);
             if (match.Success)
@@ -125,7 +130,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Get the provider
         /// </summary>
-        public string Provider => "pgsql";
+        public string Provider => PostgreSQLProvider.InvariantName;
 
         /// <summary>
         /// Get the name 
@@ -135,15 +140,19 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Create SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type operandType)
         {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
+            if (String.IsNullOrEmpty(op))
+            {
+                op = "=";
+            }
+
             if (parms.Length == 1) // There is a threshold
             {
                 var dtValue = DateTime.Parse(value);
-                switch(parms[0].Replace("\"",""))
+                switch (parms[0].Replace("\"", ""))
                 {
                     case "y":
                         return current.Append($"{filterColumn} BETWEEN ? AND ?", new DateTime(dtValue.Year, 01, 01), new DateTime(dtValue.Year, 12, 31, 23, 59, 59));
@@ -170,6 +179,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// <example><code>
     /// ?dateOfBirth=:(age)&lt;P3Y2DT4H2M</code>
     /// </example>
+    [ExcludeFromCodeCoverage]
     public class PostgreAgeFunction : IDbFilterFunction
     {
         /// <summary>
@@ -180,23 +190,30 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Provider
         /// </summary>
-        public string Provider => "pgsql";
+        public string Provider => PostgreSQLProvider.InvariantName;
 
         /// <summary>
         /// Create the SQL statement
         /// </summary>
-        public SqlStatement CreateSqlStatement(SqlStatement current, string filterColumn, string[] parms, string operand, Type operandType)
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type operandType)
         {
-            var match = new Regex(@"^([<>]?=?)(.*?)$").Match(operand);
+            var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
+            if (String.IsNullOrEmpty(op))
+            {
+                op = "=";
+            }
 
             if (TimeSpan.TryParse(value, out TimeSpan timespan))
             {
                 if (parms.Length == 1)
+                {
                     return current.Append($"GREATEST({filterColumn}::TIMESTAMP - ?::TIMESTAMP, ?::TIMESTAMP - {filterColumn}::TIMESTAMP) {op} '{timespan.TotalSeconds} secs'::INTERVAL", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(parms[0], operandType));
+                }
                 else
+                {
                     return current.Append($"GREATEST({filterColumn}::TIMESTAMP - CURRENT_TIMESTAMP, CURRENT_TIMESTAMP - {filterColumn}::TIMESTAMP) {op} '{timespan.TotalSeconds} secs'::INTERVAL");
+                }
             }
             else
             {
@@ -206,9 +223,13 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     timespan = XmlConvert.ToTimeSpan(value);
 
                     if (parms.Length == 1)
+                    {
                         return current.Append($"GREATEST({filterColumn}::TIMESTAMP - ?::TIMESTAMP, ?::TIMESTAMP - {filterColumn}::TIMESTAMP) {op} '{timespan.TotalSeconds} secs'::INTERVAL", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(parms[0], operandType));
+                    }
                     else
+                    {
                         return current.Append($"GREATEST({filterColumn}::TIMESTAMP - CURRENT_TIMESTAMP, CURRENT_TIMESTAMP - {filterColumn}::TIMESTAMP) {op} '{timespan.TotalSeconds} secs'::INTERVAL");
+                    }
                 }
                 catch
                 {

@@ -16,21 +16,22 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 
 namespace SanteDB.OrmLite
 {
-
     /// <summary>
     /// String etensions
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public static class StringExtensions
     {
         /// <summary>
@@ -40,30 +41,33 @@ namespace SanteDB.OrmLite
         {
             return me;
         }
-
     }
+
     /// <summary>
     /// Postgresql query expression builder
     /// </summary>
     public class SqlQueryExpressionBuilder : ExpressionVisitor
     {
         private string m_tableAlias = null;
-        private SqlStatement m_sqlStatement = null;
-        private IDbProvider m_provider;
+        private SqlStatementBuilder m_sqlStatement = null;
+        private IDbStatementFactory m_provider;
+        private readonly bool m_prefixColumns;
+        private bool m_isFilterExpression = true;
 
         /// <summary>
         /// Gets the constructed SQL statement
         /// </summary>
-        public SqlStatement SqlStatement { get { return this.m_sqlStatement.Build(); } }
+        public SqlStatementBuilder StatementBuilder => this.m_sqlStatement;
 
         /// <summary>
         /// Creates a new postgresql query expression builder
         /// </summary>
-        public SqlQueryExpressionBuilder(String alias, IDbProvider provider)
+        public SqlQueryExpressionBuilder(String alias, IDbStatementFactory provider, bool prefixColumnsWithTableName = true)
         {
             this.m_tableAlias = alias;
-            this.m_sqlStatement = new SqlStatement(this.m_provider);
+            this.m_sqlStatement = new SqlStatementBuilder(this.m_provider);
             this.m_provider = provider;
+            this.m_prefixColumns = prefixColumnsWithTableName;
         }
 
         /// <summary>
@@ -75,9 +79,13 @@ namespace SanteDB.OrmLite
         public override Expression Visit(Expression node)
         {
             if (node == null)
+            {
                 return node;
+            }
             else if (node.CanReduce)
+            {
                 node = node.Reduce();
+            }
 
             // Convert node type
             switch (node.NodeType)
@@ -94,19 +102,28 @@ namespace SanteDB.OrmLite
                 case ExpressionType.OrElse:
                 case ExpressionType.Coalesce:
                     return this.VisitBinary((BinaryExpression)node);
+
                 case ExpressionType.MemberAccess:
                     return this.VisitMemberAccess((MemberExpression)node);
+
                 case ExpressionType.Parameter:
                     return this.VisitParameter((ParameterExpression)node);
+
                 case ExpressionType.Call:
                     return this.VisitMethodCall((MethodCallExpression)node);
+
                 case ExpressionType.Constant:
                     return this.VisitConstant((ConstantExpression)node);
+
                 case ExpressionType.Convert:
                 case ExpressionType.Not:
                 case ExpressionType.Negate:
                 case ExpressionType.TypeAs:
                     return this.VisitUnary((UnaryExpression)node);
+
+                case ExpressionType.Lambda:
+                    this.m_isFilterExpression = node.Type == typeof(bool);
+                    return this.Visit(((LambdaExpression)node).Body);
 
                 default:
                     return base.Visit(node);
@@ -132,15 +149,19 @@ namespace SanteDB.OrmLite
                 case ExpressionType.Negate:
                     this.m_sqlStatement.Append(" -");
                     break;
+
                 case ExpressionType.Not:
                     this.m_sqlStatement.Append(" NOT (");
                     this.Visit(node.Operand);
                     this.m_sqlStatement.Append(")");
                     return node;
+
                 case ExpressionType.Convert:
                     break;
+
                 case ExpressionType.TypeAs:
                     break;
+
                 default:
                     return null;
             }
@@ -155,9 +176,15 @@ namespace SanteDB.OrmLite
         protected override Expression VisitBinary(BinaryExpression node)
         {
             if (node.NodeType == ExpressionType.Coalesce)
+            {
                 this.m_sqlStatement.Append(" COALESCE");
+            }
 
-            this.m_sqlStatement.Append("(");
+            if (this.m_isFilterExpression)
+            {
+                this.m_sqlStatement.Append("(");
+            }
+
             this.Visit(node.Left);
 
             bool skipRight = false;
@@ -173,7 +200,10 @@ namespace SanteDB.OrmLite
                             this.m_sqlStatement.Append(" IS NULL ");
                         }
                         else
+                        {
                             this.m_sqlStatement.Append(" = ");
+                        }
+
                         break;
                     }
                 case ExpressionType.NotEqual:
@@ -185,41 +215,55 @@ namespace SanteDB.OrmLite
                             this.m_sqlStatement.Append(" IS NOT NULL ");
                         }
                         else
+                        {
                             this.m_sqlStatement.Append(" <> ");
+                        }
+
                         break;
                     }
                 case ExpressionType.GreaterThan:
                     this.m_sqlStatement.Append(" > ");
                     break;
+
                 case ExpressionType.GreaterThanOrEqual:
                     this.m_sqlStatement.Append(" >= ");
                     break;
+
                 case ExpressionType.LessThan:
                     this.m_sqlStatement.Append(" < ");
                     break;
+
                 case ExpressionType.LessThanOrEqual:
                     this.m_sqlStatement.Append(" <= ");
                     break;
+
                 case ExpressionType.And:
                 case ExpressionType.AndAlso:
                     this.m_sqlStatement.Append(" AND ");
                     break;
+
                 case ExpressionType.Or:
                 case ExpressionType.OrElse:
                     this.m_sqlStatement.Append(" OR ");
                     break;
+
                 case ExpressionType.Coalesce:
                     this.m_sqlStatement.Append(",");
                     break;
             }
 
             if (!skipRight)
+            {
                 this.Visit(node.Right);
+            }
 
-            this.m_sqlStatement.Append(")");
+            if (this.m_isFilterExpression)
+            {
+                this.m_sqlStatement.Append(")");
+            }
+
             return node;
         }
-
 
         /// <summary>
         /// Visit a parameter reference
@@ -238,7 +282,6 @@ namespace SanteDB.OrmLite
         /// <returns></returns>
         protected override Expression VisitMethodCall(MethodCallExpression node)
         {
-
             // Method names
             switch (node.Method.Name)
             {
@@ -248,31 +291,52 @@ namespace SanteDB.OrmLite
                     this.Visit(node.Arguments[0]);
                     this.m_sqlStatement.Append(" || '%' ");
                     break;
+
                 case "EndsWith":
                     this.Visit(node.Object);
                     this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.ILike));
                     this.m_sqlStatement.Append(" '%' || ");
                     this.Visit(node.Arguments[0]);
                     break;
+
                 case "Contains":
 
                     // Determine the defining type
-                    if (node.Method.DeclaringType == typeof(Enumerable)) // is a LINQ CONTAINS() 
+                    if (node.Method.DeclaringType == typeof(Enumerable)) // is a LINQ CONTAINS()
                     {
                         Expression enumerable = node.Arguments[0],
                             contained = node.Arguments[1];
 
-                        var value = this.GetConstantValue(enumerable) as IEnumerable;
-                        if (value.OfType<Object>().Count() == 0)
-                            this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.False));
-                        else
+                        // Is the Enumerable a IOrmResultSet? if so we can just include the SQL!!! :)
+                        var value = this.GetConstantValue(enumerable);
+                        if (value is IOrmResultSet orm)
                         {
+                            // Append the SQL statement with an IN
+                            if (orm.ElementType != typeof(Guid))
+                            {
+                                orm = orm.Keys<Guid>();
+                            }
+
                             this.Visit(contained);
                             this.m_sqlStatement.Append(" IN (");
-
-                            this.m_sqlStatement.Append(String.Join(",", value.OfType<Object>().Select(o => "?")), value.OfType<Object>().ToArray());
-
+                            this.m_sqlStatement.Append(orm.Statement);
                             this.m_sqlStatement.Append(")");
+                        }
+                        else if (value is IEnumerable enumerableValue)
+                        {
+                            if (enumerableValue.OfType<Object>().Count() == 0)
+                            {
+                                this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.False));
+                            }
+                            else
+                            {
+                                this.Visit(contained);
+                                this.m_sqlStatement.Append(" IN (");
+
+                                this.m_sqlStatement.Append(String.Join(",", enumerableValue.OfType<Object>().Select(o => "?")), enumerableValue.OfType<Object>().ToArray());
+
+                                this.m_sqlStatement.Append(")");
+                            }
                         }
                     }
                     else if (node.Method.DeclaringType == typeof(String)) // is a STRING contains()
@@ -290,11 +354,14 @@ namespace SanteDB.OrmLite
                             this.m_sqlStatement.Append(")");
                         }
                         else
+                        {
                             this.Visit(node.Arguments[0]);
+                        }
 
                         this.m_sqlStatement.Append(" || '%' ");
                     }
                     break;
+
                 case "ToLower":
                 case "ToLowerInvariant":
                     this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.Lower));
@@ -302,6 +369,7 @@ namespace SanteDB.OrmLite
                     this.Visit(node.Object);
                     this.m_sqlStatement.Append(") ");
                     break;
+
                 case "ToUpper":
                 case "ToUpperInvariant":
                     this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.Upper));
@@ -309,17 +377,21 @@ namespace SanteDB.OrmLite
                     this.Visit(node.Object);
                     this.m_sqlStatement.Append(") ");
                     break;
+
                 case "NewGuid":
                     this.m_sqlStatement.Append("uuid_generate_v4() ");
                     break;
+
                 case "IgnoreCase":
                     this.Visit(node.Arguments[0]);
                     this.m_sqlStatement.Append("::citext ");
                     break;
+
                 case "HasValue":
                     this.Visit(node.Object);
                     this.m_sqlStatement.Append(" IS NOT NULL ");
                     break;
+
                 default:
                     throw new NotSupportedException(node.Method.Name);
             }
@@ -331,37 +403,42 @@ namespace SanteDB.OrmLite
         /// </summary>
         private Object GetConstantValue(Expression expression)
         {
-            if (expression == null)
-                return null;
-            else if (expression is ConstantExpression)
-                return (expression as ConstantExpression).Value;
-            else if (expression is UnaryExpression)
+            switch (expression)
             {
-                var un = expression as UnaryExpression;
-                switch (expression.NodeType)
-                {
-                    case ExpressionType.TypeAs:
-                        return this.GetConstantValue(un.Operand);
-                    case ExpressionType.Convert:
-                        return this.GetConstantValue(un.Operand);
-                    default:
-                        throw new InvalidOperationException($"Expression {expression} not supported for constant extraction");
-                }
-            }
-            else if (expression is MemberExpression)
-            {
-                var mem = expression as MemberExpression;
-                var obj = this.GetConstantValue(mem.Expression);
-                if (mem.Member is PropertyInfo)
-                    return (mem.Member as PropertyInfo).GetValue(obj);
-                else if (mem.Member is FieldInfo)
-                    return (mem.Member as FieldInfo).GetValue(obj);
-                else
-                    throw new NotSupportedException();
-            }
-            else
-                throw new InvalidOperationException($"Expression {expression} not supported for constant extraction");
+                case null:
+                    return null;
 
+                case ConstantExpression ce:
+                    return ce.Value;
+
+                case UnaryExpression ue:
+                    switch (expression.NodeType)
+                    {
+                        case ExpressionType.TypeAs:
+                            return this.GetConstantValue(ue.Operand);
+
+                        case ExpressionType.Convert:
+                            return this.GetConstantValue(ue.Operand);
+
+                        default:
+                            throw new InvalidOperationException($"Expression {expression} not supported for constant extraction");
+                    }
+                case MemberExpression mem:
+                    var obj = this.GetConstantValue(mem.Expression);
+                    switch (mem.Member)
+                    {
+                        case PropertyInfo pi:
+                            return pi.GetValue(obj);
+
+                        case FieldInfo fi:
+                            return fi.GetValue(obj);
+
+                        default:
+                            throw new NotSupportedException();
+                    }
+                default:
+                    throw new InvalidOperationException($"Expression {expression} not supported for constant extraction");
+            }
         }
 
         /// <summary>
@@ -372,24 +449,48 @@ namespace SanteDB.OrmLite
         public ConstantExpression ExtractConstantExpression(Expression e)
         {
             if (e.NodeType == ExpressionType.TypeAs || e.NodeType == ExpressionType.Convert)
+            {
                 return this.ExtractConstantExpression((e as UnaryExpression).Operand);
+            }
             else if (e.NodeType == ExpressionType.MemberAccess && e is MemberExpression memExpr)
             {
                 if (memExpr.Expression == null) // Constant
                 {
                     if (memExpr.Member is FieldInfo fi)
+                    {
                         return Expression.Constant(fi.GetValue(null));
+                    }
                     else if (memExpr.Member is PropertyInfo pi)
+                    {
                         return Expression.Constant(pi.GetValue(null));
+                    }
                     else if (memExpr.Member is MethodInfo mi)
+                    {
                         return Expression.Constant(mi.Invoke(null, new object[0]));
+                    }
                 }
                 var baseExpr = this.ExtractConstantExpression(memExpr.Expression);
                 if (memExpr.Member is PropertyInfo propInfo)
+                {
                     return Expression.Constant(propInfo.GetValue(baseExpr.Value));
+                }
                 else if (memExpr.Member is FieldInfo fieldInfo)
+                {
                     return Expression.Constant(fieldInfo.GetValue(baseExpr.Value));
-
+                }
+            }
+            else if (e.NodeType == ExpressionType.Coalesce && e is BinaryExpression be) // a ?? b
+            {
+                var constantA = this.ExtractConstantExpression(be.Left);
+                var constantB = this.ExtractConstantExpression(be.Right);
+                if (constantA.Value != null)
+                {
+                    return constantA;
+                }
+                else
+                {
+                    return constantB;
+                }
             }
             return e as ConstantExpression;
         }
@@ -404,9 +505,11 @@ namespace SanteDB.OrmLite
                 case "Now":
                     this.m_sqlStatement.Append(" CURRENT_TIMESTAMP ");
                     break;
+
                 case "NewGuid":
                     this.m_sqlStatement.Append(" ? ", Guid.NewGuid());
                     break;
+
                 case "HasValue":
                     this.Visit(node.Expression);
                     this.m_sqlStatement.Append(" IS NOT NULL ");
@@ -418,12 +521,16 @@ namespace SanteDB.OrmLite
                     {
                         if (node.Expression.Type.IsGenericType &&
                        node.Expression.Type.GetGenericTypeDefinition() == typeof(Nullable<>))
+                        {
                             this.Visit(node.Expression);
+                        }
                         else
                         {
                             var expr = node.Expression;
                             while (expr.NodeType == ExpressionType.Convert)
+                            {
                                 expr = (expr as UnaryExpression)?.Operand;
+                            }
                             // Ignore typeas
                             switch (expr.NodeType)
                             {
@@ -431,9 +538,17 @@ namespace SanteDB.OrmLite
                                     // Translate
                                     var tableMap = TableMapping.Get(expr.Type);
                                     var columnMap = tableMap.GetColumn(node.Member);
-                                    this.Visit(expr);
-                                    this.m_sqlStatement.Append($".{columnMap.Name}");
+                                    if (this.m_prefixColumns)
+                                    {
+                                        this.Visit(expr);
+                                        this.m_sqlStatement.Append($".{columnMap.Name}");
+                                    }
+                                    else
+                                    {
+                                        this.m_sqlStatement.Append(columnMap.Name);
+                                    }
                                     break;
+
                                 case ExpressionType.Constant:
                                 case ExpressionType.TypeAs:
                                 case ExpressionType.MemberAccess:
@@ -444,33 +559,66 @@ namespace SanteDB.OrmLite
                                         var value = (node.Member as PropertyInfo).GetValue(cons);
                                         if (value == null)
                                         {
-                                            var stmt = this.m_sqlStatement.RemoveLast().SQL.Trim();
-                                            if (stmt == "<>")
-                                                this.m_sqlStatement.Append(" IS NOT NULL ");
-                                            else if (stmt == "=")
-                                                this.m_sqlStatement.Append(" IS NULL ");
+                                            this.m_sqlStatement.RemoveLast(out var lastStmt);
+                                            if (!lastStmt.IsEmpty())
+                                            {
+                                                var stmt = lastStmt.Sql.Trim();
+                                                if (stmt == "<>")
+                                                {
+                                                    this.m_sqlStatement.Append(" IS NOT NULL ");
+                                                }
+                                                else if (stmt == "=")
+                                                {
+                                                    this.m_sqlStatement.Append(" IS NULL ");
+                                                }
+                                                else if (stmt == "(")
+                                                {
+                                                    this.m_sqlStatement.Append("(NULL");
+                                                }
+                                                else
+                                                {
+                                                    throw new InvalidOperationException($"Cannot determine how to convert {node} in SQL");
+                                                }
+                                            }
                                             else
+                                            {
                                                 throw new InvalidOperationException($"Cannot determine how to convert {node} in SQL");
+                                            }
                                         }
                                         else
+                                        {
                                             this.m_sqlStatement.Append(" ? ", value);
+                                        }
                                     }
                                     else if (node.Member is FieldInfo)
                                     {
                                         var value = (node.Member as FieldInfo).GetValue(cons);
                                         if (value == null)
                                         {
-                                            var stmt = this.m_sqlStatement.RemoveLast().SQL.Trim();
-                                            if (stmt == "<>")
-                                                this.m_sqlStatement.Append(" IS NOT NULL ");
-                                            else
-                                                this.m_sqlStatement.Append(" IS NULL ");
+                                            this.m_sqlStatement.RemoveLast(out var lastStmt);
+                                            if (!lastStmt.IsEmpty())
+                                            {
+                                                var stmt = lastStmt.Sql.Trim();
+                                                if (stmt == "<>")
+                                                {
+                                                    this.m_sqlStatement.Append(" IS NOT NULL ");
+                                                }
+                                                else
+                                                {
+                                                    this.m_sqlStatement.Append(" IS NULL ");
+                                                }
+                                            }
                                         }
                                         else
+                                        {
                                             this.m_sqlStatement.Append(" ? ", value);
+                                        }
                                     }
                                     else
+                                    {
                                         throw new NotSupportedException();
+                                    }
+
                                     break;
                             }
                         }
@@ -478,9 +626,13 @@ namespace SanteDB.OrmLite
                     else // constant expression
                     {
                         if (node.Member is PropertyInfo)
+                        {
                             this.m_sqlStatement.Append(" ? ", (node.Member as PropertyInfo).GetValue(null));
+                        }
                         else if (node.Member is FieldInfo)
+                        {
                             this.m_sqlStatement.Append(" ? ", (node.Member as FieldInfo).GetValue(null));
+                        }
                     }
                     break;
             }
@@ -490,5 +642,4 @@ namespace SanteDB.OrmLite
             return node;
         }
     }
-
 }

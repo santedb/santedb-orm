@@ -1,4 +1,24 @@
-﻿using SanteDB.OrmLite.Attributes;
+﻿/*
+ * Copyright (C) 2021 - 2022, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
+ * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you
+ * may not use this file except in compliance with the License. You may
+ * obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ *
+ * User: fyfej
+ * Date: 2022-5-30
+ */
+using SanteDB.OrmLite.Attributes;
 using SanteDB.Persistence.Data.ADO.Data.Model.Acts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Concepts;
 using SanteDB.Persistence.Data.ADO.Data.Model.Entities;
@@ -7,7 +27,6 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace SanteDB.Persistence.Data.ADO.Data.Model
 {
-
     /// <summary>
     /// Database association
     /// </summary>
@@ -22,20 +41,20 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// <summary>
     /// Versioned association
     /// </summary>
-    public interface IDbVersionedAssociation : IDbAssociation {
+    public interface IDbVersionedAssociation : IDbAssociation
+    {
         /// <summary>
         /// Gets or sets the version when the relationship is effective
         /// </summary>
         [Column("efft_vrsn_seq_id")]
-        Int32 EffectiveVersionSequenceId { get; set; }
+        Int64 EffectiveVersionSequenceId { get; set; }
 
         /// <summary>
         /// Gets or sets the verson when the relationship is not effecitve
         /// </summary>
         [Column("obslt_vrsn_seq_id")]
-        Int32? ObsoleteVersionSequenceId { get; set; }
+        Int64? ObsoleteVersionSequenceId { get; set; }
     }
-
 
     /// <summary>
     /// Represents the databased associated entity
@@ -47,7 +66,6 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
         /// Gets or sets the key of the item associated with this object
         /// </summary>
         public abstract Guid SourceKey { get; set; }
-
     }
 
     /// <summary>
@@ -55,19 +73,18 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     /// </summary>
     [ExcludeFromCodeCoverage]
     public abstract class DbVersionedAssociation : DbAssociation, IDbVersionedAssociation
-    { 
+    {
         /// <summary>
         /// Gets or sets the version when the relationship is effective
         /// </summary>
         [Column("efft_vrsn_seq_id")]
-        public Int32 EffectiveVersionSequenceId { get; set; }
-        
+        public Int64 EffectiveVersionSequenceId { get; set; }
+
         /// <summary>
         /// Gets or sets the verson when the relationship is not effecitve
         /// </summary>
         [Column("obslt_vrsn_seq_id")]
-        public Int32? ObsoleteVersionSequenceId { get; set; }
-
+        public Int64? ObsoleteVersionSequenceId { get; set; }
     }
 
     /// <summary>
@@ -76,7 +93,6 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     [ExcludeFromCodeCoverage]
     public abstract class DbActAssociation : DbAssociation
     {
-
         /// <summary>
         /// Gets or sets the source entity id
         /// </summary>
@@ -90,7 +106,6 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     [ExcludeFromCodeCoverage]
     public abstract class DbActVersionedAssociation : DbVersionedAssociation
     {
-
         /// <summary>
         /// Gets or sets the source entity id
         /// </summary>
@@ -98,14 +113,12 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
         public override Guid SourceKey { get; set; }
     }
 
-
     /// <summary>
     /// Represents an act association
     /// </summary>
     [ExcludeFromCodeCoverage]
     public abstract class DbEntityAssociation : DbAssociation
     {
-
         /// <summary>
         /// Gets or sets the source entity id
         /// </summary>
@@ -119,13 +132,11 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     [ExcludeFromCodeCoverage]
     public abstract class DbEntityVersionedAssociation : DbVersionedAssociation
     {
-
         /// <summary>
         /// Gets or sets the source entity id
         /// </summary>
         [Column("ent_id"), ForeignKey(typeof(DbEntity), nameof(DbEntity.Key))]
         public override Guid SourceKey { get; set; }
-
     }
 
     /// <summary>
@@ -134,12 +145,10 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model
     [ExcludeFromCodeCoverage]
     public abstract class DbConceptVersionedAssociation : DbVersionedAssociation
     {
-
         /// <summary>
         /// Gets or sets the source entity id
         /// </summary>
         [Column("cd_id"), ForeignKey(typeof(DbConcept), nameof(DbConcept.Key))]
         public override Guid SourceKey { get; set; }
     }
-
 }

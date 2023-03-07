@@ -16,15 +16,19 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2021-8-27
+ * Date: 2022-5-30
  */
 using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Diagnostics;
+using SanteDB.Core.Exceptions;
+using SanteDB.Core.i18n;
+using SanteDB.Core.Services;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite.Migration
 {
@@ -33,9 +37,10 @@ namespace SanteDB.OrmLite.Migration
     /// </summary>
     public static class SqlFeatureUtil
     {
-
         // Features
         private static IEnumerable<IDataFeature> m_features = null;
+
+        private static readonly Regex sr_SqlLogInstruction = new Regex(@"^.*?--\s?INFO:(.*)$", RegexOptions.Multiline | RegexOptions.Compiled);
 
         private static Tracer m_traceSource = Tracer.GetTracer(typeof(SqlFeatureUtil));
 
@@ -49,41 +54,33 @@ namespace SanteDB.OrmLite.Migration
         /// </summary>
         private static IEnumerable<IDataConfigurationProvider> GetConfigurationProviders()
         {
-
             if (m_providers == null)
-                m_providers = AppDomain.CurrentDomain.GetAssemblies()
-                    .Where(a => !a.IsDynamic)
-                    .SelectMany(a =>
-                    {
-                        try
-                        {
-                            return a.ExportedTypes;
-                        }
-                        catch (Exception)
-                        {
-                            return new List<Type>();
-                        }
-                    })
+            {
+                m_providers = AppDomain.CurrentDomain.GetAllTypes()
                     .Where(t => typeof(IDataConfigurationProvider).IsAssignableFrom(t) && !t.IsAbstract && t.IsClass)
                     .Select(t => Activator.CreateInstance(t))
                     .OfType<IDataConfigurationProvider>()
                     .ToList();
+            }
+
             return m_providers;
         }
 
         /// <summary>
-        /// Upgrade the schema 
+        /// Upgrade schema
         /// </summary>
-        public static void UpgradeSchema(this IDbProvider provider, string scopeOfContext)
-        {
+        public static void UpgradeSchema(this IDbProvider provider, string scopeOfContext) => UpgradeSchema(provider, scopeOfContext, null);
 
+        /// <summary>
+        /// Upgrade the schema
+        /// </summary>
+        public static void UpgradeSchema(this IDbProvider provider, string scopeOfContext, Action<float, string> progressMonitor)
+        {
             // First, does the database exist?
             m_traceSource.TraceInfo("Ensure context {0} is updated...", scopeOfContext);
             var configProvider = GetConfigurationProviders().FirstOrDefault(o => o.DbProviderType == provider.GetType());
             var connectionString = new ConnectionString(provider.Invariant, provider.ConnectionString);
-            var dbNameSetting = configProvider.Options.First(o => o.Value == Core.Configuration.ConfigurationOptionType.DatabaseName).Key;
-            var dbUserSetting = configProvider.Options.First(o => o.Value == Core.Configuration.ConfigurationOptionType.User).Key;
-            var dbName = connectionString.GetComponent(dbNameSetting);
+            var dbName = connectionString.GetComponent(configProvider.Capabilities.NameSetting);
             // TODO: Move this to a common location
             if (AppDomain.CurrentDomain.GetData("DataDirectory") != null)
             {
@@ -93,8 +90,9 @@ namespace SanteDB.OrmLite.Migration
             {
                 try
                 {
+                    progressMonitor?.Invoke(0.0f, String.Format(UserMessages.INITIALIZE_DATABASE, scopeOfContext));
                     m_traceSource.TraceInfo("Will create database {0}...", dbName);
-                    configProvider.CreateDatabase(connectionString, dbName, connectionString.GetComponent(dbUserSetting));
+                    configProvider.CreateDatabase(connectionString, dbName, connectionString.GetComponent(configProvider.Capabilities.UserNameSetting));
                 }
                 catch (Exception e)
                 {
@@ -102,24 +100,36 @@ namespace SanteDB.OrmLite.Migration
                 }
             }
 
-            using (var conn = provider.GetWriteConnection())
-                foreach (var itm in GetFeatures(provider.Invariant).OfType<SqlFeature>().Where(o => o.Scope == scopeOfContext).OrderBy(o => o.Id))
+            var updates = GetFeatures(provider.Invariant).OfType<SqlFeature>().Where(o => o.Scope == scopeOfContext).OrderBy(o => o.Id).ToArray();
+
+            // Some of the updates from V2 to V3 can take hours to complete - this timer allows us to report progress on the log
+            int i = 0;
+            foreach (var itm in updates)
+            {
+                try
                 {
-                    try
+                    using (var conn = provider.GetWriteConnection())
                     {
+                        progressMonitor?.Invoke((((float)++i) / updates.Length), String.Format(UserMessages.UPDATE_DATABASE, itm.Description));
+
                         if (!conn.IsInstalled(itm))
                         {
                             m_traceSource.TraceInfo("Installing {0} ({1})...", itm.Id, itm.Description);
                             conn.Install(itm);
                         }
                         else
+                        {
                             m_traceSource.TraceInfo("Skipping {0}...", itm.Id);
-                    }
-                    catch (Exception e)
-                    {
-                        m_traceSource.TraceError("Could not install {0} - {1}", itm.Id, e);
+                        }
                     }
                 }
+                catch (Exception e)
+                {
+                    m_traceSource.TraceError("Could not install {0} - {1}", itm.Id, e);
+                    throw new DataException($"Could not install {itm.Id}", e);
+                }
+
+            }
         }
 
         /// <summary>
@@ -127,20 +137,30 @@ namespace SanteDB.OrmLite.Migration
         /// </summary>
         public static bool Install(this DataContext conn, SqlFeature migration)
         {
-
             conn.Open();
 
             var stmts = migration.GetDeploySql().Split(new string[] { "--#!" }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var dsql in stmts)
+            {
                 using (var cmd = conn.Connection.CreateCommand())
                 {
                     try
                     {
+
                         if (String.IsNullOrEmpty(dsql.Trim()))
+                        {
                             continue;
+                        }
+
+                        var infoLog = sr_SqlLogInstruction.Match(dsql);
+                        if (infoLog.Success)
+                        {
+                            m_traceSource.TraceInfo(infoLog.Groups[1].Value);
+                        }
                         cmd.CommandTimeout = 36000;
                         cmd.CommandText = dsql;
                         cmd.CommandType = CommandType.Text;
+                        cmd.CommandTimeout = 7200; // Default is 2 hrs to upgrade since some schema updates may take several hours to apply
                         m_traceSource.TraceVerbose("EXEC: {0}", dsql);
 
                         cmd.ExecuteScalar();
@@ -152,15 +172,15 @@ namespace SanteDB.OrmLite.Migration
 #if DEBUG
                             m_traceSource.TraceError("SQL Statement Failed: {0} - {1}", cmd.CommandText, e.Message);
 #endif
-                            throw;
+                            throw new DataPersistenceException($"SQL statement failed {dsql}", e);
                         }
                         else
                         {
-                            m_traceSource.TraceWarning("Optional SQL Statement Failed: {0}", cmd.CommandText);
+                            m_traceSource.TraceWarning("Optional SQL Statement Failed due to {0}: {1}", e.Message, cmd.CommandText);
                         }
                     }
                 }
-
+            }
 
             return true;
         }
@@ -175,23 +195,28 @@ namespace SanteDB.OrmLite.Migration
             string checkSql = migration.GetCheckSql(),
                         preConditionSql = migration.GetPreCheckSql();
 
-
             if (!String.IsNullOrEmpty(preConditionSql))
+            {
                 using (var cmd = conn.Connection.CreateCommand())
                 {
                     cmd.CommandText = preConditionSql;
                     cmd.CommandType = System.Data.CommandType.Text;
                     if ((bool?)cmd.ExecuteScalar() != true) // can't install
+                    {
                         throw new ConstraintException($"Pre-check for {migration.Id} failed");
-
+                    }
                 }
+            }
+
             if (!String.IsNullOrEmpty(checkSql))
+            {
                 using (var cmd = conn.Connection.CreateCommand())
                 {
                     cmd.CommandText = checkSql;
                     cmd.CommandType = System.Data.CommandType.Text;
-                    return (bool?)cmd.ExecuteScalar() == true;
+                    return conn.Provider.ConvertValue<bool?>(cmd.ExecuteScalar()) == true;
                 }
+            }
 
             return true;
         }
@@ -202,6 +227,7 @@ namespace SanteDB.OrmLite.Migration
         public static IEnumerable<IDataFeature> GetFeatures(String invariantName)
         {
             if (m_features == null)
+            {
                 m_features = AppDomain.CurrentDomain.GetAssemblies()
                     .Where(a => !a.IsDynamic)
                     .SelectMany(a => a.GetManifestResourceNames().Where(n => n.ToLower().EndsWith(".sql")).Select(n =>
@@ -218,9 +244,9 @@ namespace SanteDB.OrmLite.Migration
                             return (SqlFeature)null;
                         }
                     })).OfType<IDataFeature>().ToList();
+            }
+
             return m_features.Where(o => o.InvariantName == invariantName);
         }
-
-
     }
 }
