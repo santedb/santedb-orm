@@ -58,7 +58,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                             current.Append($"SELECT ent_id FROM ft_ent_systbl WHERE term LIKE ?", QueryBuilder.CreateParameterValue($"%{terms[0]}%", typeof(String)));
                             break;
                         default:
-                            throw new InvalidOperationException("PostgreSQL does not understand freetext search on this type of data");
+                            throw new InvalidOperationException("FirebirdSQL does not understand freetext search on this type of data");
                     }
                     current.Append(")");
                     return current;
