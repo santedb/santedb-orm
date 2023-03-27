@@ -225,6 +225,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement Append(SqlStatement other)
         {
+            if (other == null) return this;
+
             var retVal = new SqlStatement(this);
             var focus = retVal;
             retVal.Last().m_next = new SqlStatement(other);

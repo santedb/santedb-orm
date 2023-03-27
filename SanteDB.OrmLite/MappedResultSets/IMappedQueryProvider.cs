@@ -71,5 +71,6 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <param name="tableAlias">The table alias to use</param>
         /// <returns>The updated statement with versioning filters</returns>
         SqlStatement GetCurrentVersionFilter(String tableAlias);
+
     }
 }

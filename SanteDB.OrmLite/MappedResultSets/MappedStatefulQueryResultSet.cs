@@ -18,6 +18,7 @@
  * User: fyfej
  * Date: 2023-3-10
  */
+using SanteDB.BI.Rendering;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model;
@@ -116,8 +117,15 @@ namespace SanteDB.OrmLite.MappedResultSets
             var guids = this.Provider.QueryPersistence.GetQueryResults(this.m_queryId, offset, limit);
 
             retVal = retVal.HavingKeys(guids, this.StateKeyName);
-            SqlStatementBuilder st;
-            return retVal.Clone(retVal.Statement.Append( " WHERE " ).Append(this.Provider.GetCurrentVersionFilter(retVal.Statement.Alias)));
+            var currentVersionFilter = this.Provider.GetCurrentVersionFilter(retVal.Statement.Alias); // Multiple rows may have the same id
+            if (currentVersionFilter != null)
+            {
+                return retVal.Clone(retVal.Statement.Append(" WHERE ").Append(currentVersionFilter));
+            }
+            else
+            {
+                return retVal;
+            }
         }
 
 
