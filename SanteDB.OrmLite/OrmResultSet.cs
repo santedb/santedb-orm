@@ -500,12 +500,33 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Except the data
+        /// </summary>
+        public OrmResultSet<TData> Except(OrmResultSet<TData> other)
+        {
+            var sql = this.Statement + " EXCEPT " + other.Statement;
+            return new OrmResultSet<TData>(this.Context, sql);
+        }
+
+        /// <summary>
         /// Intersect the data
         /// </summary>
         public OrmResultSet<TData> Intersect(OrmResultSet<TData> other)
         {
-            var sql = this.Statement + " INTERSECT " + other.Statement;
-            return new OrmResultSet<TData>(this.Context, sql);
+            var sqlStatement = this.Statement;
+            if (this.Statement.Contains("EXCEPT")) // we need to wrap
+            {
+                sqlStatement = this.Context.CreateSqlStatementBuilder(this.Statement)
+                        .WrapAsSubQuery()
+                        .Append(" INTERSECT ")
+                        .Append(other.Statement)
+                        .Statement;
+            }
+            else
+            {
+                sqlStatement = this.Statement + " INTERSECT " + other.Statement;
+            }
+            return new OrmResultSet<TData>(this.Context, sqlStatement);
         }
 
         /// <summary>
@@ -514,6 +535,14 @@ namespace SanteDB.OrmLite
         public IOrmResultSet Union(IOrmResultSet other)
         {
             return this.Union((OrmResultSet<TData>)other);
+        }
+
+        /// <summary>
+        /// Except of other result set with this
+        /// </summary>
+        public IOrmResultSet Except(IOrmResultSet other)
+        {
+            return this.Except((OrmResultSet<TData>)other);
         }
 
         /// <summary>

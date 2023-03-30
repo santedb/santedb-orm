@@ -24,6 +24,7 @@ using SanteDB.Core.Model;
 using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Model.Query;
 using System;
+using System.CodeDom;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -220,6 +221,21 @@ namespace SanteDB.OrmLite.MappedResultSets
             else
             {
                 return this.CloneWith(this.m_resultSet.Union(this.m_provider.ExecuteQueryOrm(this.m_context, query)));
+            }
+        }
+
+        /// <summary>
+        /// Except the results in this query set with those in another
+        /// </summary>
+        public virtual IQueryResultSet<TElement> Except(Expression<Func<TElement, bool>> query)
+        {
+            if (this.m_resultSet == null) // this is the first
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Except)));
+            }
+            else
+            {
+                return this.CloneWith(this.m_resultSet.Except(this.m_provider.ExecuteQueryOrm(this.m_context, query)));
             }
         }
 

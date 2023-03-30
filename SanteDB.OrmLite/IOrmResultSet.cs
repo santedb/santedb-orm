@@ -101,6 +101,12 @@ namespace SanteDB.OrmLite
         /// </summary>
         IOrmResultSet Where(Expression whereExpression);
 
+
+        /// <summary>
+        /// Except keys
+        /// </summary>
+        IOrmResultSet Except(IOrmResultSet other);
+
         /// <summary>
         /// Union keys
         /// </summary>
