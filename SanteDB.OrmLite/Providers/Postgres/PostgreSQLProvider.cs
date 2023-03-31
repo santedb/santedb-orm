@@ -45,9 +45,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
         // Last rr host used
         private int m_lastRrHost = 0;
 
-        // Readonly IP Addresses
-        private IPAddress[] m_readonlyIpAddresses;
-
         // Trace source
         private readonly Tracer m_tracer = new Tracer(Constants.TracerName + ".PostgreSQL");
 

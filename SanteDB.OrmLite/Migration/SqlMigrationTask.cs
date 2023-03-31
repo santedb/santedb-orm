@@ -68,11 +68,13 @@ namespace SanteDB.OrmLite.Migration
         /// Gets the feature which owns the task
         /// </summary>
         public IFeature Feature { get; }
+#pragma warning disable CS0067
 
         /// <summary>
         /// Progress has changed
         /// </summary>
         public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
+#pragma warning restore
 
         /// <summary>
         /// Execute the configuration

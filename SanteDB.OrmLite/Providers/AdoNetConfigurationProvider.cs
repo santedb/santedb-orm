@@ -94,10 +94,12 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         public abstract DataConfigurationCapabilities Capabilities { get; }
 
+#pragma warning disable CS0067
         /// <summary>
         /// Fired when progress is being made
         /// </summary>
         public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
+#pragma warning restore
 
         /// <summary>
         /// Configure the specified provider

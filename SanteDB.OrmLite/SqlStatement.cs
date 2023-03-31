@@ -415,7 +415,6 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Construct a SELECT FROM statement with the specified selectors
         /// </summary>
-        /// <param name="primaryTable">The primary table from which to select columns</param>
         /// <param name="scopedTables">The types from which to select columns</param>
         /// <returns>The constructed sql statement</returns>
         public SqlStatementBuilder SelectFrom(params Type[] scopedTables)

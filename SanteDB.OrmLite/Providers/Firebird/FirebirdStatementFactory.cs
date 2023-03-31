@@ -66,7 +66,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// <summary>
         /// Perform a returning command
         /// </summary>
-        /// <param name="sqlStatement">The SQL statement to "return"</param>
         /// <param name="returnColumns">The columns to return</param>
         /// <returns>The returned colums</returns>
         public SqlStatement Returning(params ColumnMapping[] returnColumns)
