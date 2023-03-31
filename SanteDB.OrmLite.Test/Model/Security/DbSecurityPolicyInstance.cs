@@ -50,6 +50,9 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Security
             set;
         }
 
+        /// <inheritdoc/>
+        public override int GetHashCode() => this.SourceKey.GetHashCode() * this.PolicyKey.GetHashCode();
+
         /// <summary>
         /// Determine if A equals B
         /// </summary>
