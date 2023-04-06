@@ -165,11 +165,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 dataSource = $" |DataDirectory|\\{connectionString.GetComponent("Data Source")}";
             }
-            dataSource = dataSource.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString());
-            if(Environment.OSVersion.Platform != PlatformID.Win32NT)
-            {
-                dataSource = dataSource.Replace("\\", "/");
-            }
+            dataSource = dataSource.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString()).Replace("\\", Path.PathSeparator.ToString());
             retVal.SetComponent("Data Source", dataSource);
 
             return retVal;

@@ -18,6 +18,7 @@
  * User: fyfej
  * Date: 2023-3-10
  */
+using DocumentFormat.OpenXml.Drawing;
 using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Exceptions;
@@ -27,6 +28,7 @@ using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -84,11 +86,7 @@ namespace SanteDB.OrmLite.Migration
             // TODO: Move this to a common location
             if (AppDomain.CurrentDomain.GetData("DataDirectory") != null)
             {
-                dbName = dbName.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString());
-                if(Environment.OSVersion.Platform != PlatformID.Win32NT)
-                {
-                    dbName = dbName.Replace("\\", "/");
-                }
+                dbName = dbName.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString()).Replace("\\", System.IO.Path.PathSeparator.ToString());
             }
             if (!configProvider.GetDatabases(connectionString).Any(d => d.Equals(System.IO.Path.GetFileName(dbName), StringComparison.OrdinalIgnoreCase)))
             {

@@ -107,7 +107,11 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 && !connectionString.GetComponent("initial catalog").StartsWith("|DataDirectory|")
                 && !Path.IsPathRooted(connectionString.GetComponent("initial catalog")))
             {
-                connectionString.SetComponent("initial catalog", $"|DataDirectory|\\{connectionString.GetComponent("initial catalog")}");
+                connectionString.SetComponent("initial catalog", $"|DataDirectory|{Path.PathSeparator}{connectionString.GetComponent("initial catalog")}");
+            }
+            else
+            {
+                connectionString.SetComponent("initial catalog", connectionString.GetComponent("initial catalog").Replace("\\", Path.PathSeparator.ToString()));
             }
 
             connectionString.SetComponent("Charset", "NONE");
