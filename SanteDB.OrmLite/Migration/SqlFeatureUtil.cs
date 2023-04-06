@@ -85,6 +85,10 @@ namespace SanteDB.OrmLite.Migration
             if (AppDomain.CurrentDomain.GetData("DataDirectory") != null)
             {
                 dbName = dbName.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString());
+                if(Environment.OSVersion.Platform != PlatformID.Win32NT)
+                {
+                    dbName = dbName.Replace("\\", "/");
+                }
             }
             if (!configProvider.GetDatabases(connectionString).Any(d => d.Equals(System.IO.Path.GetFileName(dbName), StringComparison.OrdinalIgnoreCase)))
             {
