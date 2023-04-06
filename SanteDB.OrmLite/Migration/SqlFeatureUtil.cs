@@ -86,7 +86,7 @@ namespace SanteDB.OrmLite.Migration
             // TODO: Move this to a common location
             if (AppDomain.CurrentDomain.GetData("DataDirectory") != null)
             {
-                dbName = dbName.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString()).Replace("\\", System.IO.Path.PathSeparator.ToString());
+                dbName = dbName.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString()).Replace("\\", System.IO.Path.DirectorySeparatorChar.ToString());
             }
             if (!configProvider.GetDatabases(connectionString).Any(d => d.Equals(System.IO.Path.GetFileName(dbName), StringComparison.OrdinalIgnoreCase)))
             {
