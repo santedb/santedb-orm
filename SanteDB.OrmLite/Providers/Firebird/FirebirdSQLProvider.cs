@@ -410,7 +410,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             var clientLibraryName = "fbclient.dll";
             if(Environment.OSVersion.Platform == PlatformID.Unix)
             {
-                clientLibraryName = "fbclient.so";
+                clientLibraryName = "libfbclient.so";
             }
 
             if (!cstring.ContainsKey("ClientLibrary"))
