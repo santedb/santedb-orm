@@ -20,6 +20,7 @@
  */
 using NUnit.Framework;
 using SanteDB.OrmLite.Providers.Firebird;
+using SanteDB.OrmLite.Providers.Sqlite;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 using System;
 using System.Configuration;
@@ -34,7 +35,7 @@ namespace SanteDB.OrmLite.Tests
     {
 
         // Provider for unit tests
-        private FirebirdSQLProvider m_provider = new FirebirdSQLProvider() { ConnectionString = ConfigurationManager.ConnectionStrings["TEST_CONNECTION"].ConnectionString };
+        private SqliteProvider m_provider = new SqliteProvider() { ConnectionString = ConfigurationManager.ConnectionStrings["TEST_CONNECTION"].ConnectionString };
 
         /// <summary>
         /// Setup test
