@@ -154,7 +154,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             }
 
             var dbPath = Path.ChangeExtension(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), databaseName), "fdb");
-            dbPath = dbPath.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString());
+            dbPath = dbPath.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString()).Replace("\\", Path.DirectorySeparatorChar.ToString());
             connectionString.SetComponent("initial catalog", dbPath);
             createDbMethod.Invoke(null, new object[] { connectionString.ToString(), 4096, true, false });
             connectionString.SetComponent("initial catalog", Path.GetFileName(dbPath));

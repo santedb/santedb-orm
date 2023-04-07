@@ -405,7 +405,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             var cstring = new DbConnectionStringBuilder();
             // HACK: FirebirdSQL doesn't understand || parameters
-            cstring.ConnectionString = this.ConnectionString.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString());
+            cstring.ConnectionString = this.ConnectionString.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString()).Replace("\\", Path.DirectorySeparatorChar.ToString());
 
             var clientLibraryName = "fbclient.dll";
             if(Environment.OSVersion.Platform == PlatformID.Unix)
