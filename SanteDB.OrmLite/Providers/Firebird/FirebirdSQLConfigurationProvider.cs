@@ -134,12 +134,12 @@ namespace SanteDB.OrmLite.Providers.Firebird
             connectionString = connectionString.Clone();
             connectionString.SetComponent("server type", "Embedded");
             
-            //var clientLibraryName = "fbclient.dll";
-            //if (Environment.OSVersion.Platform == PlatformID.Unix)
-            //{
-            //    clientLibraryName = "libfbclient.so";
-            //}
-            //connectionString.SetComponent("client library", clientLibraryName);
+            var clientLibraryName = "fbclient.dll";
+            if (Environment.OSVersion.Platform == PlatformID.Unix)
+            {
+                clientLibraryName = "libfbclient.so";
+            }
+            connectionString.SetComponent("client library", clientLibraryName);
 
             var fbConnectionType = Type.GetType("FirebirdSql.Data.FirebirdClient.FbConnection, FirebirdSql.Data.FirebirdClient");
             if (fbConnectionType == null)
