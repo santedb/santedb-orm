@@ -174,7 +174,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             }
             else
             {
-                dbPath = dbPath.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString());
+                dbPath = dbPath.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString()).Replace("\\", Path.DirectorySeparatorChar.ToString());
                 if (Path.IsPathRooted(dbPath))
                 {
                     return Directory.GetFiles(Path.GetDirectoryName(dbPath), "*.fdb").Select(o => Path.GetFileName(o));
