@@ -417,6 +417,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
             {
                 cstring.Add("ClientLibrary", Path.Combine(Path.GetDirectoryName(typeof(FirebirdSQLProvider).Assembly.Location), clientLibraryName));
             }
+            else
+            {
+                cstring["ClientLibrary"] = cstring["ClientLibrary"].ToString().Replace("fbcient.dll", clientLibraryName);
+            }
 
             if (!cstring.ContainsKey("Charset"))
             {
