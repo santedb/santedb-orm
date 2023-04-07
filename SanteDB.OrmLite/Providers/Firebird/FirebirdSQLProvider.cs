@@ -407,20 +407,20 @@ namespace SanteDB.OrmLite.Providers.Firebird
             // HACK: FirebirdSQL doesn't understand || parameters
             cstring.ConnectionString = this.ConnectionString.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString()).Replace("\\", Path.DirectorySeparatorChar.ToString());
 
-            var clientLibraryName = "fbclient.dll";
-            if(Environment.OSVersion.Platform == PlatformID.Unix)
-            {
-                clientLibraryName = "libfbclient.so";
-            }
+            //var clientLibraryName = "fbclient.dll";
+            //if(Environment.OSVersion.Platform == PlatformID.Unix)
+            //{
+            //    clientLibraryName = "libfbclient.so";
+            //}
 
-            if (!cstring.ContainsKey("ClientLibrary"))
-            {
-                cstring.Add("ClientLibrary", Path.Combine(Path.GetDirectoryName(typeof(FirebirdSQLProvider).Assembly.Location), clientLibraryName));
-            }
-            else
-            {
-                cstring["ClientLibrary"] = cstring["ClientLibrary"].ToString().Replace("fbcient.dll", clientLibraryName);
-            }
+            //if (!cstring.ContainsKey("ClientLibrary"))
+            //{
+            //    cstring.Add("ClientLibrary", Path.Combine(Path.GetDirectoryName(typeof(FirebirdSQLProvider).Assembly.Location), clientLibraryName));
+            //}
+            //else
+            //{
+            //    cstring["ClientLibrary"] = cstring["ClientLibrary"].ToString().Replace("fbcient.dll", clientLibraryName);
+            //}
 
             if (!cstring.ContainsKey("Charset"))
             {
