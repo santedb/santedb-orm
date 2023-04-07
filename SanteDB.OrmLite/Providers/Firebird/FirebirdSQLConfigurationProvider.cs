@@ -115,7 +115,13 @@ namespace SanteDB.OrmLite.Providers.Firebird
             }
 
             connectionString.SetComponent("Charset", "NONE");
-            connectionString.SetComponent("client library", "fbclient.dll");
+
+            var clientLibraryName = "fbclient.dll";
+            if (Environment.OSVersion.Platform == PlatformID.Unix)
+            {
+                clientLibraryName = "fbclient.so";
+            }
+            connectionString.SetComponent("client library", clientLibraryName);
             return connectionString;
         }
 
@@ -127,7 +133,14 @@ namespace SanteDB.OrmLite.Providers.Firebird
             // This is a little tricky as we have to get the FireBird ADO and call the function through reflection since ORM doesn't have it
             connectionString = connectionString.Clone();
             connectionString.SetComponent("server type", "Embedded");
-            connectionString.SetComponent("client library", "fbclient.dll");
+            
+            var clientLibraryName = "fbclient.dll";
+            if (Environment.OSVersion.Platform == PlatformID.Unix)
+            {
+                clientLibraryName = "fbclient.so";
+            }
+            connectionString.SetComponent("client library", clientLibraryName);
+
             var fbConnectionType = Type.GetType("FirebirdSql.Data.FirebirdClient.FbConnection, FirebirdSql.Data.FirebirdClient");
             if (fbConnectionType == null)
             {
