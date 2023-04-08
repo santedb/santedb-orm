@@ -179,23 +179,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
             return this.CreateCommandInternal(context, CommandType.Text, finStmt.Sql, finStmt.Arguments.ToArray());
         }
 
-        /// <summary>
-        /// Perform an explain query
-        /// </summary>
-        private void Explain(DataContext context, CommandType text, string sQL, object[] v)
-        {
-            using (var cmd = this.CreateCommandInternal(context, CommandType.Text, "EXPLAIN " + sQL, v))
-            using (var plan = cmd.ExecuteReader())
-            {
-                while (plan.Read())
-                {
-                    if (plan.GetValue(0).ToString().Contains("Seq"))
-                    {
-                        System.Diagnostics.Debugger.Break();
-                    }
-                }
-            }
-        }
 
         // Parameter regex
         private static readonly Regex m_parmRegex = new Regex(@"\?", RegexOptions.Compiled);
