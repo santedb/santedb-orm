@@ -176,6 +176,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     return " UNION ";
                 case SqlKeyword.UnionAll:
                     return " UNION ALL ";
+                case SqlKeyword.CurrentTimestamp:
+                    return " CURRENT_TIMESTAMP ";
+                case SqlKeyword.NewGuid:
+                    return " GEN_UUID() ";
                 default:
                     throw new ArgumentOutOfRangeException(nameof(keywordType));
             }

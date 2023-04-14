@@ -91,6 +91,49 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public override Type DbProviderType => typeof(SqliteProvider);
 
+        /// <inheritdoc/>
+        public override void DropDatabase(ConnectionString connectionString, string databaseName)
+        {
+
+            connectionString = connectionString.Clone();
+
+            if (String.IsNullOrEmpty(Path.GetExtension(databaseName)))
+            {
+                databaseName = Path.ChangeExtension(databaseName, "sqlite");
+            }
+            connectionString.SetComponent("Data Source", databaseName);
+            connectionString = SqliteProvider.CorrectConnectionString(connectionString);
+            databaseName = connectionString.GetComponent("Data Source");
+            
+            try
+            {
+                //HACK: Clear out the connection pool associated with the connection
+                var poolClear = Type.GetType("Microsoft.Data.Sqlite.SqliteConnection, Microsoft.Data.Sqlite");
+                if(poolClear != null)
+                {
+                    poolClear.GetMethod("ClearAllPools").Invoke(null, new object[0]);
+                }
+
+                if (File.Exists(databaseName))
+                {
+                    File.Delete(databaseName);
+                }
+                else if(!Path.IsPathRooted(databaseName))
+                {
+                    var newPath = Path.Combine(Path.GetDirectoryName(typeof(SqliteConfigurationProvider).Assembly.Location), databaseName);
+                    if(File.Exists(newPath))
+                    {
+                        File.Delete(newPath);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                throw new InvalidOperationException($"Could not drop database: {e.Message}", e);
+            }
+
+        }
+
         /// <summary>
         /// Create a new database 
         /// </summary>
@@ -98,7 +141,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
             connectionString = connectionString.Clone();
 
-            if(String.IsNullOrEmpty(Path.GetExtension(databaseName) ))
+            if (String.IsNullOrEmpty(Path.GetExtension(databaseName)))
             {
                 databaseName = Path.ChangeExtension(databaseName, "sqlite");
             }
@@ -111,7 +154,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 {
                     // Create the database
                     conn.Open();
-
+                    
                     var newConnectionString = SqliteProvider.CorrectConnectionString(connectionString);
                     var password = newConnectionString.GetComponent("Password");
                     if (!String.IsNullOrEmpty(password))
@@ -152,10 +195,15 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             }
             else
             {
-                dbPath = dbPath.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString());
+                var dataDirectory = AppDomain.CurrentDomain.GetData("DataDirectory")?.ToString();
+                dbPath = dbPath.Replace("|DataDirectory|", dataDirectory);
                 if (Path.IsPathRooted(dbPath))
                 {
                     return Directory.GetFiles(Path.GetDirectoryName(dbPath), "*.sqlite").Select(o => Path.GetFileName(o));
+                }
+                else if (!String.IsNullOrEmpty(dataDirectory))
+                { 
+                    return Directory.GetFiles(dataDirectory, "*.sqlite").Select(o => Path.GetFileName(o));
                 }
                 else
                 {
@@ -176,10 +224,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public override ConnectionString CreateConnectionString(IDictionary<string, object> options)
         {
-            if(options.TryGetValue("Data Source", out var dataSourceRaw) && Path.GetExtension(dataSourceRaw.ToString()) != "sqlite")
+            if (options.TryGetValue("Data Source", out var dataSourceRaw) && Path.GetExtension(dataSourceRaw.ToString()) != "sqlite")
             {
-                options["Data Source"] = Path.ChangeExtension(dataSourceRaw.ToString(), "sqlite");
+                dataSourceRaw = options["Data Source"] = Path.ChangeExtension(dataSourceRaw.ToString(), "sqlite");
             }
+           
             return base.CreateConnectionString(options);
         }
     }

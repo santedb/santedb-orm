@@ -35,7 +35,6 @@ namespace SanteDB.OrmLite.Providers
     /// </summary>
     public abstract class AdoNetConfigurationProvider : IDataConfigurationProvider
     {
-
         
         /// <summary>
         /// Gets the provider
@@ -184,6 +183,9 @@ namespace SanteDB.OrmLite.Providers
         /// Create the specified database
         /// </summary>
         public abstract ConnectionString CreateDatabase(ConnectionString connectionString, string databaseName, string databaseOwner);
+
+        /// <inheritdoc/>
+        public abstract void DropDatabase(ConnectionString connectionString, string databaseName);
 
         /// <summary>
         /// Test the connection string

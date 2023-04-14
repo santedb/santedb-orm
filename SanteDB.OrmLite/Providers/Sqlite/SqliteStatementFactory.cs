@@ -130,6 +130,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     return "REINDEX";
                 case SqlKeyword.Analyze:
                     return "ANALYZE";
+                case SqlKeyword.CurrentTimestamp:
+                    return " (unixepoch()) ";
+                case SqlKeyword.NewGuid:
+                    return " (randomblob(16)) ";
                 default:
                     throw new NotImplementedException();
             }

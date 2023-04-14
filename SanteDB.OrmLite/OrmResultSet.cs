@@ -19,11 +19,14 @@
  * Date: 2023-3-10
  */
 using SanteDB.Core.i18n;
+using SharpCompress;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite
@@ -567,10 +570,9 @@ namespace SanteDB.OrmLite
             {
                 return this.OrderBy(expr);
             }
-            else if (orderExpression is LambdaExpression le &&
-                (typeof(CompositeResult).IsAssignableFrom(typeof(TData)) &&
-                typeof(TData).GetGenericArguments().Contains(le.Parameters[0].Type) ||
-                typeof(TData) == le.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
+            else if ((typeof(CompositeResult).IsAssignableFrom(typeof(TData)) &&
+                typeof(TData).GetGenericArguments().Contains(orderExpression.Parameters[0].Type) ||
+                typeof(TData) == orderExpression.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
             {
                 var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
                 if (sqlParts.Success)
@@ -585,6 +587,25 @@ namespace SanteDB.OrmLite
                 {
                     throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderBy)));
                 }
+            }
+            else if(typeof(ExpandoObject).IsAssignableFrom(typeof(TData)) &&
+                orderExpression.Body is DynamicExpression me &&
+                me.Binder is System.Dynamic.GetMemberBinder dmob)
+            {
+                var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
+                if (sqlParts.Success)
+                {
+                    var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
+                        .WrapAsSubQuery(ColumnMapping.Star)
+                        .Append($" ORDER BY {dmob.Name}")
+                        .Statement;
+                    return new OrmResultSet<TData>(this.Context, stmt);
+                }
+                else
+                {
+                    throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderBy)));
+                }
+
             }
             else
             {
@@ -611,7 +632,7 @@ namespace SanteDB.OrmLite
                 if (sqlParts.Success)
                 {
                     var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
-                        .WrapAsSubQuery()
+                        .WrapAsSubQuery(ColumnMapping.Star)
                         .OrderBy(orderExpression, Core.Model.Map.SortOrderType.OrderByDescending)
                         .Statement;
                     return new OrmResultSet<TData>(this.Context, stmt);
@@ -620,6 +641,25 @@ namespace SanteDB.OrmLite
                 {
                     throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderByDescending)));
                 }
+            }
+            else if (typeof(ExpandoObject).IsAssignableFrom(typeof(TData)) &&
+                orderExpression.Body is DynamicExpression me &&
+                me.Binder is System.Dynamic.GetMemberBinder dmob)
+            {
+                var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
+                if (sqlParts.Success)
+                {
+                    var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
+                        .WrapAsSubQuery()
+                        .Append($" ORDER BY {dmob.Name} DESC")
+                        .Statement;
+                    return new OrmResultSet<TData>(this.Context, stmt);
+                }
+                else
+                {
+                    throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderByDescending)));
+                }
+
             }
             else
             {

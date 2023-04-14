@@ -130,10 +130,24 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// </summary>
         public override ConnectionString CreateDatabase(ConnectionString connectionString, string databaseName, string databaseOwner)
         {
+            return this.InvokeClientMethod("CreateDatabase", connectionString, databaseName);
+        }
+
+        /// <inheritdoc/>
+        public override void DropDatabase(ConnectionString connectionString, string databaseName)
+        {
+            this.InvokeClientMethod("DropDatabase", connectionString, databaseName);
+        }
+
+        /// <summary>
+        /// Invoke a client method
+        /// </summary>
+        private ConnectionString InvokeClientMethod(string methodName, ConnectionString connectionString, string databaseName)
+        {
             // This is a little tricky as we have to get the FireBird ADO and call the function through reflection since ORM doesn't have it
             connectionString = connectionString.Clone();
             connectionString.SetComponent("server type", "Embedded");
-            
+
             var clientLibraryName = "fbclient.dll";
             if (Environment.OSVersion.Platform == PlatformID.Unix)
             {
@@ -147,10 +161,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 throw new InvalidOperationException($"Cannot find FirebirdSQL provider library, ensure that: \r\n\t - fbclient.dll is present and is compiled for {(Environment.Is64BitProcess ? "x64" : "x86")}\r\n\t - The Firebird provider has been installed in this SanteDB Server");
             }
 
-            var createDbMethod = fbConnectionType.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).SingleOrDefault(o => o.Name == "CreateDatabase" && o.GetParameters().Length == 4);
+            var createDbMethod = fbConnectionType.GetMethods(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public).SingleOrDefault(o => o.Name == methodName && o.GetParameters().Length == 4);
             if (createDbMethod == null)
             {
-                throw new InvalidOperationException("Cannot find FirebirdSQL CreateDatabase method. Perhaps this is an invalid version of ADO.NET provider");
+                throw new InvalidOperationException($"Cannot find FirebirdSQL {methodName} method. Perhaps this is an invalid version of ADO.NET provider");
             }
 
             var dbPath = Path.ChangeExtension(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), databaseName), "fdb");
@@ -158,7 +172,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
             connectionString.SetComponent("initial catalog", dbPath);
             createDbMethod.Invoke(null, new object[] { connectionString.ToString(), 4096, true, false });
             connectionString.SetComponent("initial catalog", Path.GetFileName(dbPath));
-
             return connectionString;
         }
 

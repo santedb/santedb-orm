@@ -162,6 +162,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     return "ANALYZE";
                 case SqlKeyword.Reindex:
                     return "REINDEX SCHEMA public";
+                case SqlKeyword.CurrentTimestamp:
+                    return " CURRENT_TIMESTAMP ";
+                case SqlKeyword.NewGuid:
+                    return " UUID_GENERATE_V1() ";
                 default:
                     throw new NotImplementedException();
             }

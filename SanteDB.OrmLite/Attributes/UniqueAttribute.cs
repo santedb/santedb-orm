@@ -19,44 +19,20 @@
  * Date: 2023-3-10
  */
 using System;
-using System.Collections;
-using System.Collections.Generic;
 
-namespace SanteDB.OrmLite
+namespace SanteDB.OrmLite.Attributes
 {
     /// <summary>
-    /// ORM BI enumerator
+    /// Represents an attribute for marking columns as not null.
     /// </summary>
-    internal class OrmBiEnumerator : IEnumerable<object>
+    [AttributeUsage(AttributeTargets.Property, Inherited = true)]
+    public class UniqueAttribute : Attribute
     {
-        private readonly IOrmResultSet m_ormResultSet;
-
         /// <summary>
-        /// Result set of the ORM enumerator
+        /// Initializes a new instance of the <see cref="UniqueAttribute"/> class.
         /// </summary>
-        public OrmBiEnumerator(IOrmResultSet ormResultSet)
+        public UniqueAttribute()
         {
-            this.m_ormResultSet = ormResultSet;
         }
-
-        /// <summary>
-        /// Get the enumerator
-        /// </summary>
-        public IEnumerator<object> GetEnumerator()
-        {
-            using(var context = this.m_ormResultSet.Context.OpenClonedContext())
-            {
-                context.Open();
-                foreach(var itm in this.m_ormResultSet.CloneOnContext(context))
-                {
-                    yield return itm;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Get enumerator
-        /// </summary>
-        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
     }
 }

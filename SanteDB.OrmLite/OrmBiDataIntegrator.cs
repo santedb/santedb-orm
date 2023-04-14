@@ -1,0 +1,801 @@
+﻿using DocumentFormat.OpenXml.Vml.Spreadsheet;
+using DocumentFormat.OpenXml.Wordprocessing;
+using SanteDB.BI.Datamart;
+using SanteDB.BI.Datamart.DataFlow;
+using SanteDB.BI.Model;
+using SanteDB.Core;
+using SanteDB.Core.Configuration.Data;
+using SanteDB.Core.Data.Initialization;
+using SanteDB.Core.Diagnostics;
+using SanteDB.Core.i18n;
+using SanteDB.Core.Security;
+using SanteDB.Core.Security.Services;
+using SanteDB.Core.Services;
+using SanteDB.OrmLite.Attributes;
+using SanteDB.OrmLite.Configuration;
+using SanteDB.OrmLite.Migration;
+using SanteDB.OrmLite.Providers;
+using SharpCompress;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Data.Common;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
+
+namespace SanteDB.OrmLite
+{
+    /// <summary>
+    /// A data integrator which uses the ORM classes 
+    /// </summary>
+    public class OrmBiDataIntegrator : IBiDataIntegrator
+    {
+
+        private readonly Tracer m_tracer = Tracer.GetTracer(typeof(OrmBiDataIntegrator));
+        private readonly IBiDataFlowExecutionContext m_executionContext;
+        private readonly IDbProvider m_provider;
+        private readonly IDataConfigurationProvider m_configurationProvider;
+        private readonly ConnectionString m_connectionString;
+        private DataContext m_currentContext;
+        private bool m_disposed = false;
+        private readonly Regex m_sqlSafeName = new Regex(@"^[\w_][\w_0-9]+$", RegexOptions.Compiled);
+        private readonly IDbStatementFactory m_statementFactory;
+        private readonly IPolicyEnforcementService m_pepService;
+
+
+        /// <summary>
+        /// Metadata system table
+        /// </summary>
+        [Table("meta_systbl")]
+        private class OrmBiDatamartMetadata
+        {
+
+            /// <summary>
+            /// Gets or sets the schema object name
+            /// </summary>
+            [Column("obj_name"), PrimaryKey, NotNull]
+            public String SchemaObjectName { get; set; }
+
+            /// <summary>
+            /// Gets or sets the last migration date
+            /// </summary>
+            [Column("mig_utc"), NotNull]
+            public DateTimeOffset LastMigration { get; set; }
+
+            /// <summary>
+            /// Gets or sets the schema object hash
+            /// </summary>
+            [Column("hash"), NotNull]
+            public byte[] SchemaObjectHash { get; set; }
+
+        }
+
+        /// <summary>
+        /// Metadata system table
+        /// </summary>
+        [Table("meta_dep_systbl")]
+        private class OrmBiDatamartDependencyMetadata
+        {
+
+            /// <summary>
+            /// Gets or sets the schema object name
+            /// </summary>
+            [Column("obj_name"), PrimaryKey, NotNull, ForeignKey(typeof(OrmBiDatamartMetadata), nameof(OrmBiDatamartMetadata.SchemaObjectName))]
+            public String SchemaObjectName { get; set; }
+
+            /// <summary>
+            /// Gets or sets the last migration date
+            /// </summary>
+            [Column("dep_obj_name"), PrimaryKey, NotNull, ForeignKey(typeof(OrmBiDatamartMetadata), nameof(OrmBiDatamartMetadata.SchemaObjectName))]
+            public String DependsOnObjectName { get; set; }
+
+        }
+
+        /// <summary>
+        /// Creates a new data integrator
+        /// </summary>
+        public OrmBiDataIntegrator(IBiDataFlowExecutionContext executionContext, ConnectionString connectionString, BiDataSourceDefinition dataSourceDefinition)
+        {
+            
+            this.m_executionContext = executionContext;
+            var ormConfiguration = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>();
+            this.m_provider = ormConfiguration.GetProvider(connectionString.Provider);
+            if (this.m_provider == null)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.TYPE_NOT_FOUND, connectionString.Provider));
+            }
+            this.m_provider.ConnectionString = connectionString.Value;
+            this.m_configurationProvider = this.m_provider.GetDataConfigurationProvider();
+            this.m_connectionString = connectionString;
+            this.m_statementFactory = this.m_provider.StatementFactory;
+            this.m_pepService = ApplicationServiceContext.Current.GetService<IPolicyEnforcementService>();
+
+            this.DataSource = new BiDataSourceDefinition()
+            {
+                ConnectionString = dataSourceDefinition.ConnectionString,
+                Id = dataSourceDefinition.Id,
+                Label = dataSourceDefinition.Label,
+                Identifier = dataSourceDefinition.Identifier,
+                MetaData = new BiMetadata()
+                {
+                    Status = BiDefinitionStatus.Active,
+                    IsPublic = false,
+                    Demands = dataSourceDefinition.MetaData?.Demands
+                },
+                ProviderType = typeof(OrmBiDataProvider),
+                Name = dataSourceDefinition.Name
+            };
+        }
+
+
+        /// <summary>
+        /// Get the data source object represented by this object
+        /// </summary>
+        public BiDataSourceDefinition DataSource { get; }
+
+        /// <summary>
+        /// Create a migration registration record
+        /// </summary>
+        /// <returns></returns>
+        private OrmBiDatamartMetadata CreateMetadataRegistration(BiSchemaObjectDefinition schemaObjectDefinition)
+        {
+            this.ThrowIfInvalid(schemaObjectDefinition);
+            using (var ms = new MemoryStream())
+            {
+                schemaObjectDefinition.Save(ms);
+                return new OrmBiDatamartMetadata()
+                {
+                    LastMigration = DateTimeOffset.Now,
+                    SchemaObjectName = schemaObjectDefinition.Name,
+                    SchemaObjectHash = SHA256.Create().ComputeHash(ms.ToArray())
+                };
+            }
+        }
+
+        /// <summary>
+        /// Throw if the execution of this method is not allowed for this purpose
+        /// </summary>
+        private void ThrowIfDoesNotHavePurpose(BiExecutionPurposeType expectedPurpose)
+        {
+            if(!this.m_executionContext.Purpose.HasFlag(expectedPurpose))
+            {
+                throw new NotSupportedException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, expectedPurpose));
+            }
+        }
+
+        /// <summary>
+        /// Throw if the execution of this method is not allowed for this purpose
+        /// </summary>
+        private void ThrowIfHasPurpose(BiExecutionPurposeType expectedPurpose)
+        {
+            if (this.m_executionContext.Purpose.HasFlag(expectedPurpose))
+            {
+                throw new NotSupportedException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, expectedPurpose));
+            }
+        }
+
+        /// <summary>
+        /// Make an object name safe for SQL
+        /// </summary>
+        private void ThrowIfInvalid(BiSchemaObjectDefinition schemaObjectDefinition)
+        {
+            if(String.IsNullOrEmpty(schemaObjectDefinition.Name))
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.MISSING_VALUE, nameof(BiSchemaObjectDefinition.Name)));
+            }
+            else if(!this.m_sqlSafeName.IsMatch(schemaObjectDefinition.Name))
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_FORMAT, schemaObjectDefinition.Name, this.m_sqlSafeName));
+            }
+        }
+
+        /// <summary>
+        /// Throw an exception if this object is disposed
+        /// </summary>
+        private void ThrowIfDisposed()
+        {
+            if (this.m_disposed)
+            {
+                throw new ObjectDisposedException(nameof(OrmBiDataIntegrator));
+            }
+        }
+
+        /// <summary>
+        /// Throw if the connection is readonly
+        /// </summary>
+        private void ThrowIfReadonly()
+        {
+            if(this.m_currentContext?.IsReadonly == true)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.CANT_WRITE_READ_ONLY_STREAM));
+            }
+        }
+
+        /// <summary>
+        /// Throw if the connection is not open
+        /// </summary>
+        private void ThrowIfNotOpen()
+        {
+            if (this.m_currentContext?.Connection.State != System.Data.ConnectionState.Open)
+            {
+                throw new InvalidOperationException(ErrorMessages.NOT_INITIALIZED);
+            }
+        }
+
+        /// <summary>
+        /// Throw if the connection is open
+        /// </summary>
+        private void ThrowIfOpen(string methodName)
+        {
+            if (this.m_currentContext?.Connection.State == System.Data.ConnectionState.Open)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, methodName));
+            }
+        }
+
+        /// <inheritdoc/>
+        public IDisposable BeginTransaction()
+        {
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+            this.ThrowIfReadonly();
+            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+            if (this.m_currentContext.Transaction == null)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(BeginTransaction)));
+            }
+            return this.m_currentContext.BeginTransaction();
+        }
+
+        /// <inheritdoc/>
+        public void CommitTransaction()
+        {
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+
+            if (this.m_currentContext.Transaction == null)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(CommitTransaction)));
+            }
+            this.m_currentContext.Transaction.Commit();
+        }
+
+        /// <inheritdoc/>
+        public void RecreateObject(BiSchemaObjectDefinition objectToCreate)
+        {
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+            this.ThrowIfReadonly();
+            this.ThrowIfInvalid(objectToCreate);
+
+            if(!this.NeedsMigration(objectToCreate))
+            {
+                if(objectToCreate is BiSchemaViewDefinition vd && vd.IsMaterialized)
+                {
+                    this.m_tracer.TraceInfo("Refreshing {0}...", vd.Name);
+                    this.m_currentContext.ExecuteNonQuery($"{this.m_statementFactory.CreateSqlKeyword(SqlKeyword.RefreshMaterializedView)} {vd.Name}");
+                }
+                return;
+            }
+
+            // Demands?
+            objectToCreate.MetaData?.Demands?.ForEach(o => this.m_pepService.Demand(o));
+
+            var objectExists = this.Exists(objectToCreate);
+            var statementQueue = new ConcurrentQueue<SqlStatement>();
+            var dependencies = new List<OrmBiDatamartDependencyMetadata>();
+            string[] deletedObjects = null, createdSupportingObjects = null;
+            switch(objectToCreate)
+            {
+                case BiSchemaTableDefinition table:
+                    {
+                        if(!table.Temporary)
+                        {
+                            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.SchemaManagement);
+                        }
+                        else
+                        {
+                            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+                        }
+
+                        if (objectExists)
+                        {
+                            // Get all objects that depend on this
+                            var dropStack = new List<String>() { table.Name };
+                            dropStack.AddRange(this.m_currentContext.Query<OrmBiDatamartDependencyMetadata>(o => o.DependsOnObjectName == table.Name).Select(o => o.SchemaObjectName));
+                            for (var i = 0; i < dropStack.Count; i++)
+                            {
+                                var itm = dropStack[i];
+                                this.m_currentContext.Query<OrmBiDatamartDependencyMetadata>(o => o.DependsOnObjectName == itm)
+                                    .Select(o => o.SchemaObjectName)
+                                    .ForEach(o =>
+                                    {
+                                        if (!dropStack.Contains(o))
+                                        {
+                                            dropStack.Add(o);
+                                        }
+                                    });
+                            }
+                            dropStack.Reverse();
+                            dropStack.Distinct().ToList().ForEach(o => statementQueue.Enqueue(new SqlStatement($"DROP {(o.Contains("VW") ? "VIEW" : "TABLE")} {o}")));
+                            deletedObjects = dropStack.Distinct().ToArray();
+                        }
+
+                        // Create the table 
+                        var statementBuilder = this.m_currentContext.CreateSqlStatementBuilder();
+                        var constraintList = new LinkedList<SqlStatement>();
+
+                        statementBuilder.Append($"CREATE TABLE {table.Name} (");
+
+                        foreach(var col in table.Columns)
+                        {
+                            statementBuilder.Append($"{col.Name} {this.GetDataType(col)}");
+                            if(col.NotNull)
+                            {
+                                statementBuilder.Append(" NOT NULL ");
+                            }
+                            if(col.IsUnique)
+                            {
+                                statementBuilder.Append(" UNIQUE ");
+                            }
+                            statementBuilder.Append(",");
+
+                            if(col.References?.Resolved is BiSchemaTableDefinition otherTable)
+                            {
+                                var pkOther = this.GetPrimaryKey(otherTable);
+                                constraintList.AddLast(new SqlStatement($"CONSTRAINT FK_{table.Name}_{col.Name} FOREIGN KEY ({col.Name}) REFERENCES {otherTable.Name}({pkOther.Name})"));
+                                dependencies.Add(new OrmBiDatamartDependencyMetadata()
+                                {
+                                    SchemaObjectName = table.Name,
+                                    DependsOnObjectName = otherTable.Name
+                                });
+                            }
+
+                            if(col.IsKey)
+                            {
+                                constraintList.AddLast(new SqlStatement($"CONSTRAINT PK_{table.Name} PRIMARY KEY ({col.Name})"));
+                            }
+                        }
+
+                        if (table.Parent != null)
+                        {
+                            if (!(table.Parent.Resolved is BiSchemaTableDefinition parentTable))
+                            {
+                                this.m_tracer.TraceError("The reference to {0} has not been resolved - should call ResolveRefs() before this function", table.Parent.Ref);
+                                throw new InvalidOperationException(ErrorMessages.NOT_INITIALIZED);
+                            }
+                            var parentKey = this.GetPrimaryKey(parentTable);
+                            statementBuilder.Append($"{parentKey.Name} {this.GetDataType(parentKey)} NOT NULL").Append(",");
+                            constraintList.AddLast(new SqlStatement($"CONSTRAINT FK_{table.Name}_{parentTable.Name} FOREIGN KEY ({parentKey.Name}) REFERENCES {parentTable.Name}({parentKey.Name})"));
+                            if(!table.Columns.Any(o=>o.IsKey))
+                            {
+                                constraintList.AddLast(new SqlStatement($"CONSTRAINT PK_{table.Name} PRIMARY KEY ({parentKey.Name})"));
+                            }
+
+                            dependencies.Add(new OrmBiDatamartDependencyMetadata()
+                            {
+                                SchemaObjectName = table.Name,
+                                DependsOnObjectName = parentTable.Name
+                            });
+
+                        }
+
+                        foreach(var itm in constraintList)
+                        {
+                            statementBuilder.Append(itm).Append(",");
+                        }
+
+                        statementQueue.Enqueue(statementBuilder.RemoveLast(out _).Append(")").Statement.Prepare());
+
+                        // Indexes
+                        foreach(var col in table.Columns.Where(o=>o.IsIndex))
+                        {
+                            statementQueue.Enqueue(new SqlStatement($"CREATE INDEX {table.Name}_{col.Name}_IDX ON {table.Name}({col.Name})"));
+                        }
+
+                        // Create a parent view
+                        if(table.Parent?.Resolved is BiSchemaTableDefinition joinTable)
+                        {
+                            var joinKey = this.GetPrimaryKey(joinTable);
+                            statementBuilder = this.m_currentContext.CreateSqlStatementBuilder($"CREATE VIEW VW_{table.Name} AS ");
+                            statementBuilder.Append($"SELECT {String.Join(",", table.Columns.Select(o => $"{table.Name}.{o.Name}"))}").Append(",");
+                            var fromClause = this.m_currentContext.CreateSqlStatementBuilder($" FROM {table.Name} ");
+                            while(joinTable != null)
+                            {
+
+                                fromClause.Append($" INNER JOIN {joinTable.Name} USING ({joinKey.Name}) ");
+                                statementBuilder.Append(String.Join(",", joinTable.Columns.Select(o => $"{joinTable.Name}.{o.Name}"))).Append(",");
+                                joinTable = joinTable.Parent?.Resolved as BiSchemaTableDefinition;
+                            }
+
+                            statementQueue.Enqueue(statementBuilder.RemoveLast(out _).Append(fromClause).Statement.Prepare());
+                            createdSupportingObjects = new string[] { $"VW_{table.Name}" };
+                        }
+
+                        break;
+                    }
+                case BiSchemaViewDefinition view:
+                    {
+                        this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.SchemaManagement);
+
+                        // Do we have a definition
+                        var sqlDefinition = view.Query.FirstOrDefault(o => o.Invariants.Contains(this.m_provider.Invariant));
+                        if (sqlDefinition == null)
+                        {
+                            throw new InvalidOperationException(String.Format(ErrorMessages.DIALECT_NOT_FOUND, this.m_provider.Invariant));
+                        }
+
+                        if (objectExists)
+                        {
+                            statementQueue.Enqueue(new SqlStatement($"DROP VIEW {view.Name}"));
+                        }
+
+                        var statementBuilder = this.m_currentContext.CreateSqlStatementBuilder();
+
+                        if (view.IsMaterialized)
+                        {
+                            statementBuilder.Append(this.m_statementFactory.CreateSqlKeyword(SqlKeyword.CreateMaterializedView));
+                        }
+                        else
+                        {
+                            statementBuilder.Append(this.m_statementFactory.CreateSqlKeyword(SqlKeyword.CreateView));
+                        }
+
+                        statementBuilder.Append($" {view.Name} AS {sqlDefinition.Sql}");
+                        statementQueue.Enqueue(statementBuilder.Statement.Prepare());
+
+                        break;
+                    }
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(objectToCreate));
+            }
+
+            // Insert the SQL statements
+            while(statementQueue.TryDequeue(out var statement))
+            {
+                this.m_tracer.TraceVerbose("BI EXEC: {0}", statement.ToLiteral());
+                this.m_currentContext.ExecuteNonQuery(statement);
+            }
+
+            // Now record the migration
+            var migration = this.CreateMetadataRegistration(objectToCreate);
+
+            if(deletedObjects?.Any() == true)
+            {
+                this.m_currentContext.DeleteAll<OrmBiDatamartDependencyMetadata>(o => deletedObjects.Contains(o.SchemaObjectName) || deletedObjects.Contains(o.DependsOnObjectName));
+                this.m_currentContext.DeleteAll<OrmBiDatamartMetadata>(o => deletedObjects.Contains(o.SchemaObjectName));
+            }
+          
+            this.m_currentContext.DeleteAll<OrmBiDatamartDependencyMetadata>(o => o.SchemaObjectName == migration.SchemaObjectName || o.DependsOnObjectName == migration.SchemaObjectName);
+            this.m_currentContext.Delete(migration);
+            this.m_currentContext.Insert(migration);
+            this.m_currentContext.InsertOrUpdateAll(dependencies);
+            if (createdSupportingObjects?.Any() == true)
+            {
+                this.m_currentContext.InsertAll(createdSupportingObjects.Select(o => new OrmBiDatamartMetadata() { LastMigration = DateTimeOffset.Now, SchemaObjectName = o, SchemaObjectHash = new byte[0] }));
+                this.m_currentContext.InsertAll(createdSupportingObjects.Select(o => new OrmBiDatamartDependencyMetadata() { SchemaObjectName = o, DependsOnObjectName = migration.SchemaObjectName }));
+            }
+        }
+
+        /// <summary>
+        /// Map data type 
+        /// </summary>
+        private String GetDataType(BiSchemaColumnDefinition columnDefinition)
+        {
+            switch(columnDefinition.Type)
+            {
+                case BiDataType.Boolean:
+                    return this.m_provider.MapSchemaDataType(typeof(Boolean));
+                case BiDataType.Date:
+                    return this.m_provider.MapSchemaDataType(typeof(DateTime));
+                case BiDataType.DateTime:
+                    return this.m_provider.MapSchemaDataType(typeof(DateTimeOffset));
+                case BiDataType.Integer:
+                    return this.m_provider.MapSchemaDataType(typeof(Int64));
+                case BiDataType.String:
+                    return this.m_provider.MapSchemaDataType(typeof(String));
+                case BiDataType.Uuid:
+                    return this.m_provider.MapSchemaDataType(typeof(Guid));
+                case BiDataType.Decimal:
+                    return this.m_provider.MapSchemaDataType(typeof(Decimal));
+                case BiDataType.Ref:
+                    if(!(columnDefinition.References.Resolved is BiSchemaTableDefinition otherTable))
+                    {
+                        this.m_tracer.TraceError("The reference to {0} has not been resolved - should call ResolveRefs() before this function", columnDefinition.References.Ref);
+                        throw new InvalidOperationException(ErrorMessages.NOT_INITIALIZED);
+                    }
+                    var pkOther = this.GetPrimaryKey(otherTable);
+                    return this.GetDataType(pkOther);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(columnDefinition.Type));
+            }
+        }
+
+        /// <summary>
+        /// Get primary key
+        /// </summary>
+        private BiSchemaColumnDefinition GetPrimaryKey(BiSchemaTableDefinition table)
+        {
+            var retVal = table.Columns.FirstOrDefault(o => o.IsKey);
+            if(retVal != null)
+            {
+                return retVal;
+            }
+            else if(table.Parent != null && table.Parent.Resolved is BiSchemaTableDefinition parentTable)
+            {
+                return this.GetPrimaryKey(parentTable);
+            }
+            else
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.NO_DATA_KEY_DEFINED, table.Name));
+            }
+        }
+
+        /// <inheritdoc/>
+        public void CreateDatabase()
+        {
+            this.ThrowIfDisposed();
+            this.ThrowIfOpen(nameof(CreateDatabase));
+            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.DatabaseManagement);
+
+            var databaseName = this.m_connectionString.GetComponent(this.m_configurationProvider.Capabilities.NameSetting);
+            if (this.DatabaseExists())
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.DUPLICATE_OBJECT, databaseName));
+            }
+
+            // User must be able to administer warehouse
+            this.m_pepService.Demand(PermissionPolicyIdentifiers.AdministerWarehouse);
+
+            this.m_configurationProvider.CreateDatabase(this.m_connectionString, this.m_connectionString.GetComponent(this.m_configurationProvider.Capabilities.NameSetting), String.Empty);
+            using (var context = this.m_provider.GetWriteConnection())
+            {
+                context.Open();
+                context.CreateTable<OrmBiDatamartMetadata>();
+                context.CreateTable<OrmBiDatamartDependencyMetadata>();
+                context.Close();
+            }
+        }
+
+        /// <inheritdoc/>
+        public IEnumerable<dynamic> Delete(BiSchemaTableDefinition target, IEnumerable<dynamic> dataToDelete)
+        {
+            if(target == null)
+            {
+                throw new ArgumentNullException(nameof(target));
+            }
+            else if(dataToDelete == null)
+            {
+                throw new ArgumentNullException(nameof(dataToDelete));
+            }
+
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+            this.ThrowIfReadonly();
+            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+            this.ThrowIfDisposed();
+            this.m_currentContext?.Dispose();
+            this.m_currentContext = null;
+            this.m_disposed = true;
+        }
+
+        /// <inheritdoc/>
+        public void DropObject(BiSchemaObjectDefinition objectToDrop)
+        {
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+            this.ThrowIfReadonly();
+            this.ThrowIfInvalid(objectToDrop);
+            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.SchemaManagement);
+
+            // Demands?
+            objectToDrop.MetaData?.Demands?.ForEach(o => this.m_pepService.Demand(o));
+
+
+        }
+
+        /// <inheritdoc/>
+        public void DropDatabase()
+        {
+            this.ThrowIfDisposed();
+            this.ThrowIfOpen(nameof(DropDatabase));
+            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.DatabaseManagement);
+
+            // User must be able to administer warehouse
+            this.m_pepService.Demand(PermissionPolicyIdentifiers.AdministerWarehouse);
+
+            var databaseName = this.m_connectionString.GetComponent(this.m_configurationProvider.Capabilities.NameSetting);
+            if (!this.DatabaseExists())
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.OBJECT_NOT_FOUND, databaseName));
+            }
+
+            this.m_configurationProvider.DropDatabase(this.m_connectionString, databaseName);
+
+        }
+
+        /// <inheritdoc/>
+        public void ExecuteNonQuery(BiSqlDefinition sql)
+        {
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+        }
+
+        /// <inheritdoc/>
+        public IEnumerable<dynamic> Insert(BiSchemaTableDefinition target, IEnumerable<dynamic> dataToInsert)
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException(nameof(target));
+            }
+            else if (dataToInsert == null)
+            {
+                throw new ArgumentNullException(nameof(dataToInsert));
+            }
+
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+            this.ThrowIfReadonly();
+            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+
+            // Demands?
+            target.MetaData?.Demands?.ForEach(o => this.m_pepService.Demand(o));
+
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public IEnumerable<dynamic> InsertOrUpdate(BiSchemaTableDefinition target, IEnumerable<dynamic> dataToInsert)
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException(nameof(target));
+            }
+            else if (dataToInsert == null)
+            {
+                throw new ArgumentNullException(nameof(dataToInsert));
+            }
+            
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+            this.ThrowIfReadonly();
+            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+
+            // Demands?
+            target.MetaData?.Demands?.ForEach(o => this.m_pepService.Demand(o));
+
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public void OpenRead()
+        {
+            this.ThrowIfDisposed();
+            this.ThrowIfOpen(nameof(OpenRead));
+            this.m_pepService.Demand(PermissionPolicyIdentifiers.QueryWarehouseData);
+            this.m_currentContext = this.m_provider.GetReadonlyConnection();
+            this.m_currentContext.Open();
+        }
+
+
+        /// <inheritdoc/>
+        public void OpenWrite()
+        {
+            this.ThrowIfDisposed();
+            this.ThrowIfOpen(nameof(OpenWrite));
+            this.ThrowIfHasPurpose(BiExecutionPurposeType.Discovery);
+            this.m_pepService.Demand(PermissionPolicyIdentifiers.WriteWarehouseData);
+            this.m_currentContext = this.m_provider.GetWriteConnection();
+            this.m_currentContext.Open();
+        }
+
+
+        /// <inheritdoc/>
+        public IEnumerable<dynamic> Query(BiSqlDefinition queryToExecute)
+        {
+            if (queryToExecute == null)
+            {
+                throw new ArgumentNullException(nameof(queryToExecute));
+            }
+
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Discovery);
+
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public void RollbackTransaction()
+        {
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+
+            if (this.m_currentContext.Transaction == null)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(CommitTransaction)));
+            }
+            this.m_currentContext.Transaction.Rollback();
+        }
+
+        /// <inheritdoc/>
+        public void TruncateObject(BiSchemaObjectDefinition objectToTruncate)
+        {
+
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+            this.ThrowIfReadonly();
+            this.ThrowIfInvalid(objectToTruncate);
+            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+
+            // Demands?
+            objectToTruncate?.MetaData.Demands?.ForEach(o => this.m_pepService.Demand(o));
+        }
+
+        /// <inheritdoc/>
+        public IEnumerable<dynamic> Update(BiSchemaTableDefinition target, IEnumerable<dynamic> dataToUpdate)
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException(nameof(target));
+            }
+            else if (dataToUpdate == null)
+            {
+                throw new ArgumentNullException(nameof(dataToUpdate));
+            }
+
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+            this.ThrowIfReadonly();
+            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+
+            // Update
+            target.MetaData?.Demands?.ForEach(o => this.m_pepService.Demand(o));
+
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public bool DatabaseExists() => this.m_configurationProvider.GetDatabases(this.m_connectionString).Any(db => db == this.m_connectionString.GetComponent(this.m_configurationProvider.Capabilities.NameSetting));
+
+        /// <inheritdoc/>
+        public void Close()
+        {
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+            this.m_currentContext.Close();
+        }
+
+        /// <inheritdoc/>
+        public bool Exists(BiSchemaObjectDefinition objectToCheck)
+        {
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+            this.ThrowIfInvalid(objectToCheck);
+            return this.m_currentContext.Query<OrmBiDatamartMetadata>(o => o.SchemaObjectName == objectToCheck.Name).Any();
+        }
+
+        /// <inheritdoc/>
+        public bool NeedsMigration(BiSchemaObjectDefinition objectToCheck)
+        {
+            this.ThrowIfDisposed();
+            this.ThrowIfNotOpen();
+            this.ThrowIfInvalid(objectToCheck);
+            var expectedMigrationRecord = this.CreateMetadataRegistration(objectToCheck);
+            return !this.m_currentContext.Query<OrmBiDatamartMetadata>(o => o.SchemaObjectName == expectedMigrationRecord.SchemaObjectName && o.SchemaObjectHash == expectedMigrationRecord.SchemaObjectHash).Any();
+           
+        }
+
+    }
+}

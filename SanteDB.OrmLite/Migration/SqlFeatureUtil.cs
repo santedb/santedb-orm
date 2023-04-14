@@ -30,6 +30,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite.Migration
@@ -50,6 +51,11 @@ namespace SanteDB.OrmLite.Migration
         /// Get all providers
         /// </summary>
         private static IEnumerable<IDataConfigurationProvider> m_providers = null;
+
+        /// <summary>
+        /// Get the configuration provider
+        /// </summary>
+        public static IDataConfigurationProvider GetDataConfigurationProvider(this IDbProvider provider) => GetConfigurationProviders().FirstOrDefault(o => o.Invariant == provider.Invariant);
 
         /// <summary>
         /// Get configuration providers

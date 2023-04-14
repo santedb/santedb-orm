@@ -21,6 +21,7 @@
 using SanteDB.BI;
 using SanteDB.BI.Model;
 using SanteDB.BI.Services;
+using SanteDB.BI.Services.Impl;
 using SanteDB.BI.Util;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Exceptions;
@@ -61,7 +62,7 @@ namespace SanteDB.OrmLite
             this.m_policyEnforcementService = policyEnforcementService;
             this.m_configurationManager = configurationManager;
             this.m_metadataRepository = biMetadataRepository;
-            this.m_pivotProvider = biPivotProvider;
+            this.m_pivotProvider = biPivotProvider ?? new InMemoryPivotProvider();
         }
         /// <summary>
         /// Create materialized view
@@ -123,7 +124,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Executes the query
         /// </summary>
-        public BisResultContext ExecuteQuery(BiQueryDefinition queryDefinition, IDictionary<string, object> parameters, BiAggregationDefinition[] aggregation, int offset, int? count)
+        public BisResultContext ExecuteQuery(BiQueryDefinition queryDefinition, IDictionary<string, object> parameters, BiAggregationDefinition[] aggregation, int? offset = null, int? count = null)
         {
             if (queryDefinition == null)
             {
@@ -309,7 +310,11 @@ namespace SanteDB.OrmLite
                 DateTime startTime = DateTime.Now;
                 var sqlStmt = new SqlStatement(stmt, values.ToArray());
                 this.m_tracer.TraceInfo("Executing BI Query: {0}", sqlStmt.ToString());
-                var results = new OrmResultSet<ExpandoObject>(provider.GetReadonlyConnection(), sqlStmt).Skip(offset);
+                var results = new OrmResultSet<ExpandoObject>(provider.GetReadonlyConnection(), sqlStmt);
+                if(offset.HasValue)
+                {
+                    results = results.Skip(offset.Value);
+                }
                 if (count.HasValue)
                 {
                     results = results.Take(count.Value);
@@ -318,7 +323,7 @@ namespace SanteDB.OrmLite
                     queryDefinition,
                     parameters,
                     this,
-                    new OrmBiEnumerator(results),
+                    new OrmBiQueryResultSet(results),
                     startTime);
             }
             catch (Exception e)
@@ -350,7 +355,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         private IDbProvider GetProvider(BiQueryDefinition queryDefinition)
         {
-            var connectionString = this.m_configurationManager.GetConnectionString(queryDefinition.DataSources.First().ConnectionString);
+            var dataSource = queryDefinition.DataSources.First();
+            var connectionString = this.m_configurationManager.GetConnectionString(dataSource.ConnectionString ?? dataSource.Id);
             var provider = this.m_configurationManager.GetSection<OrmConfigurationSection>().GetProvider(connectionString.Provider);
             provider.ConnectionString = connectionString.Value;
             provider.ReadonlyConnectionString = connectionString.Value;
@@ -379,7 +385,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Execute the specified query
         /// </summary>
-        public BisResultContext ExecuteQuery(string queryId, IDictionary<string, object> parameters, BiAggregationDefinition[] aggregation, int offset, int? count)
+        public BisResultContext ExecuteQuery(string queryId, IDictionary<string, object> parameters, BiAggregationDefinition[] aggregation, int? offset, int? count)
         {
             var query = this.m_metadataRepository?.Get<BiQueryDefinition>(queryId);
             if (query == null)
@@ -395,7 +401,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Executes the specified view
         /// </summary>
-        public BisResultContext ExecuteView(BiViewDefinition viewDef, IDictionary<string, object> parameters, int offset, int? count)
+        public BisResultContext ExecuteView(BiViewDefinition viewDef, IDictionary<string, object> parameters, int? offset = null, int? count = null)
         {
             viewDef = BiUtils.ResolveRefs(viewDef) as BiViewDefinition;
             var retVal = this.ExecuteQuery(viewDef.Query, parameters, viewDef.AggregationDefinitions?.ToArray(), offset, count);

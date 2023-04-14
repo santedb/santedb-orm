@@ -88,6 +88,14 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Analyze
         /// </summary>
-        Analyze
+        Analyze,
+        /// <summary>
+        /// Current Timestamp
+        /// </summary>
+        CurrentTimestamp,
+        /// <summary>
+        /// Generate a new guid
+        /// </summary>
+        NewGuid
     }
 }

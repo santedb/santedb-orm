@@ -175,8 +175,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     {
                         $"CREATE DATABASE {databaseName} WITH OWNER {databaseOwner};",
                         $"REVOKE ALL ON DATABASE {databaseName} FROM public;",
-                        $"GRANT ALL ON DATABASE {databaseName} TO {databaseOwner};",
-                        $"CREATE OR REPLACE LANGUAGE plpgsql;"
+                        $"GRANT ALL ON DATABASE {databaseName} TO {databaseOwner};"
                     };
 
                     foreach (var cmd in cmds)
@@ -198,6 +197,47 @@ namespace SanteDB.OrmLite.Providers.Postgres
             }
 
             return connectionString;
+        }
+
+        /// <inheritdoc/>
+        public override void DropDatabase(ConnectionString connectionString, string databaseName)
+        {
+
+            connectionString = connectionString.Clone();
+            connectionString.SetComponent("database", "postgres");
+            var provider = this.GetProvider(connectionString);
+            using (var conn = provider.GetWriteConnection())
+            {
+                try
+                {
+                    // Create the database
+                    conn.Open();
+
+                    String[] cmds =
+                    {
+                        $"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{databaseName}';",
+                        $"DROP DATABASE {databaseName};"
+                    };
+
+                    foreach (var cmd in cmds)
+                    {
+                        using (var c = conn.Connection.CreateCommand())
+                        {
+                            c.CommandText = cmd;
+                            c.CommandType = System.Data.CommandType.Text;
+                            c.ExecuteNonQuery();
+                        }
+                    }
+
+                    connectionString.SetComponent("database", databaseName);
+                }
+                catch (Exception e)
+                {
+                    throw new InvalidOperationException($"Could not create database: {e.Message}", e);
+                }
+            }
+
+
         }
 
         /// <inheritdoc/>
