@@ -40,6 +40,8 @@ namespace SanteDB.OrmLite.Providers
         SetTimeout = 0x100,
         ReturnedUpdatesAsReader = 0x200,
         MaterializedViews = 0x400,
-        AutoGenerateSequences = 0x800
+        AutoGenerateSequences = 0x800,
+        TruncateTable = 0x1000,
+        CascadeDelete = 0x2000
     }
 }

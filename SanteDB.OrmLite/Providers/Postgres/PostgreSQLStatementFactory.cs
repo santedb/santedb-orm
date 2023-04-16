@@ -79,7 +79,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     SqlEngineFeatures.MustNameSubQuery |
                     SqlEngineFeatures.AutoGenerateSequences |
                     SqlEngineFeatures.SetTimeout |
-                    SqlEngineFeatures.MaterializedViews;
+                    SqlEngineFeatures.MaterializedViews |
+                    SqlEngineFeatures.CascadeDelete | 
+                    SqlEngineFeatures.TruncateTable;
             }
         }
 

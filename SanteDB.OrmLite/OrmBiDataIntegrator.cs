@@ -8,6 +8,7 @@ using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Data.Initialization;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
+using SanteDB.Core.Model.Roles;
 using SanteDB.Core.Security;
 using SanteDB.Core.Security.Services;
 using SanteDB.Core.Services;
@@ -20,8 +21,10 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Dynamic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -31,11 +34,11 @@ namespace SanteDB.OrmLite
     /// <summary>
     /// A data integrator which uses the ORM classes 
     /// </summary>
-    public class OrmBiDataIntegrator : IBiDataIntegrator
+    public class OrmBiDataIntegrator : IDataIntegrator
     {
 
         private readonly Tracer m_tracer = Tracer.GetTracer(typeof(OrmBiDataIntegrator));
-        private readonly IBiDataFlowExecutionContext m_executionContext;
+        private readonly IDataFlowExecutionContext m_executionContext;
         private readonly IDbProvider m_provider;
         private readonly IDataConfigurationProvider m_configurationProvider;
         private readonly ConnectionString m_connectionString;
@@ -97,9 +100,9 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Creates a new data integrator
         /// </summary>
-        public OrmBiDataIntegrator(IBiDataFlowExecutionContext executionContext, ConnectionString connectionString, BiDataSourceDefinition dataSourceDefinition)
+        public OrmBiDataIntegrator(IDataFlowExecutionContext executionContext, ConnectionString connectionString, BiDataSourceDefinition dataSourceDefinition)
         {
-            
+
             this.m_executionContext = executionContext;
             var ormConfiguration = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>();
             this.m_provider = ormConfiguration.GetProvider(connectionString.Provider);
@@ -158,9 +161,9 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Throw if the execution of this method is not allowed for this purpose
         /// </summary>
-        private void ThrowIfDoesNotHavePurpose(BiExecutionPurposeType expectedPurpose)
+        private void ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType expectedPurpose)
         {
-            if(!this.m_executionContext.Purpose.HasFlag(expectedPurpose))
+            if (!this.m_executionContext.Purpose.HasFlag(expectedPurpose))
             {
                 throw new NotSupportedException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, expectedPurpose));
             }
@@ -169,7 +172,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Throw if the execution of this method is not allowed for this purpose
         /// </summary>
-        private void ThrowIfHasPurpose(BiExecutionPurposeType expectedPurpose)
+        private void ThrowIfHasPurpose(DataFlowExecutionPurposeType expectedPurpose)
         {
             if (this.m_executionContext.Purpose.HasFlag(expectedPurpose))
             {
@@ -182,11 +185,11 @@ namespace SanteDB.OrmLite
         /// </summary>
         private void ThrowIfInvalid(BiSchemaObjectDefinition schemaObjectDefinition)
         {
-            if(String.IsNullOrEmpty(schemaObjectDefinition.Name))
+            if (String.IsNullOrEmpty(schemaObjectDefinition.Name))
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.MISSING_VALUE, nameof(BiSchemaObjectDefinition.Name)));
             }
-            else if(!this.m_sqlSafeName.IsMatch(schemaObjectDefinition.Name))
+            else if (!this.m_sqlSafeName.IsMatch(schemaObjectDefinition.Name))
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_FORMAT, schemaObjectDefinition.Name, this.m_sqlSafeName));
             }
@@ -208,7 +211,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         private void ThrowIfReadonly()
         {
-            if(this.m_currentContext?.IsReadonly == true)
+            if (this.m_currentContext?.IsReadonly == true)
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.CANT_WRITE_READ_ONLY_STREAM));
             }
@@ -242,8 +245,8 @@ namespace SanteDB.OrmLite
             this.ThrowIfDisposed();
             this.ThrowIfNotOpen();
             this.ThrowIfReadonly();
-            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
-            if (this.m_currentContext.Transaction == null)
+            this.ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType.Refresh);
+            if (this.m_currentContext.Transaction != null)
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(BeginTransaction)));
             }
@@ -255,7 +258,7 @@ namespace SanteDB.OrmLite
         {
             this.ThrowIfDisposed();
             this.ThrowIfNotOpen();
-            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+            this.ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType.Refresh);
 
             if (this.m_currentContext.Transaction == null)
             {
@@ -272,9 +275,9 @@ namespace SanteDB.OrmLite
             this.ThrowIfReadonly();
             this.ThrowIfInvalid(objectToCreate);
 
-            if(!this.NeedsMigration(objectToCreate))
+            if (!this.NeedsMigration(objectToCreate))
             {
-                if(objectToCreate is BiSchemaViewDefinition vd && vd.IsMaterialized)
+                if (objectToCreate is BiSchemaViewDefinition vd && vd.IsMaterialized)
                 {
                     this.m_tracer.TraceInfo("Refreshing {0}...", vd.Name);
                     this.m_currentContext.ExecuteNonQuery($"{this.m_statementFactory.CreateSqlKeyword(SqlKeyword.RefreshMaterializedView)} {vd.Name}");
@@ -289,38 +292,23 @@ namespace SanteDB.OrmLite
             var statementQueue = new ConcurrentQueue<SqlStatement>();
             var dependencies = new List<OrmBiDatamartDependencyMetadata>();
             string[] deletedObjects = null, createdSupportingObjects = null;
-            switch(objectToCreate)
+
+            switch (objectToCreate)
             {
                 case BiSchemaTableDefinition table:
                     {
-                        if(!table.Temporary)
+                        if (!table.Temporary)
                         {
-                            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.SchemaManagement);
+                            this.ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType.SchemaManagement);
                         }
                         else
                         {
-                            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+                            this.ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType.Refresh);
                         }
 
                         if (objectExists)
                         {
-                            // Get all objects that depend on this
-                            var dropStack = new List<String>() { table.Name };
-                            dropStack.AddRange(this.m_currentContext.Query<OrmBiDatamartDependencyMetadata>(o => o.DependsOnObjectName == table.Name).Select(o => o.SchemaObjectName));
-                            for (var i = 0; i < dropStack.Count; i++)
-                            {
-                                var itm = dropStack[i];
-                                this.m_currentContext.Query<OrmBiDatamartDependencyMetadata>(o => o.DependsOnObjectName == itm)
-                                    .Select(o => o.SchemaObjectName)
-                                    .ForEach(o =>
-                                    {
-                                        if (!dropStack.Contains(o))
-                                        {
-                                            dropStack.Add(o);
-                                        }
-                                    });
-                            }
-                            dropStack.Reverse();
+                            var dropStack = this.GetDependentObjects(table);
                             dropStack.Distinct().ToList().ForEach(o => statementQueue.Enqueue(new SqlStatement($"DROP {(o.Contains("VW") ? "VIEW" : "TABLE")} {o}")));
                             deletedObjects = dropStack.Distinct().ToArray();
                         }
@@ -329,22 +317,22 @@ namespace SanteDB.OrmLite
                         var statementBuilder = this.m_currentContext.CreateSqlStatementBuilder();
                         var constraintList = new LinkedList<SqlStatement>();
 
-                        statementBuilder.Append($"CREATE TABLE {table.Name} (");
+                        statementBuilder.Append($"CREATE {(table.Temporary ? "TEMPORARY" : String.Empty)} TABLE {table.Name} (");
 
-                        foreach(var col in table.Columns)
+                        foreach (var col in table.Columns)
                         {
                             statementBuilder.Append($"{col.Name} {this.GetDataType(col)}");
-                            if(col.NotNull)
+                            if (col.NotNull)
                             {
                                 statementBuilder.Append(" NOT NULL ");
                             }
-                            if(col.IsUnique)
+                            if (col.IsUnique)
                             {
                                 statementBuilder.Append(" UNIQUE ");
                             }
                             statementBuilder.Append(",");
 
-                            if(col.References?.Resolved is BiSchemaTableDefinition otherTable)
+                            if (col.References?.Resolved is BiSchemaTableDefinition otherTable)
                             {
                                 var pkOther = this.GetPrimaryKey(otherTable);
                                 constraintList.AddLast(new SqlStatement($"CONSTRAINT FK_{table.Name}_{col.Name} FOREIGN KEY ({col.Name}) REFERENCES {otherTable.Name}({pkOther.Name})"));
@@ -355,7 +343,7 @@ namespace SanteDB.OrmLite
                                 });
                             }
 
-                            if(col.IsKey)
+                            if (col.IsKey)
                             {
                                 constraintList.AddLast(new SqlStatement($"CONSTRAINT PK_{table.Name} PRIMARY KEY ({col.Name})"));
                             }
@@ -371,7 +359,7 @@ namespace SanteDB.OrmLite
                             var parentKey = this.GetPrimaryKey(parentTable);
                             statementBuilder.Append($"{parentKey.Name} {this.GetDataType(parentKey)} NOT NULL").Append(",");
                             constraintList.AddLast(new SqlStatement($"CONSTRAINT FK_{table.Name}_{parentTable.Name} FOREIGN KEY ({parentKey.Name}) REFERENCES {parentTable.Name}({parentKey.Name})"));
-                            if(!table.Columns.Any(o=>o.IsKey))
+                            if (!table.Columns.Any(o => o.IsKey))
                             {
                                 constraintList.AddLast(new SqlStatement($"CONSTRAINT PK_{table.Name} PRIMARY KEY ({parentKey.Name})"));
                             }
@@ -384,7 +372,7 @@ namespace SanteDB.OrmLite
 
                         }
 
-                        foreach(var itm in constraintList)
+                        foreach (var itm in constraintList)
                         {
                             statementBuilder.Append(itm).Append(",");
                         }
@@ -392,19 +380,19 @@ namespace SanteDB.OrmLite
                         statementQueue.Enqueue(statementBuilder.RemoveLast(out _).Append(")").Statement.Prepare());
 
                         // Indexes
-                        foreach(var col in table.Columns.Where(o=>o.IsIndex))
+                        foreach (var col in table.Columns.Where(o => o.IsIndex))
                         {
                             statementQueue.Enqueue(new SqlStatement($"CREATE INDEX {table.Name}_{col.Name}_IDX ON {table.Name}({col.Name})"));
                         }
 
                         // Create a parent view
-                        if(table.Parent?.Resolved is BiSchemaTableDefinition joinTable)
+                        if (table.Parent?.Resolved is BiSchemaTableDefinition joinTable)
                         {
                             var joinKey = this.GetPrimaryKey(joinTable);
                             statementBuilder = this.m_currentContext.CreateSqlStatementBuilder($"CREATE VIEW VW_{table.Name} AS ");
                             statementBuilder.Append($"SELECT {String.Join(",", table.Columns.Select(o => $"{table.Name}.{o.Name}"))}").Append(",");
                             var fromClause = this.m_currentContext.CreateSqlStatementBuilder($" FROM {table.Name} ");
-                            while(joinTable != null)
+                            while (joinTable != null)
                             {
 
                                 fromClause.Append($" INNER JOIN {joinTable.Name} USING ({joinKey.Name}) ");
@@ -420,7 +408,7 @@ namespace SanteDB.OrmLite
                     }
                 case BiSchemaViewDefinition view:
                     {
-                        this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.SchemaManagement);
+                        this.ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType.SchemaManagement);
 
                         // Do we have a definition
                         var sqlDefinition = view.Query.FirstOrDefault(o => o.Invariants.Contains(this.m_provider.Invariant));
@@ -455,30 +443,58 @@ namespace SanteDB.OrmLite
             }
 
             // Insert the SQL statements
-            while(statementQueue.TryDequeue(out var statement))
+            while (statementQueue.TryDequeue(out var statement))
             {
                 this.m_tracer.TraceVerbose("BI EXEC: {0}", statement.ToLiteral());
                 this.m_currentContext.ExecuteNonQuery(statement);
             }
 
-            // Now record the migration
-            var migration = this.CreateMetadataRegistration(objectToCreate);
+            if ((objectToCreate as BiSchemaTableDefinition)?.Temporary != true)
+            {
+                // Now record the migration
+                var migration = this.CreateMetadataRegistration(objectToCreate);
 
-            if(deletedObjects?.Any() == true)
-            {
-                this.m_currentContext.DeleteAll<OrmBiDatamartDependencyMetadata>(o => deletedObjects.Contains(o.SchemaObjectName) || deletedObjects.Contains(o.DependsOnObjectName));
-                this.m_currentContext.DeleteAll<OrmBiDatamartMetadata>(o => deletedObjects.Contains(o.SchemaObjectName));
+                if (deletedObjects?.Any() == true)
+                {
+                    this.m_currentContext.DeleteAll<OrmBiDatamartDependencyMetadata>(o => deletedObjects.Contains(o.SchemaObjectName) || deletedObjects.Contains(o.DependsOnObjectName));
+                    this.m_currentContext.DeleteAll<OrmBiDatamartMetadata>(o => deletedObjects.Contains(o.SchemaObjectName));
+                }
+
+                this.m_currentContext.DeleteAll<OrmBiDatamartDependencyMetadata>(o => o.SchemaObjectName == migration.SchemaObjectName || o.DependsOnObjectName == migration.SchemaObjectName);
+                this.m_currentContext.Delete(migration);
+                this.m_currentContext.Insert(migration);
+                this.m_currentContext.InsertOrUpdateAll(dependencies);
+                if (createdSupportingObjects?.Any() == true)
+                {
+                    this.m_currentContext.InsertAll(createdSupportingObjects.Select(o => new OrmBiDatamartMetadata() { LastMigration = DateTimeOffset.Now, SchemaObjectName = o, SchemaObjectHash = new byte[0] }));
+                    this.m_currentContext.InsertAll(createdSupportingObjects.Select(o => new OrmBiDatamartDependencyMetadata() { SchemaObjectName = o, DependsOnObjectName = migration.SchemaObjectName }));
+                }
             }
-          
-            this.m_currentContext.DeleteAll<OrmBiDatamartDependencyMetadata>(o => o.SchemaObjectName == migration.SchemaObjectName || o.DependsOnObjectName == migration.SchemaObjectName);
-            this.m_currentContext.Delete(migration);
-            this.m_currentContext.Insert(migration);
-            this.m_currentContext.InsertOrUpdateAll(dependencies);
-            if (createdSupportingObjects?.Any() == true)
+        }
+
+        /// <summary>
+        /// Get all dependent objects
+        /// </summary>
+        private IEnumerable<String> GetDependentObjects(BiSchemaTableDefinition table)
+        {
+            // Get all objects that depend on this
+            var dropStack = new List<String>() { table.Name };
+            dropStack.AddRange(this.m_currentContext.Query<OrmBiDatamartDependencyMetadata>(o => o.DependsOnObjectName == table.Name).Select(o => o.SchemaObjectName));
+            for (var i = 0; i < dropStack.Count; i++)
             {
-                this.m_currentContext.InsertAll(createdSupportingObjects.Select(o => new OrmBiDatamartMetadata() { LastMigration = DateTimeOffset.Now, SchemaObjectName = o, SchemaObjectHash = new byte[0] }));
-                this.m_currentContext.InsertAll(createdSupportingObjects.Select(o => new OrmBiDatamartDependencyMetadata() { SchemaObjectName = o, DependsOnObjectName = migration.SchemaObjectName }));
+                var itm = dropStack[i];
+                this.m_currentContext.Query<OrmBiDatamartDependencyMetadata>(o => o.DependsOnObjectName == itm)
+                    .Select(o => o.SchemaObjectName)
+                    .ForEach(o =>
+                    {
+                        if (!dropStack.Contains(o))
+                        {
+                            dropStack.Add(o);
+                        }
+                    });
             }
+            dropStack.Reverse();
+            return dropStack;
         }
 
         /// <summary>
@@ -486,32 +502,48 @@ namespace SanteDB.OrmLite
         /// </summary>
         private String GetDataType(BiSchemaColumnDefinition columnDefinition)
         {
-            switch(columnDefinition.Type)
+            var schemaType = this.GetDataType(columnDefinition.Type);
+            if (schemaType == typeof(Object))
+            {
+                if (!(columnDefinition.References.Resolved is BiSchemaTableDefinition otherTable))
+                {
+                    this.m_tracer.TraceError("The reference to {0} has not been resolved - should call ResolveRefs() before this function", columnDefinition.References.Ref);
+                    throw new InvalidOperationException(ErrorMessages.NOT_INITIALIZED);
+                }
+                var pkOther = this.GetPrimaryKey(otherTable);
+                return this.GetDataType(pkOther);
+            }
+            else
+            {
+                return this.m_provider.MapSchemaDataType(schemaType);
+            }
+        }
+
+        /// <summary>
+        /// Get .NET datatype
+        /// </summary>
+        private Type GetDataType(BiDataType type)
+        {
+            switch (type)
             {
                 case BiDataType.Boolean:
-                    return this.m_provider.MapSchemaDataType(typeof(Boolean));
+                    return typeof(Boolean);
                 case BiDataType.Date:
-                    return this.m_provider.MapSchemaDataType(typeof(DateTime));
+                    return typeof(DateTime);
                 case BiDataType.DateTime:
-                    return this.m_provider.MapSchemaDataType(typeof(DateTimeOffset));
+                    return typeof(DateTimeOffset);
                 case BiDataType.Integer:
-                    return this.m_provider.MapSchemaDataType(typeof(Int64));
+                    return typeof(Int64);
                 case BiDataType.String:
-                    return this.m_provider.MapSchemaDataType(typeof(String));
+                    return typeof(String);
                 case BiDataType.Uuid:
-                    return this.m_provider.MapSchemaDataType(typeof(Guid));
+                    return typeof(Guid);
                 case BiDataType.Decimal:
-                    return this.m_provider.MapSchemaDataType(typeof(Decimal));
+                    return typeof(Decimal);
                 case BiDataType.Ref:
-                    if(!(columnDefinition.References.Resolved is BiSchemaTableDefinition otherTable))
-                    {
-                        this.m_tracer.TraceError("The reference to {0} has not been resolved - should call ResolveRefs() before this function", columnDefinition.References.Ref);
-                        throw new InvalidOperationException(ErrorMessages.NOT_INITIALIZED);
-                    }
-                    var pkOther = this.GetPrimaryKey(otherTable);
-                    return this.GetDataType(pkOther);
+                    return typeof(Object);
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(columnDefinition.Type));
+                    throw new ArgumentOutOfRangeException(nameof(type));
             }
         }
 
@@ -521,11 +553,11 @@ namespace SanteDB.OrmLite
         private BiSchemaColumnDefinition GetPrimaryKey(BiSchemaTableDefinition table)
         {
             var retVal = table.Columns.FirstOrDefault(o => o.IsKey);
-            if(retVal != null)
+            if (retVal != null)
             {
                 return retVal;
             }
-            else if(table.Parent != null && table.Parent.Resolved is BiSchemaTableDefinition parentTable)
+            else if (table.Parent != null && table.Parent.Resolved is BiSchemaTableDefinition parentTable)
             {
                 return this.GetPrimaryKey(parentTable);
             }
@@ -540,7 +572,7 @@ namespace SanteDB.OrmLite
         {
             this.ThrowIfDisposed();
             this.ThrowIfOpen(nameof(CreateDatabase));
-            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.DatabaseManagement);
+            this.ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType.DatabaseManagement);
 
             var databaseName = this.m_connectionString.GetComponent(this.m_configurationProvider.Capabilities.NameSetting);
             if (this.DatabaseExists())
@@ -562,13 +594,13 @@ namespace SanteDB.OrmLite
         }
 
         /// <inheritdoc/>
-        public IEnumerable<dynamic> Delete(BiSchemaTableDefinition target, IEnumerable<dynamic> dataToDelete)
+        public dynamic Delete(BiSchemaTableDefinition target, dynamic dataToDelete)
         {
-            if(target == null)
+            if (target == null)
             {
                 throw new ArgumentNullException(nameof(target));
             }
-            else if(dataToDelete == null)
+            else if (dataToDelete == null)
             {
                 throw new ArgumentNullException(nameof(dataToDelete));
             }
@@ -576,7 +608,7 @@ namespace SanteDB.OrmLite
             this.ThrowIfDisposed();
             this.ThrowIfNotOpen();
             this.ThrowIfReadonly();
-            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+            this.ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType.Refresh);
             throw new NotImplementedException();
         }
 
@@ -596,7 +628,7 @@ namespace SanteDB.OrmLite
             this.ThrowIfNotOpen();
             this.ThrowIfReadonly();
             this.ThrowIfInvalid(objectToDrop);
-            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.SchemaManagement);
+            this.ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType.SchemaManagement);
 
             // Demands?
             objectToDrop.MetaData?.Demands?.ForEach(o => this.m_pepService.Demand(o));
@@ -609,7 +641,7 @@ namespace SanteDB.OrmLite
         {
             this.ThrowIfDisposed();
             this.ThrowIfOpen(nameof(DropDatabase));
-            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.DatabaseManagement);
+            this.ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType.DatabaseManagement);
 
             // User must be able to administer warehouse
             this.m_pepService.Demand(PermissionPolicyIdentifiers.AdministerWarehouse);
@@ -632,7 +664,7 @@ namespace SanteDB.OrmLite
         }
 
         /// <inheritdoc/>
-        public IEnumerable<dynamic> Insert(BiSchemaTableDefinition target, IEnumerable<dynamic> dataToInsert)
+        public dynamic Insert(BiSchemaTableDefinition target, dynamic dataToInsert)
         {
             if (target == null)
             {
@@ -646,16 +678,31 @@ namespace SanteDB.OrmLite
             this.ThrowIfDisposed();
             this.ThrowIfNotOpen();
             this.ThrowIfReadonly();
-            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+            this.ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType.Refresh);
 
             // Demands?
             target.MetaData?.Demands?.ForEach(o => this.m_pepService.Demand(o));
 
-            throw new NotImplementedException();
+            if (!(dataToInsert is IDictionary<String, Object> dictInsert))
+            {
+                throw new ArgumentException(nameof(dataToInsert));
+            }
+
+            // Prepare an insert statement
+            var values = target.Columns.Select(o => dictInsert.TryGetValue(o.Name, out var v) || dictInsert.TryGetValue(o.Name.ToLowerInvariant(), out v) || dictInsert.TryGetValue(o.Name.ToUpperInvariant(), out v) ? v : DBNull.Value).ToArray();
+            var colNames = target.Columns.Select(o => o.Name).ToArray();
+            var stmt = this.m_currentContext.CreateSqlStatementBuilder($"INSERT INTO {target.Name} (")
+                .Append(String.Join(",", colNames))
+                .Append(") VALUES (")
+                .Append(String.Join(",", target.Columns.Select(o => "?")), values)
+                .Append(") RETURNING ")
+                .Append(String.Join(",", colNames));
+
+            return this.m_currentContext.FirstOrDefault<ExpandoObject>(stmt.Statement.Prepare());
         }
 
         /// <inheritdoc/>
-        public IEnumerable<dynamic> InsertOrUpdate(BiSchemaTableDefinition target, IEnumerable<dynamic> dataToInsert)
+        public dynamic InsertOrUpdate(BiSchemaTableDefinition target, dynamic dataToInsert)
         {
             if (target == null)
             {
@@ -665,11 +712,11 @@ namespace SanteDB.OrmLite
             {
                 throw new ArgumentNullException(nameof(dataToInsert));
             }
-            
+
             this.ThrowIfDisposed();
             this.ThrowIfNotOpen();
             this.ThrowIfReadonly();
-            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+            this.ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType.Refresh);
 
             // Demands?
             target.MetaData?.Demands?.ForEach(o => this.m_pepService.Demand(o));
@@ -693,7 +740,7 @@ namespace SanteDB.OrmLite
         {
             this.ThrowIfDisposed();
             this.ThrowIfOpen(nameof(OpenWrite));
-            this.ThrowIfHasPurpose(BiExecutionPurposeType.Discovery);
+            this.ThrowIfHasPurpose(DataFlowExecutionPurposeType.Discovery);
             this.m_pepService.Demand(PermissionPolicyIdentifiers.WriteWarehouseData);
             this.m_currentContext = this.m_provider.GetWriteConnection();
             this.m_currentContext.Open();
@@ -701,7 +748,7 @@ namespace SanteDB.OrmLite
 
 
         /// <inheritdoc/>
-        public IEnumerable<dynamic> Query(BiSqlDefinition queryToExecute)
+        public IEnumerable<dynamic> Query(IEnumerable<BiSqlDefinition> queryToExecute, IDictionary<String, BiDataType> expectedOutput = null)
         {
             if (queryToExecute == null)
             {
@@ -710,9 +757,26 @@ namespace SanteDB.OrmLite
 
             this.ThrowIfDisposed();
             this.ThrowIfNotOpen();
-            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Discovery);
 
-            throw new NotImplementedException();
+            // Find the SQL definition which matches this definition
+            var sqlDef = queryToExecute.FirstOrDefault(o => o.Invariants.Contains(this.m_provider.Invariant));
+            if (sqlDef == null)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.DIALECT_NOT_FOUND, this.m_provider.Invariant));
+            }
+
+            // Execute the SQL
+            foreach (IDictionary<String, Object> tuple in new OrmResultSet<ExpandoObject>(this.m_currentContext, new SqlStatement(sqlDef.Sql)))
+            {
+                if (expectedOutput != null)
+                {
+                    yield return expectedOutput.ToDictionary(o => o.Key, o => this.m_provider.ConvertValue(tuple[o.Key], this.GetDataType(o.Value)));
+                }
+                else
+                {
+                    yield return tuple;
+                }
+            }
         }
 
         /// <inheritdoc/>
@@ -720,7 +784,7 @@ namespace SanteDB.OrmLite
         {
             this.ThrowIfDisposed();
             this.ThrowIfNotOpen();
-            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+            this.ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType.Refresh);
 
             if (this.m_currentContext.Transaction == null)
             {
@@ -737,14 +801,30 @@ namespace SanteDB.OrmLite
             this.ThrowIfNotOpen();
             this.ThrowIfReadonly();
             this.ThrowIfInvalid(objectToTruncate);
-            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+            this.ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType.Refresh);
 
             // Demands?
-            objectToTruncate?.MetaData.Demands?.ForEach(o => this.m_pepService.Demand(o));
+            objectToTruncate.MetaData?.Demands?.ForEach(o => this.m_pepService.Demand(o));
+
+            // Truncate all dependent objects
+            if (objectToTruncate is BiSchemaTableDefinition table)
+            {
+                foreach (var trunc in this.GetDependentObjects(table).Where(o => !o.Contains("VW")))
+                {
+                    if (this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.TruncateTable))
+                    {
+                        this.m_currentContext.ExecuteNonQuery($"TRUNCATE TABLE {trunc} {(this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.CascadeDelete) ? "CASCADE" : String.Empty)}");
+                    }
+                    else
+                    {
+                        this.m_currentContext.ExecuteNonQuery($"DELETE FROM {trunc} {(this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.CascadeDelete) ? "CASCADE" : String.Empty)}");
+                    }
+                }
+            }
         }
 
         /// <inheritdoc/>
-        public IEnumerable<dynamic> Update(BiSchemaTableDefinition target, IEnumerable<dynamic> dataToUpdate)
+        public dynamic Update(BiSchemaTableDefinition target, dynamic dataToUpdate)
         {
             if (target == null)
             {
@@ -758,7 +838,7 @@ namespace SanteDB.OrmLite
             this.ThrowIfDisposed();
             this.ThrowIfNotOpen();
             this.ThrowIfReadonly();
-            this.ThrowIfDoesNotHavePurpose(BiExecutionPurposeType.Refresh);
+            this.ThrowIfDoesNotHavePurpose(DataFlowExecutionPurposeType.Refresh);
 
             // Update
             target.MetaData?.Demands?.ForEach(o => this.m_pepService.Demand(o));
@@ -794,7 +874,7 @@ namespace SanteDB.OrmLite
             this.ThrowIfInvalid(objectToCheck);
             var expectedMigrationRecord = this.CreateMetadataRegistration(objectToCheck);
             return !this.m_currentContext.Query<OrmBiDatamartMetadata>(o => o.SchemaObjectName == expectedMigrationRecord.SchemaObjectName && o.SchemaObjectHash == expectedMigrationRecord.SchemaObjectHash).Any();
-           
+
         }
 
     }
