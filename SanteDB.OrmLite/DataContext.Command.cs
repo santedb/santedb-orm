@@ -20,6 +20,7 @@
  */
 using SanteDB.Core.Diagnostics.Performance;
 using SanteDB.OrmLite.Providers;
+using SanteDB.OrmLite.Providers.Sqlite;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -1071,7 +1072,7 @@ namespace SanteDB.OrmLite
                                     dbc.Parameters.Add(parm);
                                 }
 
-                                dbc.ExecuteNonQuery();
+                                var retV = dbc.ExecuteNonQuery();
 
                                 // Get the parameter values
                                 foreach (IDataParameter parm in dbc.Parameters)
@@ -1091,7 +1092,7 @@ namespace SanteDB.OrmLite
                             }
                             else // Provider does not support returned keys
                             {
-                                dbc.ExecuteNonQuery();
+                                var retV = dbc.ExecuteNonQuery();
                                 // But... the query wants the keys so we have to query them back if the RETURNING clause fields aren't populated in the source object
                                 if (returnKeys.Count() > 0 &&
                                     returnKeys.Any(o => o.SourceProperty.GetValue(value) == (o.SourceProperty.PropertyType.IsValueType ? Activator.CreateInstance(o.SourceProperty.PropertyType) : null)))
@@ -1150,6 +1151,15 @@ namespace SanteDB.OrmLite
 
                     }
 
+#if DEBUG
+                    // SQLITE Sometimes "says" it inserted data (i.e. the connector does not fail) however it doesn't actually insert
+                    // the data - (facepalm)
+                    // SQLITE Sucks so bad 
+                    if (this.m_provider.Invariant == SqliteProvider.InvariantName && !this.Exists(value))
+                    {
+                        Debug.WriteLine("SQLITE MESSED UP: {0}", value);
+                    }
+#endif 
                     return value;
                 }
 #if DEBUG
@@ -1160,6 +1170,7 @@ namespace SanteDB.OrmLite
                 this.AddProbeResponseTime(sw.ElapsedMilliseconds);
                 PerformanceTracer.WritePerformanceTrace(sw.ElapsedMilliseconds);
 
+                
             }
 #endif
         }

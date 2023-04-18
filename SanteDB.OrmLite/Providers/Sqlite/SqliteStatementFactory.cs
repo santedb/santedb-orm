@@ -70,7 +70,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
             get
             {
-                return SqlEngineFeatures.AutoGenerateTimestamps | SqlEngineFeatures.LimitOffset | SqlEngineFeatures.AutoGenerateGuids | SqlEngineFeatures.ReturnedInsertsAsReader | SqlEngineFeatures.ReturnedUpdatesAsReader | SqlEngineFeatures.StrictSubQueryColumnNames;
+                return SqlEngineFeatures.AutoGenerateTimestamps | 
+                    SqlEngineFeatures.LimitOffset | 
+                    SqlEngineFeatures.ReturnedInsertsAsReader | 
+                    SqlEngineFeatures.ReturnedUpdatesAsReader | 
+                    SqlEngineFeatures.StrictSubQueryColumnNames |
+                    SqlEngineFeatures.AutoGenerateGuids;
             }
         }
 

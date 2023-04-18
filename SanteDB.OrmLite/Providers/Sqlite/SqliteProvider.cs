@@ -207,7 +207,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
             var pno = 0;
             sql = m_parmRegex
-               .Replace(sql, o => $"$parm{pno++} ")
+               .Replace(sql, o => $"@parm{pno++} ")
                .Replace(" ILIKE ", " LIKE ");
             sql = m_uuidRegex
                 .Replace(sql, o => $"x'{BitConverter.ToString(Guid.Parse(o.Groups[1].Value.Substring(1, 36)).ToByteArray()).Replace("-", "")}'");
@@ -239,7 +239,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                 // Parameter type
                 parm.DbType = MapParameterType(value?.GetType());
-                parm.ParameterName = $"$parm{pno++}";
+                parm.ParameterName = $"@parm{pno++}";
                 if (value is DateTime && itm != null)
                 {
                     parm.Value = ConvertValue(itm, typeof(long));
@@ -257,6 +257,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 if (itm == null)
                 {
                     parm.Value = DBNull.Value;
+                }
+                else if(itm.GetType().IsEnum)
+                {
+                    parm.Value = (int)itm;
                 }
                 else if (parm.Value == null)
                 {

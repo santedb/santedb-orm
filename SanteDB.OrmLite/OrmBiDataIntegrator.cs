@@ -1,6 +1,4 @@
-﻿using DocumentFormat.OpenXml.Vml.Spreadsheet;
-using DocumentFormat.OpenXml.Wordprocessing;
-using SanteDB.BI.Datamart;
+﻿using SanteDB.BI.Datamart;
 using SanteDB.BI.Datamart.DataFlow;
 using SanteDB.BI.Model;
 using SanteDB.Core;
@@ -16,7 +14,6 @@ using SanteDB.OrmLite.Attributes;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Migration;
 using SanteDB.OrmLite.Providers;
-using SharpCompress;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -28,6 +25,8 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using SanteDB;
+using SanteDB.Core.Security.Claims;
 
 namespace SanteDB.OrmLite
 {
@@ -483,15 +482,15 @@ namespace SanteDB.OrmLite
             for (var i = 0; i < dropStack.Count; i++)
             {
                 var itm = dropStack[i];
-                this.m_currentContext.Query<OrmBiDatamartDependencyMetadata>(o => o.DependsOnObjectName == itm)
-                    .Select(o => o.SchemaObjectName)
-                    .ForEach(o =>
-                    {
-                        if (!dropStack.Contains(o))
+                ExtensionMethods.ForEach(this.m_currentContext.Query<OrmBiDatamartDependencyMetadata>(o => o.DependsOnObjectName == itm)
+                        .Select(o => o.SchemaObjectName)
+                        .AsEnumerable(), o =>
                         {
-                            dropStack.Add(o);
-                        }
-                    });
+                            if (!dropStack.Contains(o))
+                            {
+                                dropStack.Add(o);
+                            }
+                        });
             }
             dropStack.Reverse();
             return dropStack;
@@ -721,7 +720,27 @@ namespace SanteDB.OrmLite
             // Demands?
             target.MetaData?.Demands?.ForEach(o => this.m_pepService.Demand(o));
 
-            throw new NotImplementedException();
+            // Check if the PK exists - if it does update if not insert
+            if (!(dataToInsert is IDictionary<String, Object> dictInsert))
+            {
+                throw new ArgumentException(nameof(dataToInsert));
+            }
+
+            var pkCol = this.GetPrimaryKey(target);
+            if (!dictInsert.TryGetValue(pkCol.Name, out var pkValue) && !dictInsert.TryGetValue(pkCol.Name.ToLowerInvariant(), out pkValue))
+            {
+                return this.Insert(target, dataToInsert);
+            }
+
+            var checkStmt = new SqlStatement($"SELECT 1 FROM {target.Name} WHERE {pkCol.Name} = ?", pkValue);
+            if (this.m_currentContext.Any(checkStmt))
+            {
+                return this.Update(target, dataToInsert);
+            }
+            else
+            {
+                return this.Insert(target, dataToInsert);
+            }
         }
 
         /// <inheritdoc/>
@@ -843,7 +862,29 @@ namespace SanteDB.OrmLite
             // Update
             target.MetaData?.Demands?.ForEach(o => this.m_pepService.Demand(o));
 
-            throw new NotImplementedException();
+            // Extract PK col
+            if (!(dataToUpdate  is IDictionary<String, Object> dictInsert))
+            {
+                throw new ArgumentException(nameof(dataToUpdate));
+            }
+
+            // No primary key so we insert
+            var pkCol = this.GetPrimaryKey(target);
+            if (!dictInsert.TryGetValue(pkCol.Name, out var pkValue) && !dictInsert.TryGetValue(pkCol.Name.ToLowerInvariant(), out pkValue))
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.DATA_STRUCTURE_NOT_APPROPRIATE, target.Name, "No Primary Key Value"));
+            }
+
+            var values = target.Columns.Where(c=>c.Name != pkCol.Name).Select(o => new { c = o.Name, v = dictInsert.TryGetValue(o.Name, out var v) || dictInsert.TryGetValue(o.Name.ToLowerInvariant(), out v) || dictInsert.TryGetValue(o.Name.ToUpperInvariant(), out v) ? v : DBNull.Value }) ;
+            var stmt = this.m_currentContext.CreateSqlStatementBuilder($"UPDATE {target.Name} SET ");
+            values.ToList().ForEach(v =>
+            {
+                stmt.Append($"{v.c} = ?", v.v);
+            });
+            stmt.Append($" WHERE {pkCol.Name} = ?", pkValue);
+
+            return this.m_currentContext.FirstOrDefault<ExpandoObject>(stmt.Statement.Prepare());
+
         }
 
         /// <inheritdoc/>
