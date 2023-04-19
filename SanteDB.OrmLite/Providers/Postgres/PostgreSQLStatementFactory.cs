@@ -80,8 +80,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     SqlEngineFeatures.AutoGenerateSequences |
                     SqlEngineFeatures.SetTimeout |
                     SqlEngineFeatures.MaterializedViews |
-                    SqlEngineFeatures.CascadeDelete | 
-                    SqlEngineFeatures.TruncateTable;
+                    SqlEngineFeatures.Cascades | 
+                    SqlEngineFeatures.Truncate;
             }
         }
 

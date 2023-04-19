@@ -35,7 +35,6 @@ namespace SanteDB.OrmLite.MappedResultSets
     /// Represents a stateful result set
     /// </summary>
     public class MappedStatefulQueryResultSet<TData> : MappedQueryResultSet<TData>, IDisposable
-        where TData : IIdentifiedResource
     {
 
         // Get tracer

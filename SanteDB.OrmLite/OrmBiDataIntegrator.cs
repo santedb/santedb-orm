@@ -830,13 +830,13 @@ namespace SanteDB.OrmLite
             {
                 foreach (var trunc in this.GetDependentObjects(table).Where(o => !o.Contains("VW")))
                 {
-                    if (this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.TruncateTable))
+                    if (this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.Truncate))
                     {
-                        this.m_currentContext.ExecuteNonQuery($"TRUNCATE TABLE {trunc} {(this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.CascadeDelete) ? "CASCADE" : String.Empty)}");
+                        this.m_currentContext.ExecuteNonQuery($"TRUNCATE TABLE {trunc} {(this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.Cascades) ? "CASCADE" : String.Empty)}");
                     }
                     else
                     {
-                        this.m_currentContext.ExecuteNonQuery($"DELETE FROM {trunc} {(this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.CascadeDelete) ? "CASCADE" : String.Empty)}");
+                        this.m_currentContext.ExecuteNonQuery($"DELETE FROM {trunc} {(this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.Cascades) ? "CASCADE" : String.Empty)}");
                     }
                 }
             }

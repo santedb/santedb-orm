@@ -39,7 +39,6 @@ namespace SanteDB.OrmLite.MappedResultSets
     /// <remarks>This query set wraps the returns of Query methods and allows for
     /// delay loading of the resulting data from the underlying data provider</remarks>
     public class MappedQueryResultSet<TElement> : IQueryResultSet<TElement>, IOrderableQueryResultSet<TElement>, IDisposable
-        where TElement : IIdentifiedResource
     {
 
 #if DEBUG
