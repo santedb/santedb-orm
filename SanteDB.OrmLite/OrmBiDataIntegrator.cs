@@ -121,9 +121,9 @@ namespace SanteDB.OrmLite
                 Id = dataSourceDefinition.Id,
                 Label = dataSourceDefinition.Label,
                 Identifier = dataSourceDefinition.Identifier,
+                    Status = BiDefinitionStatus.Active,
                 MetaData = new BiMetadata()
                 {
-                    Status = BiDefinitionStatus.Active,
                     IsPublic = false,
                     Demands = dataSourceDefinition.MetaData?.Demands
                 },

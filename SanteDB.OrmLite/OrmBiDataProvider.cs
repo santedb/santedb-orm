@@ -323,7 +323,7 @@ namespace SanteDB.OrmLite
                     queryDefinition,
                     parameters,
                     this,
-                    new OrmBiQueryResultSet(results),
+                    new OrmQueryResultSet<ExpandoObject>(results),
                     startTime);
             }
             catch (Exception e)
