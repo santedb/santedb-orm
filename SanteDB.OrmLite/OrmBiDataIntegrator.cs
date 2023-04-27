@@ -27,6 +27,8 @@ using System.Text;
 using System.Text.RegularExpressions;
 using SanteDB;
 using SanteDB.Core.Security.Claims;
+using SanteDB.Core.Model.Map;
+using System.Net.Http.Headers;
 
 namespace SanteDB.OrmLite
 {
@@ -121,7 +123,7 @@ namespace SanteDB.OrmLite
                 Id = dataSourceDefinition.Id,
                 Label = dataSourceDefinition.Label,
                 Identifier = dataSourceDefinition.Identifier,
-                    Status = BiDefinitionStatus.Active,
+                Status = BiDefinitionStatus.Active,
                 MetaData = new BiMetadata()
                 {
                     IsPublic = false,
@@ -541,6 +543,8 @@ namespace SanteDB.OrmLite
                     return typeof(Decimal);
                 case BiDataType.Ref:
                     return typeof(Object);
+                case BiDataType.Float:
+                    return typeof(double);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type));
             }
@@ -689,13 +693,24 @@ namespace SanteDB.OrmLite
 
             // Prepare an insert statement
             var colNames = target.Columns.Select(o => o.Name).ToList();
+            var colTypes = target.Columns.Select(o => o.Type).ToList();
             if (target.Parent != null)
             {
                 var pk = this.GetPrimaryKey(target);
                 colNames.Add(pk.Name);
+                colTypes.Add(pk.Type);
             }
 
-            var values = colNames.Select(o => dictInsert.TryGetValue(o, out var v) || dictInsert.TryGetValue(o.ToLowerInvariant(), out v) || dictInsert.TryGetValue(o.ToUpperInvariant(), out v) ? v : DBNull.Value).ToArray();
+            var values = Enumerable.Range(0, colNames.Count)
+                .Select(o =>
+                {
+                    if (dictInsert.TryGetValue(colNames[o], out var v) || dictInsert.TryGetValue(colNames[o].ToLowerInvariant(), out v) || dictInsert.TryGetValue(colNames[o].ToUpperInvariant(), out v))
+                    {
+                        return this.m_provider.ConvertValue(v, this.GetDataType(colTypes[o]));
+                    }
+                    return DBNull.Value;
+                }).ToArray();
+
 
 
             var stmt = this.m_currentContext.CreateSqlStatementBuilder($"INSERT INTO {target.Name} (")
@@ -871,7 +886,7 @@ namespace SanteDB.OrmLite
             target.MetaData?.Demands?.ForEach(o => this.m_pepService.Demand(o));
 
             // Extract PK col
-            if (!(dataToUpdate  is IDictionary<String, Object> dictInsert))
+            if (!(dataToUpdate is IDictionary<String, Object> dictInsert))
             {
                 throw new ArgumentException(nameof(dataToUpdate));
             }
@@ -883,11 +898,21 @@ namespace SanteDB.OrmLite
                 throw new InvalidOperationException(String.Format(ErrorMessages.DATA_STRUCTURE_NOT_APPROPRIATE, target.Name, "No Primary Key Value"));
             }
 
-            var values = target.Columns.Where(c=>c.Name != pkCol.Name).Select(o => new { c = o.Name, v = dictInsert.TryGetValue(o.Name, out var v) || dictInsert.TryGetValue(o.Name.ToLowerInvariant(), out v) || dictInsert.TryGetValue(o.Name.ToUpperInvariant(), out v) ? v : DBNull.Value }) ;
+            var values = target.Columns
+                .Select(o =>
+                {
+                    if (dictInsert.TryGetValue(o.Name, out var v) || dictInsert.TryGetValue(o.Name.ToLowerInvariant(), out v) || dictInsert.TryGetValue(o.Name.ToUpperInvariant(), out v))
+                    {
+                        return new KeyValuePair<String, Object>(o.Name, this.m_provider.ConvertValue(v, this.GetDataType(o.Type)));
+                    }
+                    return new KeyValuePair<String, Object>(o.Name, DBNull.Value);
+                });
+
+
             var stmt = this.m_currentContext.CreateSqlStatementBuilder($"UPDATE {target.Name} SET ");
             values.ToList().ForEach(v =>
             {
-                stmt.Append($"{v.c} = ?", v.v);
+                stmt.Append($"{v.Key} = ?", v.Value);
             });
             stmt.Append($" WHERE {pkCol.Name} = ?", pkValue);
 

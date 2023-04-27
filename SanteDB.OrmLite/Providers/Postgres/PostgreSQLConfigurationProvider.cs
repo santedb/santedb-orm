@@ -163,6 +163,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             connectionString = connectionString.Clone();
             connectionString.SetComponent("database", "postgres");
+            if(String.IsNullOrEmpty(databaseOwner))
+            {
+                databaseOwner = connectionString.GetComponent("user id");
+            }
             var provider = this.GetProvider(connectionString);
             using (var conn = provider.GetWriteConnection())
             {
@@ -230,6 +234,13 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     }
 
                     connectionString.SetComponent("database", databaseName);
+
+                    //HACK: Clear out the connection pool associated with the connection
+                    var poolClear = Type.GetType("Npgsql.NpgsqlConnection, Npgsql");
+                    if (poolClear != null)
+                    {
+                        poolClear.GetMethod("ClearAllPools").Invoke(null, new object[0]);
+                    }
                 }
                 catch (Exception e)
                 {

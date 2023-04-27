@@ -527,6 +527,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                         return "TIMESTAMP";
                     case nameof(Decimal):
                         return "DECIMAL";
+                    case nameof(Single):
                     case nameof(Double):
                         return "FLOAT";
                     case nameof(Int32):

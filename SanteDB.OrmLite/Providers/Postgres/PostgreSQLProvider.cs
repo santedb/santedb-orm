@@ -406,6 +406,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                         return "TIMESTAMPTZ";
                     case nameof(Decimal):
                         return "DECIMAL";
+                    case nameof(Single):
                     case nameof(Double):
                         return "FLOAT";
                     case nameof(Int32):
@@ -413,7 +414,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     case nameof(Int64):
                         return "BIGINT";
                     case nameof(String):
-                        return "VARCHAR(256)";
+                        return "TEXT";
                     case nameof(Guid):
                         return "UUID";
                     default:

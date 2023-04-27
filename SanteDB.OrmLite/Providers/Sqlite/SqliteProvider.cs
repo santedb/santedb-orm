@@ -514,11 +514,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         return "BIGINT";
                     case nameof(Decimal):
                         return "DECIMAL";
+                    case nameof(Single):
                     case nameof(Double):
                         return "FLOAT";
                     case nameof(Int32):
                         return "INTEGER";
-
                     case nameof(String):
                         return "VARCHAR(256)";
                     case nameof(Guid):
