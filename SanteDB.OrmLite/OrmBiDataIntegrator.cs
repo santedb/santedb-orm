@@ -688,12 +688,20 @@ namespace SanteDB.OrmLite
             }
 
             // Prepare an insert statement
-            var values = target.Columns.Select(o => dictInsert.TryGetValue(o.Name, out var v) || dictInsert.TryGetValue(o.Name.ToLowerInvariant(), out v) || dictInsert.TryGetValue(o.Name.ToUpperInvariant(), out v) ? v : DBNull.Value).ToArray();
-            var colNames = target.Columns.Select(o => o.Name).ToArray();
+            var colNames = target.Columns.Select(o => o.Name).ToList();
+            if (target.Parent != null)
+            {
+                var pk = this.GetPrimaryKey(target);
+                colNames.Add(pk.Name);
+            }
+
+            var values = colNames.Select(o => dictInsert.TryGetValue(o, out var v) || dictInsert.TryGetValue(o.ToLowerInvariant(), out v) || dictInsert.TryGetValue(o.ToUpperInvariant(), out v) ? v : DBNull.Value).ToArray();
+
+
             var stmt = this.m_currentContext.CreateSqlStatementBuilder($"INSERT INTO {target.Name} (")
                 .Append(String.Join(",", colNames))
                 .Append(") VALUES (")
-                .Append(String.Join(",", target.Columns.Select(o => "?")), values)
+                .Append(String.Join(",", colNames.Select(o => "?")), values)
                 .Append(") RETURNING ")
                 .Append(String.Join(",", colNames));
 
