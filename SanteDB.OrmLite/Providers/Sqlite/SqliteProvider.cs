@@ -516,7 +516,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         return "DECIMAL";
                     case nameof(Single):
                     case nameof(Double):
-                        return "FLOAT";
+                        return "REAL";
                     case nameof(Int32):
                         return "INTEGER";
                     case nameof(String):
