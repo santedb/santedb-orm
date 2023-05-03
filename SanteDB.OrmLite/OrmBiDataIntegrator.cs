@@ -912,9 +912,11 @@ namespace SanteDB.OrmLite
             var stmt = this.m_currentContext.CreateSqlStatementBuilder($"UPDATE {target.Name} SET ");
             values.ToList().ForEach(v =>
             {
-                stmt.Append($"{v.Key} = ?", v.Value);
+                stmt.Append($" {v.Key} = ? ", v.Value).Append(",");
             });
-            stmt.Append($" WHERE {pkCol.Name} = ?", pkValue);
+            stmt.RemoveLast(out _).Append($" WHERE {pkCol.Name} = ?", pkValue)
+                .Append(" RETURNING ")
+                .Append(String.Join(",", target.Columns.Select(o=>o.Name))).Append(",").Append(pkCol.Name);
 
             return this.m_currentContext.FirstOrDefault<ExpandoObject>(stmt.Statement.Prepare());
 

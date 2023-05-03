@@ -252,7 +252,15 @@ namespace SanteDB.OrmLite
                     value = this.m_provider.ConvertValue(value, type);
                 }
 
-                retVal.Add(name, value);
+                if (!retVal.ContainsKey(name)) // Overwrite duplicate named results
+                {
+                    retVal.Add(name, value);
+                }
+                else
+                {
+                    m_tracer.TraceWarning("Tuple does not have unique column names");
+                    retVal[name] = value;
+                }
             }
             return (TModel)retVal;
         }
