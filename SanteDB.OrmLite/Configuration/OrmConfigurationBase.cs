@@ -19,6 +19,7 @@
  * Date: 2023-3-10
  */
 using SanteDB.Core;
+using SanteDB.Core.Configuration;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Providers;
 using System;
@@ -30,7 +31,7 @@ namespace SanteDB.OrmLite.Configuration
     /// <summary>
     /// Represents a base ORM configuration object
     /// </summary>
-    public abstract class OrmConfigurationBase
+    public abstract class OrmConfigurationBase : IConfigurationSection
     {
         // DB Provider
         private IDbProvider m_dbProvider;
