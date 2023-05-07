@@ -64,6 +64,8 @@ namespace SanteDB.OrmLite
             typeof(DateTimeOffset?),
             typeof(UInt32),
             typeof(UInt32?),
+            typeof(long),
+            typeof(long?),
             typeof(byte[])
         };
 
