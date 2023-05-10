@@ -228,6 +228,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 dataSourceRaw = options["Data Source"] = Path.ChangeExtension(dataSourceRaw.ToString(), "sqlite");
             }
+            
+            if(!options.ContainsKey("Foreign Keys"))
+            {
+                options.Add("Foreign Keys", false);
+            }
            
             return base.CreateConnectionString(options);
         }
