@@ -47,8 +47,6 @@
     <When Condition="$(SolutionName.Contains('-ext'))">
       <ItemGroup>
         <ProjectReference Include="..\..\santedb-model\SanteDB.Core.Model\SanteDB.Core.Model.csproj">
-          <Project>{F1A82A4F-4A57-47D7-AE76-444C8A4FF54A}</Project>
-          <Name>SanteDB.Core.Model</Name>
         </ProjectReference>
       </ItemGroup>
     </When>
@@ -120,12 +118,8 @@
     <When Condition="$(SolutionName.Contains('-ext'))">
       <ItemGroup>
         <ProjectReference Include="..\..\santedb-api\SanteDB.Core.Api\SanteDB.Core.Api.csproj">
-          <Project>{3a45f695-47a2-464c-ace6-bdabbfa39fbc}</Project>
-          <Name>SanteDB.Core.Api</Name>
         </ProjectReference>
         <ProjectReference Include="..\..\santedb-bis\SanteDB.BI\SanteDB.BI.csproj">
-          <Project>{030666AA-FC71-449E-9DFC-270F1C23C5DA}</Project>
-          <Name>SanteDB.BI</Name>
         </ProjectReference>
         <ProjectReference Include="..\..\santedb-i18n\SanteDB.Core.i18n\SanteDB.Core.i18n.csproj" />
         
