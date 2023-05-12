@@ -282,14 +282,14 @@ namespace SanteDB.OrmLite
         {
             var retVal = new SqlStatement(this);
             var focal = retVal;
-            while(focal.m_next?.m_next != null)
+            while (focal.m_next?.m_next != null)
             {
                 focal = focal.m_next;
             }
             lastStatement = focal.m_next;
             focal.m_next = null;
             return retVal;
-             
+
         }
 
         /// <inheritdoc/>
@@ -342,17 +342,17 @@ namespace SanteDB.OrmLite
         /// <returns></returns>
         public SqlStatement Reduce()
         {
-            if(this.m_next == null)
+            if (this.m_next == null)
             {
                 return this;
             }
 
             SqlStatement retVal = null, readFocal = this, workFocal = null;
-            while(readFocal != null)
+            while (readFocal != null)
             {
-                if(!String.IsNullOrEmpty(readFocal.Sql))
+                if (!String.IsNullOrEmpty(readFocal.Sql))
                 {
-                    if(retVal != null)
+                    if (retVal != null)
                     {
                         workFocal = workFocal.m_next = new SqlStatement(readFocal);
                     }
@@ -361,7 +361,7 @@ namespace SanteDB.OrmLite
                         workFocal = retVal = new SqlStatement(readFocal);
                     }
                 }
-                else if(workFocal != null)
+                else if (workFocal != null)
                 {
                     workFocal.m_next = null;
                 }
@@ -419,7 +419,7 @@ namespace SanteDB.OrmLite
         /// <returns>The constructed sql statement</returns>
         public SqlStatementBuilder SelectFrom(params Type[] scopedTables)
         {
-            if(scopedTables.Length == 0)
+            if (scopedTables.Length == 0)
             {
                 throw new ArgumentException(String.Format(ErrorMessages.ARGUMENT_COUNT_MISMATCH, 1, 0), nameof(scopedTables));
             }
@@ -476,11 +476,11 @@ namespace SanteDB.OrmLite
         /// </summary>
         private string IncrementSubqueryAlias()
         {
-            if(String.IsNullOrEmpty(this.m_sqlStatement.Alias))
+            if (String.IsNullOrEmpty(this.m_sqlStatement.Alias))
             {
                 return "SA0";
             }
-            else if(Int32.TryParse(this.m_sqlStatement.Alias.Substring(2), out var sqi))
+            else if (Int32.TryParse(this.m_sqlStatement.Alias.Substring(2), out var sqi))
             {
                 return $"SQ{++sqi}";
             }
@@ -815,7 +815,7 @@ namespace SanteDB.OrmLite
             var orderCol = orderMap.GetColumn(fldRef.GetMember());
 
             // Is there already an orderby in the previous statement?
-            var prefix =  this.m_sqlStatement.Contains(" ORDER BY ") ? "," : " ORDER BY ";
+            var prefix = this.m_sqlStatement.Contains(" ORDER BY ") ? "," : " ORDER BY ";
             this.m_sqlStatement += $"{prefix} {this.m_sqlStatement.Alias ?? orderCol.Table.TableName}.{orderCol.Name} {(sortOperation == SortOrderType.OrderBy ? " ASC " : " DESC ")}";
             return this;
         }

@@ -24,14 +24,12 @@ using SanteDB.Core.Model.Map;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Tracing;
 using System.Linq;
-using System.Net;
 using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite.Providers.Postgres

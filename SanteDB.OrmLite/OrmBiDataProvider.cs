@@ -311,7 +311,7 @@ namespace SanteDB.OrmLite
                 var sqlStmt = new SqlStatement(stmt, values.ToArray());
                 this.m_tracer.TraceInfo("Executing BI Query: {0}", sqlStmt.ToString());
                 var results = new OrmResultSet<ExpandoObject>(provider.GetReadonlyConnection(), sqlStmt);
-                if(offset.HasValue)
+                if (offset.HasValue)
                 {
                     results = results.Skip(offset.Value);
                 }

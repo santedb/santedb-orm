@@ -18,14 +18,10 @@
  * User: fyfej
  * Date: 2023-3-10
  */
-using SanteDB.BI.Rendering;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
-using SanteDB.Core.Model;
-using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Model.Query;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 
@@ -77,7 +73,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             }
             else
             {
-                return this.Provider.QueryPersistence.QueryResultTotalQuantity(this.m_queryId) - limit > offset ;
+                return this.Provider.QueryPersistence.QueryResultTotalQuantity(this.m_queryId) - limit > offset;
             }
         }
 

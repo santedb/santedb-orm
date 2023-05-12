@@ -21,9 +21,7 @@
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Map;
 using System;
-using System.Collections.Generic;
 using System.Data;
-using System.Text;
 
 namespace SanteDB.OrmLite
 {
@@ -41,7 +39,7 @@ namespace SanteDB.OrmLite
         public static void LoadExtension(this IDbConnection me, string extensionName)
         {
             var loadExtensionMethod = me.GetType().GetMethod("LoadExtension");
-            if(loadExtensionMethod != null)
+            if (loadExtensionMethod != null)
             {
                 loadExtensionMethod.Invoke(me, new object[] { extensionName });
             }
@@ -52,14 +50,14 @@ namespace SanteDB.OrmLite
         /// </summary>
         public static TReturn ExecuteScalar<TReturn>(this IDbConnection me, String sql, params object[] parameters)
         {
-            using(var cmd = me.CreateCommand())
+            using (var cmd = me.CreateCommand())
             {
                 cmd.CommandText = sql;
                 cmd.CommandType = CommandType.Text;
                 int i = 0;
-                foreach(var itm in parameters)
+                foreach (var itm in parameters)
                 {
-                    if(itm is IDbDataParameter iddp)
+                    if (itm is IDbDataParameter iddp)
                     {
                         cmd.Parameters.Add(iddp);
                     }
@@ -74,11 +72,11 @@ namespace SanteDB.OrmLite
                 }
 
                 var retVal = cmd.ExecuteScalar();
-                if(retVal is TReturn tr)
+                if (retVal is TReturn tr)
                 {
                     return tr;
                 }
-                else if(MapUtil.TryConvert(retVal, typeof(TReturn), out var tr2))
+                else if (MapUtil.TryConvert(retVal, typeof(TReturn), out var tr2))
                 {
                     return (TReturn)tr2;
                 }

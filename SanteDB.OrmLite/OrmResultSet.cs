@@ -26,8 +26,6 @@ using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
-using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite
 {
@@ -42,7 +40,7 @@ namespace SanteDB.OrmLite
         /// Get the SQL statement
         /// </summary>
         public SqlStatement Statement { get; }
-        
+
         /// <summary>
         /// Get the context
         /// </summary>
@@ -276,7 +274,7 @@ namespace SanteDB.OrmLite
                 }
                 else
                 {
-                    
+
                     var newStmt = this.Context.CreateSqlStatementBuilder(this.Statement)
                         .WrapAsSubQuery(tm.PrimaryKey.ToArray())
                         .Statement;
@@ -324,7 +322,7 @@ namespace SanteDB.OrmLite
                 // Is the inner query a sub-query?
                 if (sqlParts.Groups[Constants.SQL_GROUP_FROM].Value.TrimStart().StartsWith("("))
                 {
-                    return new OrmResultSet<TData>(this.Context, 
+                    return new OrmResultSet<TData>(this.Context,
                         new SqlStatement(stmt.Alias, $"{sqlParts.Groups[Constants.SQL_GROUP_FROM].Value.TrimStart().Substring(1)} WHERE {sqlParts.Groups[Constants.SQL_GROUP_WHERE].Value}".Replace($") AS {stmt.Alias}", ""), stmt.Arguments)
                     ).HavingKeys(keyList, keyColumnName);
                 }
@@ -361,7 +359,7 @@ namespace SanteDB.OrmLite
             }
         }
 
-        
+
         /// <summary>
         /// Select the specified column
         /// </summary>
@@ -588,7 +586,7 @@ namespace SanteDB.OrmLite
                     throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderBy)));
                 }
             }
-            else if(typeof(ExpandoObject).IsAssignableFrom(typeof(TData)) &&
+            else if (typeof(ExpandoObject).IsAssignableFrom(typeof(TData)) &&
                 orderExpression.Body is DynamicExpression me &&
                 me.Binder is System.Dynamic.GetMemberBinder dmob)
             {
@@ -718,10 +716,10 @@ namespace SanteDB.OrmLite
         public IOrmResultSet Where(Expression whereExpression)
         {
             var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
-             if (whereExpression is LambdaExpression le &&
-                (typeof(CompositeResult).IsAssignableFrom(typeof(TData)) &&
-                typeof(TData).GetGenericArguments().Contains(le.Parameters[0].Type) ||
-                typeof(TData) == le.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
+            if (whereExpression is LambdaExpression le &&
+               (typeof(CompositeResult).IsAssignableFrom(typeof(TData)) &&
+               typeof(TData).GetGenericArguments().Contains(le.Parameters[0].Type) ||
+               typeof(TData) == le.Parameters[0].Type)) // This is a composite result - so we want to know if any of the composite objects are TData
             {
                 var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
                     .WrapAsSubQuery()

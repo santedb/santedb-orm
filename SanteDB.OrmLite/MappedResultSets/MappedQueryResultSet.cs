@@ -20,11 +20,8 @@
  */
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
-using SanteDB.Core.Model;
-using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Model.Query;
 using System;
-using System.CodeDom;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;

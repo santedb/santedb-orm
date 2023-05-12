@@ -18,7 +18,6 @@
  * User: fyfej
  * Date: 2023-3-10
  */
-using DocumentFormat.OpenXml.Drawing.Charts;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Query;
 using System;
@@ -112,7 +111,7 @@ namespace SanteDB.OrmLite
         /// <inheritdoc/>
         public IQueryResultSet<TResult> Intersect(IQueryResultSet<TResult> other)
         {
-            if(other is OrmQueryResultSet<TResult> otr)
+            if (other is OrmQueryResultSet<TResult> otr)
             {
                 return new OrmQueryResultSet<TResult>(this.m_ormResultSet.Intersect(otr.m_ormResultSet));
             }
@@ -153,15 +152,16 @@ namespace SanteDB.OrmLite
         /// <inheritdoc/>
         public IEnumerable<TReturn> Select<TReturn>(Expression selector)
         {
-            if(selector is LambdaExpression le)
+            if (selector is LambdaExpression le)
             {
                 var comp = le.Compile();
-                foreach(var itm in this)
+                foreach (var itm in this)
                 {
                     yield return (TReturn)comp.DynamicInvoke(itm);
                 }
             }
-            else {
+            else
+            {
                 throw new ArgumentOutOfRangeException(nameof(selector), String.Format(ErrorMessages.ARGUMENT_INCOMPATIBLE_TYPE, typeof(LambdaExpression), selector.GetType()));
             }
         }
@@ -173,7 +173,7 @@ namespace SanteDB.OrmLite
         public object Single()
         {
             var retVal = this.SingleOrDefault();
-            if(retVal == null)
+            if (retVal == null)
             {
                 throw new InvalidOperationException(ErrorMessages.SEQUENCE_NO_ELEMENTS);
             }
@@ -203,7 +203,7 @@ namespace SanteDB.OrmLite
         /// <inheritdoc/>
         public IQueryResultSet Union(IQueryResultSet other)
         {
-            if(other is OrmQueryResultSet<TResult> ob)
+            if (other is OrmQueryResultSet<TResult> ob)
             {
                 return new OrmQueryResultSet<TResult>(this.m_ormResultSet.Union(ob.m_ormResultSet));
             }
@@ -214,7 +214,8 @@ namespace SanteDB.OrmLite
         }
 
         /// <inheritdoc/>
-        public IQueryResultSet<TResult> Union(IQueryResultSet<TResult> other) {
+        public IQueryResultSet<TResult> Union(IQueryResultSet<TResult> other)
+        {
             if (other is OrmQueryResultSet<TResult> otr)
             {
                 return new OrmQueryResultSet<TResult>(this.m_ormResultSet.Union(otr.m_ormResultSet));

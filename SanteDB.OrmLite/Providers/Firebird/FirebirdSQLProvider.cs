@@ -147,7 +147,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         public object ConvertValue(object value, Type toType)
         {
             object retVal = null;
-            if(value == null || value == DBNull.Value)
+            if (value == null || value == DBNull.Value)
             {
                 return null;
             }
@@ -408,7 +408,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
             cstring.ConnectionString = this.ConnectionString.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString()).Replace("\\", Path.DirectorySeparatorChar.ToString());
 
             var clientLibraryName = "fbclient.dll";
-            if(Environment.OSVersion.Platform == PlatformID.Unix)
+            if (Environment.OSVersion.Platform == PlatformID.Unix)
             {
                 clientLibraryName = "libfbclient.so";
             }

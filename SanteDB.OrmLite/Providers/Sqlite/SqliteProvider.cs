@@ -24,20 +24,15 @@ using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Map;
-using SanteDB.Core.Security;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.Tracing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite.Providers.Sqlite
@@ -157,7 +152,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         internal static ConnectionString CorrectConnectionString(ConnectionString connectionString)
         {
             var retVal = connectionString.Clone();
-           
+
             var dataSource = retVal.GetComponent("Data Source");
             if (!String.IsNullOrEmpty(dataSource)
                && !dataSource.StartsWith("|DataDirectory|")
@@ -258,7 +253,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 {
                     parm.Value = DBNull.Value;
                 }
-                else if(itm.GetType().IsEnum)
+                else if (itm.GetType().IsEnum)
                 {
                     parm.Value = (int)itm;
                 }
@@ -329,7 +324,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 return DbType.Binary;
             }
-            else if(type == typeof(DBNull))
+            else if (type == typeof(DBNull))
             {
                 return DbType.Object;
             }
@@ -455,7 +450,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 retVal = SanteDBConvert.ToDateTimeOffset(dto);
             }
-            else if(typeof(Guid) == toType.StripNullable() &&
+            else if (typeof(Guid) == toType.StripNullable() &&
                 value is byte[] bValue)
             {
                 retVal = new Guid(bValue);
@@ -466,7 +461,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 retVal = new Guid(bValue2);
             }
-            
+
             else
             {
                 MapUtil.TryConvert(value, toType, out retVal);

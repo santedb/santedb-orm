@@ -27,7 +27,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Text;
 
 namespace SanteDB.OrmLite
 {
@@ -208,10 +207,10 @@ namespace SanteDB.OrmLite
 
             _ = this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
 
-            if(!this.m_opened)
+            if (!this.m_opened)
             {
                 this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
-               this.m_opened = true;
+                this.m_opened = true;
             }
         }
 

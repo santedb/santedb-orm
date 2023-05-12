@@ -24,7 +24,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace SanteDB.OrmLite.Providers.Postgres
 {
@@ -80,7 +79,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     SqlEngineFeatures.AutoGenerateSequences |
                     SqlEngineFeatures.SetTimeout |
                     SqlEngineFeatures.MaterializedViews |
-                    SqlEngineFeatures.Cascades | 
+                    SqlEngineFeatures.Cascades |
                     SqlEngineFeatures.Truncate;
             }
         }
@@ -90,7 +89,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public SqlStatement Count(SqlStatement sqlStatement)
         {
-            return "SELECT COUNT(*) FROM (" +  sqlStatement + ") Q0";
+            return "SELECT COUNT(*) FROM (" + sqlStatement + ") Q0";
         }
 
         /// <summary>

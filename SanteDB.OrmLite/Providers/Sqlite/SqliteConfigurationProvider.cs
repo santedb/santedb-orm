@@ -21,16 +21,11 @@
 using SanteDB.Core;
 using SanteDB.Core.Configuration;
 using SanteDB.Core.Configuration.Data;
-using SanteDB.Core.Services;
+using SanteDB.Core.Diagnostics;
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Linq;
-using SanteDB.Core.Security;
-using SanteDB.Core.i18n;
-using SanteDB.Core.Diagnostics;
-using System.Security.Cryptography;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 
 namespace SanteDB.OrmLite.Providers.Sqlite
@@ -104,12 +99,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             connectionString.SetComponent("Data Source", databaseName);
             connectionString = SqliteProvider.CorrectConnectionString(connectionString);
             databaseName = connectionString.GetComponent("Data Source");
-            
+
             try
             {
                 //HACK: Clear out the connection pool associated with the connection
                 var poolClear = Type.GetType("Microsoft.Data.Sqlite.SqliteConnection, Microsoft.Data.Sqlite");
-                if(poolClear != null)
+                if (poolClear != null)
                 {
                     poolClear.GetMethod("ClearAllPools").Invoke(null, new object[0]);
                 }
@@ -118,10 +113,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 {
                     File.Delete(databaseName);
                 }
-                else if(!Path.IsPathRooted(databaseName))
+                else if (!Path.IsPathRooted(databaseName))
                 {
                     var newPath = Path.Combine(Path.GetDirectoryName(typeof(SqliteConfigurationProvider).Assembly.Location), databaseName);
-                    if(File.Exists(newPath))
+                    if (File.Exists(newPath))
                     {
                         File.Delete(newPath);
                     }
@@ -154,7 +149,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 {
                     // Create the database
                     conn.Open();
-                    
+
                     var newConnectionString = SqliteProvider.CorrectConnectionString(connectionString);
                     var password = newConnectionString.GetComponent("Password");
                     if (!String.IsNullOrEmpty(password))
@@ -202,7 +197,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     return Directory.GetFiles(Path.GetDirectoryName(dbPath), "*.sqlite").Select(o => Path.GetFileName(o));
                 }
                 else if (!String.IsNullOrEmpty(dataDirectory))
-                { 
+                {
                     return Directory.GetFiles(dataDirectory, "*.sqlite").Select(o => Path.GetFileName(o));
                 }
                 else
@@ -228,12 +223,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 dataSourceRaw = options["Data Source"] = Path.ChangeExtension(dataSourceRaw.ToString(), "sqlite");
             }
-            
-            if(!options.ContainsKey("Foreign Keys"))
+
+            if (!options.ContainsKey("Foreign Keys"))
             {
                 options.Add("Foreign Keys", false);
             }
-           
+
             return base.CreateConnectionString(options);
         }
     }

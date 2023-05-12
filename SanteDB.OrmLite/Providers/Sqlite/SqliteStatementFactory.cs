@@ -24,7 +24,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace SanteDB.OrmLite.Providers.Sqlite
 {
@@ -70,10 +69,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
             get
             {
-                return SqlEngineFeatures.AutoGenerateTimestamps | 
-                    SqlEngineFeatures.LimitOffset | 
-                    SqlEngineFeatures.ReturnedInsertsAsReader | 
-                    SqlEngineFeatures.ReturnedUpdatesAsReader | 
+                return SqlEngineFeatures.AutoGenerateTimestamps |
+                    SqlEngineFeatures.LimitOffset |
+                    SqlEngineFeatures.ReturnedInsertsAsReader |
+                    SqlEngineFeatures.ReturnedUpdatesAsReader |
                     SqlEngineFeatures.StrictSubQueryColumnNames |
                     SqlEngineFeatures.AutoGenerateGuids;
             }
@@ -82,7 +81,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public SqlStatement Count(SqlStatement sqlStatement)
         {
-            return new SqlStatement("SELECT COUNT(*) FROM (").Append( sqlStatement).Append( ") Q0");
+            return new SqlStatement("SELECT COUNT(*) FROM (").Append(sqlStatement).Append(") Q0");
         }
 
         /// <inheritdoc/>

@@ -19,7 +19,6 @@
  * Date: 2023-3-10
  */
 using NUnit.Framework;
-using SanteDB.OrmLite.Providers.Firebird;
 using SanteDB.OrmLite.Providers.Sqlite;
 using SanteDB.Persistence.Data.ADO.Data.Model.Security;
 using System;

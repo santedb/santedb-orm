@@ -163,7 +163,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             connectionString = connectionString.Clone();
             connectionString.SetComponent("database", "postgres");
-            if(String.IsNullOrEmpty(databaseOwner))
+            if (String.IsNullOrEmpty(databaseOwner))
             {
                 databaseOwner = connectionString.GetComponent("user id");
             }

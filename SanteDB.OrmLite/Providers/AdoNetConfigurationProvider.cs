@@ -35,7 +35,7 @@ namespace SanteDB.OrmLite.Providers
     /// </summary>
     public abstract class AdoNetConfigurationProvider : IDataConfigurationProvider
     {
-        
+
         /// <summary>
         /// Gets the provider
         /// </summary>

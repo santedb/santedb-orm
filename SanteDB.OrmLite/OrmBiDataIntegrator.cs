@@ -1,12 +1,11 @@
-﻿using SanteDB.BI.Datamart;
+﻿using SanteDB;
+using SanteDB.BI.Datamart;
 using SanteDB.BI.Datamart.DataFlow;
 using SanteDB.BI.Model;
 using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
-using SanteDB.Core.Data.Initialization;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
-using SanteDB.Core.Model.Roles;
 using SanteDB.Core.Security;
 using SanteDB.Core.Security.Services;
 using SanteDB.Core.Services;
@@ -17,18 +16,11 @@ using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Data.Common;
 using System.Dynamic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.RegularExpressions;
-using SanteDB;
-using SanteDB.Core.Security.Claims;
-using SanteDB.Core.Model.Map;
-using System.Net.Http.Headers;
 
 namespace SanteDB.OrmLite
 {
@@ -916,7 +908,7 @@ namespace SanteDB.OrmLite
             });
             stmt.RemoveLast(out _).Append($" WHERE {pkCol.Name} = ?", pkValue)
                 .Append(" RETURNING ")
-                .Append(String.Join(",", target.Columns.Select(o=>o.Name))).Append(",").Append(pkCol.Name);
+                .Append(String.Join(",", target.Columns.Select(o => o.Name))).Append(",").Append(pkCol.Name);
 
             return this.m_currentContext.FirstOrDefault<ExpandoObject>(stmt.Statement.Prepare());
 
