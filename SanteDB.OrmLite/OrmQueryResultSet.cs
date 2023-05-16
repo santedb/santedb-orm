@@ -85,15 +85,30 @@ namespace SanteDB.OrmLite
         /// <inheritdoc/>
         public IEnumerator<TResult> GetEnumerator()
         {
-            using (var context = this.m_ormResultSet.Context.OpenClonedContext())
+            try
             {
-                context.Open();
-                foreach (var itm in this.m_ormResultSet.CloneOnContext(context) as OrmResultSet<TResult>)
+                this.m_ormResultSet.Context.Open();
+                foreach(var itm in this.m_ormResultSet)
                 {
                     yield return itm;
                 }
             }
+            finally
+            {
+                this.m_ormResultSet.Context.Close();
+            }
         }
+
+        //{
+        //    using (var context = this.m_ormResultSet.Context.OpenClonedContext())
+        //    {
+        //        context.Open();
+        //        foreach (var itm in this.m_ormResultSet.CloneOnContext(context) as OrmResultSet<TResult>)
+        //        {
+        //            yield return itm;
+        //        }
+        //    }
+        //}
 
         /// <inheritdoc/>
         public IQueryResultSet Intersect(IQueryResultSet other)
