@@ -52,6 +52,7 @@ namespace SanteDB.OrmLite
         private SqlStatementBuilder m_sqlStatement = null;
         private IDbStatementFactory m_provider;
         private readonly bool m_prefixColumns;
+        private readonly bool m_nullAsIs;
         private bool m_isFilterExpression = true;
 
         /// <summary>
@@ -62,12 +63,13 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Creates a new postgresql query expression builder
         /// </summary>
-        public SqlQueryExpressionBuilder(String alias, IDbStatementFactory provider, bool prefixColumnsWithTableName = true)
+        public SqlQueryExpressionBuilder(String alias, IDbStatementFactory provider, bool prefixColumnsWithTableName = true, bool nullAsIs = true)
         {
             this.m_tableAlias = alias;
             this.m_sqlStatement = new SqlStatementBuilder(this.m_provider);
             this.m_provider = provider;
             this.m_prefixColumns = prefixColumnsWithTableName;
+            this.m_nullAsIs = nullAsIs;
         }
 
         /// <summary>
@@ -194,7 +196,7 @@ namespace SanteDB.OrmLite
                 case ExpressionType.Equal:
                     {
                         var cexpr = this.ExtractConstantExpression(node.Right);
-                        if (cexpr != null && cexpr.Value == null)
+                        if (cexpr != null && cexpr.Value == null && this.m_nullAsIs)
                         {
                             skipRight = true;
                             this.m_sqlStatement.Append(" IS NULL ");
@@ -209,7 +211,7 @@ namespace SanteDB.OrmLite
                 case ExpressionType.NotEqual:
                     {
                         var cexpr = this.ExtractConstantExpression(node.Right);
-                        if (cexpr != null && cexpr.Value == null)
+                        if (cexpr != null && cexpr.Value == null && this.m_nullAsIs)
                         {
                             skipRight = true;
                             this.m_sqlStatement.Append(" IS NOT NULL ");
@@ -557,7 +559,7 @@ namespace SanteDB.OrmLite
                                     if (node.Member is PropertyInfo)
                                     {
                                         var value = (node.Member as PropertyInfo).GetValue(cons);
-                                        if (value == null)
+                                        if (value == null && this.m_nullAsIs)
                                         {
                                             this.m_sqlStatement.RemoveLast(out var lastStmt);
                                             if (!lastStmt.IsEmpty())

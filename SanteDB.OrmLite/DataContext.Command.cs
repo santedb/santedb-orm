@@ -1442,11 +1442,10 @@ namespace SanteDB.OrmLite
                 // Build the command
                 var tableMap = TableMapping.Get(tmodel);
                 var updateStatementBuilder = this.CreateSqlStatementBuilder().UpdateSet(tmodel);
-                var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
                 var setClause = SqlStatement.Empty;
                 foreach (var updateFunc in updateStatements)
                 {
-                    queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory, false);
+                    var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory, false, nullAsIs: false);
                     queryBuilder.Visit(updateFunc);
                     setClause += queryBuilder.StatementBuilder.Statement + ",";
                 }
