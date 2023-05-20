@@ -65,6 +65,11 @@ namespace SanteDB.Persistence.Data.ADO.Data.Model.Entities
         public override Decimal ValueSequenceId { get; set; }
 
         /// <summary>
+        /// External reference key
+        /// </summary>
+        [Column("ext_id")]
+        public String ExternalKey { get; set; }
+        /// <summary>
         /// Address sequence id
         /// </summary>
         //[Column("addr_seq_id"), ForeignKey(typeof(DbEntityAddress), nameof(DbEntityAddress.AddressSequenceId))]
