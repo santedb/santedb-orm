@@ -537,6 +537,8 @@ namespace SanteDB.OrmLite
                     return typeof(Object);
                 case BiDataType.Float:
                     return typeof(double);
+                case BiDataType.Binary:
+                    return typeof(byte[]);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type));
             }
