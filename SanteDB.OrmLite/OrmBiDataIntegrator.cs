@@ -784,7 +784,7 @@ namespace SanteDB.OrmLite
 
 
         /// <inheritdoc/>
-        public IEnumerable<dynamic> Query(IEnumerable<BiSqlDefinition> queryToExecute, IDictionary<String, BiDataType> expectedOutput = null)
+        public IEnumerable<dynamic> Query(IEnumerable<BiSqlDefinition> queryToExecute, BiSchemaTableDefinition expectedOutput = null)
         {
             if (queryToExecute == null)
             {
@@ -806,7 +806,13 @@ namespace SanteDB.OrmLite
             {
                 if (expectedOutput != null)
                 {
-                    yield return expectedOutput.ToDictionary(o => o.Key, o => this.m_provider.ConvertValue(tuple[o.Key], this.GetDataType(o.Value)));
+                    var pkColumn = this.GetPrimaryKey(expectedOutput);
+                    var targetSchemaList = expectedOutput.Columns.ToDictionary(o => o.Name.ToLowerInvariant(), o => o.Type);
+                    if(!targetSchemaList.ContainsKey(pkColumn.Name.ToLowerInvariant())) // add the linking column
+                    {
+                        targetSchemaList.Add(pkColumn.Name.ToLowerInvariant(), pkColumn.Type);
+                    }
+                    yield return targetSchemaList.ToDictionary(o => o.Key, o => this.m_provider.ConvertValue(tuple[o.Key], this.GetDataType(o.Value)));
                 }
                 else
                 {
