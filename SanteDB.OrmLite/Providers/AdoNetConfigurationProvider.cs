@@ -170,7 +170,7 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         public virtual IDictionary<string, object> ParseConnectionString(ConnectionString connectionString)
         {
-            var retVal = this.Options.Keys.ToDictionary(o => o, p => (Object)null);
+            var retVal = this.Options.Keys.ToArray().ToDictionary(o => o, p => (Object)null);
             foreach (var itm in retVal)
             {
                 retVal[itm.Key] = connectionString.GetComponent(itm.Key);
