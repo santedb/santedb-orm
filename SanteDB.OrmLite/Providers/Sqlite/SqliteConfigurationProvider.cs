@@ -219,13 +219,17 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public override ConnectionString CreateConnectionString(IDictionary<string, object> options)
         {
-            if(!options.TryGetValue("Data Source", out var dataSourceRaw))
+
+            if (options.Any())
             {
-                throw new ArgumentNullException("data source");
-            }
-            else if (Path.GetExtension(dataSourceRaw.ToString()) != "sqlite")
-            {
-                dataSourceRaw = options["Data Source"] = Path.ChangeExtension(dataSourceRaw.ToString(), "sqlite");
+                if (!options.TryGetValue("Data Source", out var dataSourceRaw))
+                {
+                    throw new ArgumentNullException("data source");
+                }
+                else if (Path.GetExtension(dataSourceRaw.ToString()) != "sqlite")
+                {
+                    dataSourceRaw = options["Data Source"] = Path.ChangeExtension(dataSourceRaw.ToString(), "sqlite");
+                }
             }
 
             if (!options.ContainsKey("Foreign Keys"))
