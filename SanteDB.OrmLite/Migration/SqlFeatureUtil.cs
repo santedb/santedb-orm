@@ -78,7 +78,7 @@ namespace SanteDB.OrmLite.Migration
         /// <summary>
         /// Upgrade the schema
         /// </summary>
-        public static void UpgradeSchema(this IDbProvider provider, string scopeOfContext, Action<float, string> progressMonitor)
+        public static void UpgradeSchema(this IDbProvider provider, string scopeOfContext, Action<string, float, string> progressMonitor)
         {
             // First, does the database exist?
             m_traceSource.TraceInfo("Ensure context {0} is updated...", scopeOfContext);
@@ -94,7 +94,7 @@ namespace SanteDB.OrmLite.Migration
             {
                 try
                 {
-                    progressMonitor?.Invoke(0.0f, String.Format(UserMessages.INITIALIZE_DATABASE, scopeOfContext));
+                    progressMonitor?.Invoke(nameof(UpgradeSchema), 0.0f, String.Format(UserMessages.INITIALIZE_DATABASE, scopeOfContext));
                     m_traceSource.TraceInfo("Will create database {0}...", dbName);
                     configProvider.CreateDatabase(connectionString, dbName, connectionString.GetComponent(configProvider.Capabilities.UserNameSetting));
                 }
@@ -114,7 +114,7 @@ namespace SanteDB.OrmLite.Migration
                 {
                     using (var conn = provider.GetWriteConnection())
                     {
-                        progressMonitor?.Invoke((((float)++i) / updates.Length), String.Format(UserMessages.UPDATE_DATABASE, itm.Description));
+                        progressMonitor?.Invoke(nameof(UpgradeSchema), (((float)++i) / updates.Length), String.Format(UserMessages.UPDATE_DATABASE, itm.Description));
 
                         if (!conn.IsInstalled(itm))
                         {
@@ -134,6 +134,8 @@ namespace SanteDB.OrmLite.Migration
                 }
 
             }
+
+            progressMonitor?.Invoke(nameof(UpgradeSchema), 1f, UserMessages.COMPLETE);
         }
 
         /// <summary>
