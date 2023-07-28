@@ -20,6 +20,7 @@
  */
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 
 namespace SanteDB.OrmLite.Providers.Postgres
 {
@@ -127,6 +128,68 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             return current.Append($"LOWER({filterColumn}) = LOWER(?)",
                 QueryBuilder.CreateParameterValue(operand, type));
+        }
+    }
+
+    /// <summary>
+    /// PostgreSQL binary 
+    /// </summary>
+    [ExcludeFromCodeCoverage]
+    public class PostgresStringToBinaryFunction : IDbFilterFunction
+    {
+        /// <inheritdoc/>
+        public string Provider => PostgreSQLProvider.InvariantName;
+
+        /// <inheritdoc/>
+        public string Name => "tobytes";
+
+        /// <inheritdoc/>
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder currentBuilder, string filterColumn, string[] parms, string operand, Type operandType)
+        {
+            return currentBuilder.Append($"{filterColumn} = ?",
+                QueryBuilder.CreateParameterValue(Encoding.UTF8.GetBytes(operand), typeof(byte[])));
+        }
+    }
+
+
+    /// <summary>
+    /// PostgreSQL hex decode 
+    /// </summary>
+    [ExcludeFromCodeCoverage]
+    public class PostgresHexDecodeFunction : IDbFilterFunction
+    {
+        /// <inheritdoc/>
+        public string Provider => PostgreSQLProvider.InvariantName;
+
+        /// <inheritdoc/>
+        public string Name => "hexdecode";
+
+        /// <inheritdoc/>
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder currentBuilder, string filterColumn, string[] parms, string operand, Type operandType)
+        {
+            return currentBuilder.Append($"{filterColumn} = ?",
+                QueryBuilder.CreateParameterValue(operand.HexDecode(), typeof(byte[])));
+        }
+    }
+
+
+    /// <summary>
+    /// PostgreSQL base64 decode 
+    /// </summary>
+    [ExcludeFromCodeCoverage]
+    public class PostgresBase64DecodeFunction : IDbFilterFunction
+    {
+        /// <inheritdoc/>
+        public string Provider => PostgreSQLProvider.InvariantName;
+
+        /// <inheritdoc/>
+        public string Name => "b64decode";
+
+        /// <inheritdoc/>
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder currentBuilder, string filterColumn, string[] parms, string operand, Type operandType)
+        {
+            return currentBuilder.Append($"{filterColumn} = ?",
+                QueryBuilder.CreateParameterValue(operand.ParseBase64UrlEncode(), typeof(byte[])));
         }
     }
 }
