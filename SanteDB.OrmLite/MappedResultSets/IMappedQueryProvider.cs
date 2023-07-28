@@ -44,8 +44,10 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// <summary>
         /// Execute a query for the specified model with query identifier returning the results
         /// </summary>
+        /// <param name="context">The <see cref="DataContext"/> that the query will be executed with.</param>
         /// <param name="query">The query to execute</param>
         /// <returns>The amount of results to return</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> or <paramref name="query"/> is null.</exception>
         IOrmResultSet ExecuteQueryOrm(DataContext context, Expression<Func<TModel, bool>> query);
 
         /// <summary>

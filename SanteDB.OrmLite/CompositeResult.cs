@@ -85,7 +85,9 @@ namespace SanteDB.OrmLite
         where TData1 : new()
         where TData2 : new()
     {
-
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CompositeResult{TData1, TData2}"/>.
+        /// </summary>
         public CompositeResult()
         {
 
@@ -124,7 +126,9 @@ namespace SanteDB.OrmLite
         where TData2 : new()
         where TData3 : new()
     {
-
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CompositeResult{TData1, TData2, TData3}"/>.
+        /// </summary>
         public CompositeResult()
         {
 
@@ -160,6 +164,9 @@ namespace SanteDB.OrmLite
         where TData4 : new()
     {
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CompositeResult{TData1, TData2, TData3, TData4}"/>.
+        /// </summary>
         public CompositeResult()
         {
 

@@ -42,6 +42,7 @@ namespace SanteDB.OrmLite
     /// </summary>
     public enum QueryPredicatePart
     {
+#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
         Full = Path | Guard | Cast | SubPath,
         Path = 0x1,
         Guard = 0x2,
@@ -49,6 +50,7 @@ namespace SanteDB.OrmLite
         SubPath = 0x8,
         PropertyAndGuard = Path | Guard,
         PropertyAndCast = Path | Cast
+#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
     }
 
     /// <summary>
@@ -56,7 +58,9 @@ namespace SanteDB.OrmLite
     /// </summary>
     public class QueryPredicate
     {
-        // Regex to extract property, guards and cast
+        /// <summary>
+        /// Regex to extract property, guards and cast
+        /// </summary>
         public static readonly Regex ExtractionRegex = new Regex(@"^(\w*?)(\[(.*?)\])?(\@(\w*))?(\.(.*))?$", RegexOptions.Compiled);
 
         private const int PropertyRegexGroup = 1;
@@ -699,6 +703,7 @@ namespace SanteDB.OrmLite
         /// <param name="tablePrefix">The prefix that the table has</param>
         /// <param name="scopedTables">The tables which are scoped</param>
         /// <param name="sortExpression">The sorting expression</param>
+        /// <param name="order">Whether to order by ascending or descending.</param>
         private SqlStatementBuilder CreateOrderBy(Type tmodel, string tablePrefix, IEnumerable<TableMapping> scopedTables, Expression sortExpression, SortOrderType order)
         {
             switch (sortExpression.NodeType)

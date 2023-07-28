@@ -53,6 +53,9 @@ namespace SanteDB.OrmLite.Migration
         internal string Remarks { get; private set; }
 
         // Identifier
+        /// <summary>
+        /// The identifier for this particular feature. Each update must contain a unique identifier that will be used to track the update status in the schema.
+        /// </summary>
         public string Id { get; private set; }
 
         /// <summary>

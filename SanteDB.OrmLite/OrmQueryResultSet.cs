@@ -250,6 +250,7 @@ namespace SanteDB.OrmLite
             throw new NotSupportedException();
         }
 
+        /// <inheritdoc/>
         public IQueryResultSet<TResult> Where(Expression<Func<TResult, bool>> query)
         {
             throw new NotSupportedException();

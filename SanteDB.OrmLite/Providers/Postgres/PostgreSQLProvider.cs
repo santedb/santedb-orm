@@ -41,7 +41,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
     public class PostgreSQLProvider : IDbMonitorProvider
     {
         // Last rr host used
+#pragma warning disable CS0414 // The field 'PostgreSQLProvider.m_lastRrHost' is assigned but its value is never used
         private int m_lastRrHost = 0;
+#pragma warning restore CS0414 // The field 'PostgreSQLProvider.m_lastRrHost' is assigned but its value is never used
 
         // Trace source
         private readonly Tracer m_tracer = new Tracer(Constants.TracerName + ".PostgreSQL");
@@ -50,8 +52,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
         private DbProviderFactory m_provider = null;
 
         // Index functions
+#pragma warning disable CS0414 // The field 'PostgreSQLProvider.s_indexFunctions' is assigned but its value is never used
         private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
-        // Monitor
+#pragma warning restore CS0414 // The field 'PostgreSQLProvider.s_indexFunctions' is assigned but its value is never used
+                              // Monitor
         private IDiagnosticsProbe m_monitor;
 
         /// <summary>
