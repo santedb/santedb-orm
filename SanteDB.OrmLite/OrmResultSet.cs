@@ -318,7 +318,8 @@ namespace SanteDB.OrmLite
             {
                 if (stmt.ToString().ToLower().Contains(" union ") || stmt.ToString().Contains(" intersect "))
                 {
-                    var sqlStatementBuilder = this.Context.CreateSqlStatementBuilder($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_COLUMNS]} FROM (")
+                    var selectColumns = Constants.ExtractColumnBindingRegex.Replace(sqlParts.Groups[Constants.SQL_GROUP_COLUMNS].Value, (o) => $"{o.Groups[2].Value}{o.Groups[3].Value}");
+                    var sqlStatementBuilder = this.Context.CreateSqlStatementBuilder($"SELECT {selectColumns} FROM (")
                         .Append($"WITH cte{keyColumn.Table.TableName} AS (").Append(stmt).Append($") ");
                     var keyArray = keyList.OfType<Object>();
                     var offset = 0;
