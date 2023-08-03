@@ -20,6 +20,7 @@
  */
 using System;
 using System.Data;
+using System.Reflection;
 
 namespace SanteDB.OrmLite.Providers
 {
@@ -47,7 +48,7 @@ namespace SanteDB.OrmLite.Providers
         /// <param name="filterColumn">The column being filtered on</param>
         /// <param name="parms">The parameters to the function</param>
         /// <param name="operand">The provided operand on the query string</param>
-        /// <param name="operandType">The type to interpret the <paramref name="parms"/> as before passing to the function.</param>
+        /// <param name="targetProperty">The type to interpret the <paramref name="parms"/> as before passing to the function.</param>
         /// <returns>The constructed / updated SQLStatement</returns>
         SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder currentBuilder, String filterColumn, String[] parms, String operand, Type operandType);
 

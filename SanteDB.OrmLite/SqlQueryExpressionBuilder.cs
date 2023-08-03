@@ -19,6 +19,7 @@
  * Date: 2023-5-19
  */
 using SanteDB.OrmLite.Providers;
+using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
@@ -50,10 +51,11 @@ namespace SanteDB.OrmLite
     {
         private string m_tableAlias = null;
         private SqlStatementBuilder m_sqlStatement = null;
-        private IDbStatementFactory m_provider;
+        private IDbStatementFactory m_statementFactory;
         private readonly bool m_prefixColumns;
         private readonly bool m_nullAsIs;
         private bool m_isFilterExpression = true;
+        private ColumnMapping m_lastColumnMapping = null;
 
         /// <summary>
         /// Gets the constructed SQL statement
@@ -63,11 +65,11 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Creates a new postgresql query expression builder
         /// </summary>
-        public SqlQueryExpressionBuilder(String alias, IDbStatementFactory provider, bool prefixColumnsWithTableName = true, bool nullAsIs = true)
+        public SqlQueryExpressionBuilder(String alias, IDbStatementFactory statementFactory, bool prefixColumnsWithTableName = true, bool nullAsIs = true)
         {
             this.m_tableAlias = alias;
-            this.m_sqlStatement = new SqlStatementBuilder(this.m_provider);
-            this.m_provider = provider;
+            this.m_sqlStatement = new SqlStatementBuilder(this.m_statementFactory);
+            this.m_statementFactory = statementFactory;
             this.m_prefixColumns = prefixColumnsWithTableName;
             this.m_nullAsIs = nullAsIs;
         }
@@ -133,11 +135,29 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Application level encryption value
+        /// </summary>
+        private object AleSafeValue(object value)
+        {
+            if (this.m_lastColumnMapping == null)
+            {
+                return value;
+            }
+            else if(this.m_statementFactory.Provider is IEncryptedDbProvider encProvider &&
+                encProvider.GetEncryptionProvider()?.IsConfiguredForEncryption(this.m_lastColumnMapping.EncryptedColumnId) == true)
+            {
+                return encProvider.GetEncryptionProvider().CreateQueryValue(value);
+            }
+            return value; // TODO: Get the IDbEncryptionProvider from somewhere??
+        }
+
+        /// <summary>
         /// Visit constant
         /// </summary>
         protected override Expression VisitConstant(ConstantExpression node)
         {
-            this.m_sqlStatement.Append(" ? ", node.Value);
+           
+            this.m_sqlStatement.Append(" ? ", this.AleSafeValue(node.Value));
             return node;
         }
 
@@ -289,14 +309,14 @@ namespace SanteDB.OrmLite
             {
                 case "StartsWith":
                     this.Visit(node.Object);
-                    this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.ILike));
+                    this.m_sqlStatement.Append(this.m_statementFactory.CreateSqlKeyword(SqlKeyword.ILike));
                     this.Visit(node.Arguments[0]);
                     this.m_sqlStatement.Append(" || '%' ");
                     break;
 
                 case "EndsWith":
                     this.Visit(node.Object);
-                    this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.ILike));
+                    this.m_sqlStatement.Append(this.m_statementFactory.CreateSqlKeyword(SqlKeyword.ILike));
                     this.m_sqlStatement.Append(" '%' || ");
                     this.Visit(node.Arguments[0]);
                     break;
@@ -328,7 +348,7 @@ namespace SanteDB.OrmLite
                         {
                             if (enumerableValue.OfType<Object>().Count() == 0)
                             {
-                                this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.False));
+                                this.m_sqlStatement.Append(this.m_statementFactory.CreateSqlKeyword(SqlKeyword.False));
                             }
                             else
                             {
@@ -344,14 +364,14 @@ namespace SanteDB.OrmLite
                     else if (node.Method.DeclaringType == typeof(String)) // is a STRING contains()
                     {
                         this.Visit(node.Object);
-                        this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.ILike));
+                        this.m_sqlStatement.Append(this.m_statementFactory.CreateSqlKeyword(SqlKeyword.ILike));
 
                         this.m_sqlStatement.Append(" '%' || ");
 
                         if (node.Object?.NodeType == ExpressionType.Call &&
                             (node.Object as MethodCallExpression).Method.Name == "ToLower") // We must apply the same call
                         {
-                            this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.Lower)).Append("(");
+                            this.m_sqlStatement.Append(this.m_statementFactory.CreateSqlKeyword(SqlKeyword.Lower)).Append("(");
                             this.Visit(node.Arguments[0]);
                             this.m_sqlStatement.Append(")");
                         }
@@ -366,7 +386,7 @@ namespace SanteDB.OrmLite
 
                 case "ToLower":
                 case "ToLowerInvariant":
-                    this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.Lower));
+                    this.m_sqlStatement.Append(this.m_statementFactory.CreateSqlKeyword(SqlKeyword.Lower));
                     this.m_sqlStatement.Append("(");
                     this.Visit(node.Object);
                     this.m_sqlStatement.Append(") ");
@@ -374,7 +394,7 @@ namespace SanteDB.OrmLite
 
                 case "ToUpper":
                 case "ToUpperInvariant":
-                    this.m_sqlStatement.Append(this.m_provider.CreateSqlKeyword(SqlKeyword.Upper));
+                    this.m_sqlStatement.Append(this.m_statementFactory.CreateSqlKeyword(SqlKeyword.Upper));
                     this.m_sqlStatement.Append("(");
                     this.Visit(node.Object);
                     this.m_sqlStatement.Append(") ");
@@ -539,15 +559,15 @@ namespace SanteDB.OrmLite
                                 case ExpressionType.Parameter:
                                     // Translate
                                     var tableMap = TableMapping.Get(expr.Type);
-                                    var columnMap = tableMap.GetColumn(node.Member);
+                                    this.m_lastColumnMapping = tableMap.GetColumn(node.Member);
                                     if (this.m_prefixColumns)
                                     {
                                         this.Visit(expr);
-                                        this.m_sqlStatement.Append($".{columnMap.Name}");
+                                        this.m_sqlStatement.Append($".{this.m_lastColumnMapping.Name}");
                                     }
                                     else
                                     {
-                                        this.m_sqlStatement.Append(columnMap.Name);
+                                        this.m_sqlStatement.Append(this.m_lastColumnMapping.Name);
                                     }
                                     break;
 
@@ -589,7 +609,7 @@ namespace SanteDB.OrmLite
                                         }
                                         else
                                         {
-                                            this.m_sqlStatement.Append(" ? ", value);
+                                            this.m_sqlStatement.Append(" ? ", this.AleSafeValue(value));
                                         }
                                     }
                                     else if (node.Member is FieldInfo)
@@ -613,7 +633,7 @@ namespace SanteDB.OrmLite
                                         }
                                         else
                                         {
-                                            this.m_sqlStatement.Append(" ? ", value);
+                                            this.m_sqlStatement.Append(" ? ", this.AleSafeValue(value));
                                         }
                                     }
                                     else
@@ -627,13 +647,13 @@ namespace SanteDB.OrmLite
                     }
                     else // constant expression
                     {
-                        if (node.Member is PropertyInfo)
+                        if (node.Member is PropertyInfo pi)
                         {
-                            this.m_sqlStatement.Append(" ? ", (node.Member as PropertyInfo).GetValue(null));
+                            this.m_sqlStatement.Append(" ? ", this.AleSafeValue(pi.GetValue(null)));
                         }
-                        else if (node.Member is FieldInfo)
+                        else if (node.Member is FieldInfo fi)
                         {
-                            this.m_sqlStatement.Append(" ? ", (node.Member as FieldInfo).GetValue(null));
+                            this.m_sqlStatement.Append(" ? ", this.AleSafeValue(fi.GetValue(null)));
                         }
                     }
                     break;

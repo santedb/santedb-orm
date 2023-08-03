@@ -26,6 +26,7 @@ using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Query;
 using SanteDB.OrmLite.Attributes;
 using SanteDB.OrmLite.Providers;
+using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -188,9 +189,9 @@ namespace SanteDB.OrmLite
         private static List<IQueryBuilderHack> m_hacks = new List<IQueryBuilderHack>();
 
         // Mapper
-        private ModelMapper m_mapper;
-
-        private IDbStatementFactory m_factory;
+        private readonly ModelMapper m_mapper;
+        private readonly IDbStatementFactory m_factory;
+        private readonly IDbEncryptor m_encryptionProvider;
 
         /// <summary>
         /// Provider
@@ -214,6 +215,7 @@ namespace SanteDB.OrmLite
         {
             this.m_mapper = mapper;
             this.m_factory = provider;
+            this.m_encryptionProvider = (provider.Provider as IEncryptedDbProvider)?.GetEncryptionProvider();
         }
 
         /// <summary>
@@ -768,7 +770,7 @@ namespace SanteDB.OrmLite
             {
                 throw new ArgumentOutOfRangeException(propertyPath);
             }
-
+            
             PropertyInfo domainProperty = scopedTables.Select(o => { tableMapping = o; return m_mapper.MapModelProperty(tmodel, o.OrmType, propertyInfo); }).FirstOrDefault(o => o != null);
 
             // Now map the property path
@@ -805,7 +807,7 @@ namespace SanteDB.OrmLite
                 lValue = new List<Object>() { value };
             }
 
-            return CreateSqlPredicate(tableAlias, columnData.Name, columnData.SourceProperty, lValue);
+            return CreateSqlPredicate(tableAlias, columnData, columnData.SourceProperty, lValue);
         }
 
         /// <summary>
@@ -813,9 +815,9 @@ namespace SanteDB.OrmLite
         /// </summary>
         /// <param name="tableAlias">The alias for the table on which the predicate is based</param>
         /// <param name="domainProperty">The model property information for type information</param>
-        /// <param name="columnName">The column data for the data model</param>
+        /// <param name="columnMapping">The column data for the data model</param>
         /// <param name="values">The values to be matched</param>
-        public SqlStatement CreateSqlPredicate(String tableAlias, String columnName, PropertyInfo domainProperty, IList values)
+        public SqlStatement CreateSqlPredicate(String tableAlias, ColumnMapping columnMapping, PropertyInfo domainProperty, IList values)
         {
             if (domainProperty == null)
             {
@@ -830,23 +832,35 @@ namespace SanteDB.OrmLite
             for (var i = 0; i < values.Count; i++)
             {
                 var itm = values[i];
+
+                
                 if (noCase)
                 {
-                    retVal.Append($"{this.m_factory.CreateSqlKeyword(SqlKeyword.Lower)}({tableAlias}.{columnName})");
+                    retVal.Append($"{this.m_factory.CreateSqlKeyword(SqlKeyword.Lower)}({tableAlias}.{columnMapping.Name})");
                 }
                 else
                 {
-                    retVal.Append($"{tableAlias}.{columnName}");
+                    retVal.Append($"{tableAlias}.{columnMapping.Name}");
                 }
 
                 var semantic = " OR ";
-                var iValue = itm;
-                if (iValue is String)
+                
+                var isEncrypted = this.m_encryptionProvider?.IsConfiguredForEncryption(columnMapping.EncryptedColumnId) == true;
+                object eValue = null;
+                if(isEncrypted)
                 {
-                    var sValue = itm as String;
+                    eValue = this.m_encryptionProvider.CreateQueryValue(itm);
+                }
+
+                if (itm is String sValue)
+                {
                     switch (sValue[0])
                     {
                         case ':': // function
+                            if(isEncrypted)
+                            {
+                                throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
+                            }
                             var opMatch = QueryFilterExtensions.ExtendedFilterRegex.Match(sValue);
                             if (opMatch.Success)
                             {
@@ -870,7 +884,7 @@ namespace SanteDB.OrmLite
                                 }
                                 else
                                 {
-                                    retVal = filterFn.CreateSqlStatement(retVal.RemoveLast(out _), $"{tableAlias}.{columnName}", extendedParms.ToArray(), operand, domainProperty.PropertyType);
+                                    retVal = filterFn.CreateSqlStatement(retVal.RemoveLast(out _), $"{tableAlias}.{columnMapping.Name}", extendedParms.ToArray(), operand, domainProperty.PropertyType);
                                 }
                             }
                             else
@@ -881,6 +895,11 @@ namespace SanteDB.OrmLite
                             break;
 
                         case '<':
+                            if (isEncrypted)
+                            {
+                                throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
+                            }
+
                             semantic = " AND ";
                             if (sValue[1] == '=')
                             {
@@ -894,6 +913,11 @@ namespace SanteDB.OrmLite
                             break;
 
                         case '>':
+                            if (isEncrypted)
+                            {
+                                throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
+                            }
+
                             // peek the next value and see if it is < then we use BETWEEN
                             if (i < values.Count - 1 && values[i + 1].ToString().StartsWith("<"))
                             {
@@ -936,37 +960,52 @@ namespace SanteDB.OrmLite
 
                         case '!':
                             semantic = " AND ";
-                            if (sValue.Equals("!null"))
+                            if (itm.Equals("!null"))
                             {
                                 retVal.Append(" IS NOT NULL");
                             }
                             else
                             {
-                                retVal.Append($" <> {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                                retVal.Append($" <> {parmValue}", CreateParameterValue(isEncrypted ? eValue : sValue.Substring(1), domainProperty.PropertyType));
                             }
 
                             break;
 
                         case '~':
+                            if (isEncrypted)
+                            {
+                                throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
+                            }
+
                             retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             break;
 
                         case '^':
+                            if (isEncrypted)
+                            {
+                                throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
+                            }
+
                             retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             break;
 
                         case '$':
+                            if (isEncrypted)
+                            {
+                                throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
+                            }
+
                             retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             break;
 
                         default:
-                            if (sValue.Equals("null"))
+                            if (itm.Equals("null"))
                             {
                                 retVal.Append(" IS NULL");
                             }
                             else
                             {
-                                retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, domainProperty.PropertyType));
+                                retVal.Append($" = {parmValue} ", CreateParameterValue(isEncrypted ? eValue : sValue, domainProperty.PropertyType));
                             }
 
                             break;
@@ -974,7 +1013,7 @@ namespace SanteDB.OrmLite
                 }
                 else
                 {
-                    retVal.Append($" = {parmValue} ", CreateParameterValue(iValue, domainProperty.PropertyType));
+                    retVal.Append($" = {parmValue} ", CreateParameterValue(itm, domainProperty.PropertyType));
                 }
 
                 if (i < values.Count - 1)
@@ -988,11 +1027,12 @@ namespace SanteDB.OrmLite
             return retVal.Statement;
         }
 
+
         /// <summary>
-        /// Create a parameter value
+        /// Create parameter value
         /// </summary>
-        public static object CreateParameterValue(object value, Type toType)
-        {
+        public static object CreateParameterValue(object value, Type propertyType) 
+        { 
             if (value is String str)
             {
                 if (str.Length > 1 && str.StartsWith("\"") && str.EndsWith(("\"")))
@@ -1003,19 +1043,19 @@ namespace SanteDB.OrmLite
                 {
                     return DBNull.Value;
                 }
-                else if (toType.StripNullable().Equals(typeof(Guid)) && Guid.TryParse(str, out var uuid))
+                else if (propertyType.StripNullable().Equals(typeof(Guid)) && Guid.TryParse(str, out var uuid))
                 {
                     return uuid;
                 }
 
             }
 
-            if (value.GetType() == toType ||
-                value.GetType() == toType.StripNullable())
+            if (value.GetType() == propertyType ||
+                value.GetType() == propertyType.StripNullable())
             {
                 return value;
             }
-            else if (MapUtil.TryConvert(value, toType, out var retVal))
+            else if (MapUtil.TryConvert(value, propertyType, out var retVal))
             {
                 return retVal;
             }

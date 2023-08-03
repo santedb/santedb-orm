@@ -18,7 +18,9 @@
  * User: fyfej
  * Date: 2023-5-19
  */
+using DocumentFormat.OpenXml.Vml;
 using SanteDB.Core.Diagnostics.Performance;
+using SanteDB.Core.i18n;
 using SanteDB.OrmLite.Providers;
 using SanteDB.OrmLite.Providers.Sqlite;
 using System;
@@ -29,6 +31,7 @@ using System.Diagnostics.Tracing;
 using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Security;
 
 namespace SanteDB.OrmLite
 {
@@ -243,6 +246,10 @@ namespace SanteDB.OrmLite
                 {
                     value = null;
                 }
+                else if (this.m_encryptionProvider?.HasEncryptionMagic(value) == true && this.m_encryptionProvider.TryDecrypt(value, out var decrypted))
+                {
+                    value = decrypted;
+                }
                 else
                 {
                     var type = rdr.GetFieldType(i);
@@ -250,7 +257,6 @@ namespace SanteDB.OrmLite
                     {
                         type = typeof(DateTime);
                     }
-
                     value = this.m_provider.ConvertValue(value, type);
                 }
 
@@ -279,7 +285,13 @@ namespace SanteDB.OrmLite
             {
                 try
                 {
-                    object value = this.m_provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
+                    object dbValue = rdr[itm.Name];
+                    if (this.m_encryptionProvider?.IsConfiguredForEncryption(itm.EncryptedColumnId) == true && this.m_encryptionProvider?.TryDecrypt(dbValue, out var dencValue) == true)
+                    {
+                        dbValue = dencValue;
+                    }
+
+                    object value = this.m_provider.ConvertValue(dbValue, itm.SourceProperty.PropertyType);
                     if (!itm.IsSecret)
                     {
                         itm.SourceProperty.SetValue(result, value);
@@ -1022,6 +1034,11 @@ namespace SanteDB.OrmLite
 
                     columnNames.Append($"{col.Name}");
 
+                    // Encrypt value
+                    if(this.m_encryptionProvider?.IsConfiguredForEncryption(col.EncryptedColumnId) == true && this.m_encryptionProvider?.TryEncrypt(val, out var encData) == true)
+                    {
+                        val = encData;
+                    }
                     // Append value
                     values.Append("?", val);
 
@@ -1303,13 +1320,13 @@ namespace SanteDB.OrmLite
                 SqlStatementBuilder queryBuilder = this.CreateSqlStatementBuilder().UpdateSet(value.GetType());
                 SqlStatementBuilder whereClauseBuilder = this.CreateSqlStatementBuilder();
                 int nUpdatedColumns = 0;
-                foreach (var itm in tableMap.Columns)
+                foreach (var col in tableMap.Columns)
                 {
-                    var itmValue = itm.SourceProperty.GetValue(value);
+                    var itmValue = col.SourceProperty.GetValue(value);
 
                     if (itmValue == null ||
-                        !itm.IsNonNull &&
-                        itm.SourceProperty.PropertyType.StripNullable() == itm.SourceProperty.PropertyType &&
+                        !col.IsNonNull &&
+                        col.SourceProperty.PropertyType.StripNullable() == col.SourceProperty.PropertyType &&
                         (
                         itmValue.Equals(default(Guid)) && !tableMap.OrmType.IsConstructedGenericType ||
                         itmValue.Equals(default(DateTime)) ||
@@ -1321,17 +1338,23 @@ namespace SanteDB.OrmLite
 
                     // Only update if specified
                     if (itmValue == null &&
-                        !itm.SourceSpecified(value))
+                        !col.SourceSpecified(value))
                     {
                         continue;
                     }
 
-                    nUpdatedColumns++;
-                    queryBuilder.Append($"{itm.Name} = ? ", itmValue ?? DBNull.Value);
-                    queryBuilder.Append(",");
-                    if (itm.IsPrimaryKey)
+                    // Encrypt value
+                    if (this.m_encryptionProvider?.IsConfiguredForEncryption(col.EncryptedColumnId) == true && this.m_encryptionProvider?.TryEncrypt(itmValue, out var encData) == true)
                     {
-                        whereClauseBuilder.And($"{itm.Name} = ?", itmValue);
+                        itmValue = encData;
+                    }
+
+                    nUpdatedColumns++;
+                    queryBuilder.Append($"{col.Name} = ? ", itmValue ?? DBNull.Value);
+                    queryBuilder.Append(",");
+                    if (col.IsPrimaryKey)
+                    {
+                        whereClauseBuilder.And($"{col.Name} = ?", itmValue);
                     }
                 }
 

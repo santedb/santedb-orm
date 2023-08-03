@@ -19,6 +19,7 @@
  * Date: 2023-5-19
  */
 using SanteDB.OrmLite.Providers;
+using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.Data;
 
@@ -58,6 +59,7 @@ namespace SanteDB.OrmLite
         protected TData Parse<TData>(IDataReader rdr, IDbProvider provider)
             where TData : new()
         {
+            var encProvider = (provider as IEncryptedDbProvider)?.GetEncryptionProvider();
             var tableMapping = TableMapping.Get(typeof(TData));
             var result = new TData();
             // Read each column and pull from reader
@@ -65,8 +67,19 @@ namespace SanteDB.OrmLite
             {
                 try
                 {
-                    object value = provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
-                    itm.SourceProperty.SetValue(result, value);
+                    var dbValue = rdr[itm.Name];
+                    if (encProvider?.IsConfiguredForEncryption(itm.EncryptedColumnId) == true && 
+                        encProvider?.TryDecrypt(dbValue, out var dencValue) == true)
+                    {
+                        dbValue = dencValue;
+                    }
+
+                    object value = provider.ConvertValue(dbValue, itm.SourceProperty.PropertyType);
+
+                    if (!itm.IsSecret)
+                    {
+                        itm.SourceProperty.SetValue(result, value);
+                    }
                 }
                 catch
                 {
