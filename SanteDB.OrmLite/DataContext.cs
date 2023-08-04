@@ -27,6 +27,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Net.Sockets;
 
 namespace SanteDB.OrmLite
 {
@@ -190,27 +191,53 @@ namespace SanteDB.OrmLite
         {
             this.ThrowIfDisposed();
 
+            try
+            {
+                if (this.m_connection.State == ConnectionState.Closed)
+                {
+                    this.m_connection.Open();
+                }
+                else if (this.m_connection.State == ConnectionState.Broken)
+                {
+                    this.m_connection.Close();
+                    this.m_connection.Open();
+                }
+                else if (this.m_connection.State != ConnectionState.Open)
+                {
+                    this.m_connection.Open();
+                }
 
-            if (this.m_connection.State == ConnectionState.Closed)
-            {
-                this.m_connection.Open();
-            }
-            else if (this.m_connection.State == ConnectionState.Broken)
-            {
-                this.m_connection.Close();
-                this.m_connection.Open();
-            }
-            else if (this.m_connection.State != ConnectionState.Open)
-            {
-                this.m_connection.Open();
-            }
+                _ = this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
 
-            _ = this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
-
-            if (!this.m_opened)
+                if (!this.m_opened)
+                {
+                    this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+                    this.m_opened = true;
+                }
+            }
+            catch (Exception ex)
             {
-                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
-                this.m_opened = true;
+                if (ex.InnerException is SocketException sockex)
+                {
+                    switch (sockex.SocketErrorCode)
+                    {
+                        case System.Net.Sockets.SocketError.ConnectionRefused:
+                        case System.Net.Sockets.SocketError.HostDown:
+                        case System.Net.Sockets.SocketError.HostNotFound:
+                        case System.Net.Sockets.SocketError.HostUnreachable:
+                            m_tracer.TraceError("DATABASE SERVER APPEARS TO BE DOWN. CHECK THE HOST AND SERVICE WHERE THE DATABASE IS LOCATED.");
+                            break;
+                        case System.Net.Sockets.SocketError.NetworkDown:
+                        case System.Net.Sockets.SocketError.NetworkUnreachable:
+                            m_tracer.TraceError("NETWORK APPEARS TO BE DOWN. CHECK YOUR NETWORK CONNECTION TO THE DATABASE SERVER.");
+                            break;
+                        case System.Net.Sockets.SocketError.TimedOut:
+                            m_tracer.TraceError("TIMEOUT ATTEMPTING TO CONNECT TO THE DATABASE SERVER. CHECK THE NETWORK CONNECTION AND THE DATABASE SERVER ARE ONLINE AND AVAILABLE.");
+                            break;
+                    }
+                }
+
+                throw;
             }
         }
 
