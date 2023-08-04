@@ -35,6 +35,19 @@ namespace SanteDB.OrmLite.Providers.Firebird
         private static readonly ConcurrentDictionary<string, IDbFilterFunction> s_filterFunctions;
 
         /// <summary>
+        /// Get the database provider
+        /// </summary>
+        public IDbProvider Provider { get; }
+
+        /// <summary>
+        /// Create a firebird statement provider
+        /// </summary>
+        public FirebirdStatementFactory(FirebirdSQLProvider provider)
+        {
+            this.Provider = provider;
+        }
+
+        /// <summary>
         /// Static CTOR
         /// </summary>
         static FirebirdStatementFactory()

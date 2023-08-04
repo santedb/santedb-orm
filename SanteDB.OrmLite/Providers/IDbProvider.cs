@@ -21,6 +21,7 @@
 using SanteDB.Core.Diagnostics;
 using System;
 using System.Data;
+using System.Security.Cryptography.X509Certificates;
 
 namespace SanteDB.OrmLite.Providers
 {
@@ -119,8 +120,6 @@ namespace SanteDB.OrmLite.Providers
         /// Map a type to parameter type
         /// </summary>
         DbType MapParameterType(Type type);
-
-
 
     }
 }

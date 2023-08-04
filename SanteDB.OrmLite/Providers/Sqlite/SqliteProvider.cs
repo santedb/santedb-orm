@@ -26,6 +26,8 @@ using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
+using SanteDB.OrmLite.Providers.Encryptors;
+using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.Data;
 using System.Data.Common;
@@ -33,6 +35,7 @@ using System.Diagnostics.Tracing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite.Providers.Sqlite
@@ -40,7 +43,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     /// <summary>
     /// SQL Lite provider
     /// </summary>
-    public class SqliteProvider : IDbProvider
+    public class SqliteProvider : IDbProvider, IEncryptedDbProvider
     {
 
         /// <summary>
@@ -66,6 +69,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
         // Tracer for the objects
         private readonly Tracer m_tracer = new Tracer(Constants.TracerName + ".Sqlite");
+
+        // Database certificate
+        private IOrmEncryptionSettings m_encryptionSettings;
+
+        private DefaultAesDataEncryptor m_encryptionProvider;
+
 
         /// <summary>
         /// Gets or sets the connection string for this provier
@@ -118,7 +127,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public SqliteProvider()
         {
             this.m_monitor = Diagnostics.OrmClientProbe.CreateProbe(this);
-            this.StatementFactory = new SqliteStatementFactory();
+            this.StatementFactory = new SqliteStatementFactory(this);
 
         }
 
@@ -388,7 +397,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             connectionString.SetComponent("Mode", "ReadWriteCreate");
             connectionString.SetComponent("Cache", "Private");
             conn.ConnectionString = connectionString.ToString();
-
             return new DataContext(this, conn, false);
         }
 
@@ -532,6 +540,89 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public string GetDatabaseName()
         {
             return new ConnectionString(this.Invariant, this.ConnectionString).GetComponent("Data Source");
+        }
+
+
+        /// <inheritdoc/>
+        private void InitializeApplicationEncryption()
+        {
+
+            // Is ALE even configured for this connection?
+            if (this.m_encryptionSettings == null || this.m_encryptionProvider != null)
+            {
+                return;
+            }
+
+            // Attempt to connect to the PostgreSQL encryption provider to get the secret
+            using (var connection = this.GetProviderFactory().CreateConnection())
+            {
+                try
+                {
+
+                    connection.ConnectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString)).ToString();
+                    connection.Open();
+                    // Attempt to connect to the PostgreSQL encryption provider to get the secret
+                    using (var cmd = connection.CreateCommand())
+                    {
+
+                        // Does the ALE systbl exist?
+                        cmd.CommandType = CommandType.Text;
+                        cmd.CommandText = "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE tbl_name = 'ALE_SYSTBL')";
+                        if (!this.ConvertValue<bool>(cmd.ExecuteScalar())) // not initalized
+                        {
+                            return;
+                        }
+
+                        cmd.CommandText = "SELECT ale_smk FROM ale_systbl";
+                        var aleSmk = this.ConvertValue<byte[]>(cmd.ExecuteScalar());
+
+                        if (aleSmk != null)
+                        {
+                            this.m_encryptionProvider = new DefaultAesDataEncryptor(this.m_encryptionSettings, aleSmk);
+                        }
+                        else // generate an ALE
+                        {
+                            this.m_tracer.TraceWarning("GENERATING AN APPLICATION LEVEL ENCRYPTION CERTIFICATE -> IT IS RECOMMENDED YOU USE TDE RATHER THAN ALE ON SANTEDB PRODUCTION INSTANCES");
+                            aleSmk = DefaultAesDataEncryptor.GenerateMasterKey(this.m_encryptionSettings);
+                            cmd.CommandText = "INSERT INTO ale_systbl VALUES (@key)";
+                            var parm = cmd.CreateParameter();
+                            parm.ParameterName = "@key";
+                            parm.DbType = DbType.Binary;
+                            parm.Direction = ParameterDirection.Input;
+                            parm.Value = aleSmk;
+                            cmd.Parameters.Add(parm);
+                            cmd.ExecuteNonQuery();
+                            this.m_encryptionProvider = new DefaultAesDataEncryptor(this.m_encryptionSettings, aleSmk);
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    this.m_tracer.TraceError("Unable to load application layer encryption settings");
+                    throw new DataException("Unable to load ALE encryption", e);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get the encryption provider
+        /// </summary>
+        public IDbEncryptor GetEncryptionProvider()
+        {
+            this.InitializeApplicationEncryption();
+            return this.m_encryptionProvider;
+        }
+
+        /// <summary>
+        /// Set the encryption settings
+        /// </summary>
+        public void SetEncryptionSettings(IOrmEncryptionSettings ormEncryptionSettings)
+        {
+            if (this.m_encryptionSettings != null)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(SetEncryptionSettings)));
+            }
+            this.m_encryptionSettings = ormEncryptionSettings;
         }
     }
 }

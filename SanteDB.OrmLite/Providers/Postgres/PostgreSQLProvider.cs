@@ -20,9 +20,11 @@
  */
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
+using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
+using SanteDB.OrmLite.Providers.Encryptors;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -30,6 +32,7 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Tracing;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite.Providers.Postgres
@@ -38,10 +41,12 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// Represents a IDbProvider for PostgreSQL
     /// </summary>
     [ExcludeFromCodeCoverage] // PostgreSQL is not used in unit testing
-    public class PostgreSQLProvider : IDbMonitorProvider
+    public class PostgreSQLProvider : IDbMonitorProvider, IEncryptedDbProvider
     {
         // Last rr host used
+#pragma warning disable CS0414 // The field 'PostgreSQLProvider.m_lastRrHost' is assigned but its value is never used
         private int m_lastRrHost = 0;
+#pragma warning restore CS0414 // The field 'PostgreSQLProvider.m_lastRrHost' is assigned but its value is never used
 
         // Trace source
         private readonly Tracer m_tracer = new Tracer(Constants.TracerName + ".PostgreSQL");
@@ -50,9 +55,15 @@ namespace SanteDB.OrmLite.Providers.Postgres
         private DbProviderFactory m_provider = null;
 
         // Index functions
+#pragma warning disable CS0414 // The field 'PostgreSQLProvider.s_indexFunctions' is assigned but its value is never used
         private static Dictionary<String, IDbIndexFunction> s_indexFunctions = null;
+#pragma warning restore CS0414 // The field 'PostgreSQLProvider.s_indexFunctions' is assigned but its value is never used
         // Monitor
         private IDiagnosticsProbe m_monitor;
+
+        // Encryptor
+        private IDbEncryptor m_encryptionProvider;
+        private IOrmEncryptionSettings m_encryptionSettings;
 
         /// <summary>
         /// Invariant name
@@ -72,8 +83,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public PostgreSQLProvider()
         {
-            this.StatementFactory = new PostgreSQLStatementFactory();
+            this.StatementFactory = new PostgreSQLStatementFactory(this);
         }
+
 
         /// <summary>
         /// Trace SQL commands
@@ -460,6 +472,85 @@ namespace SanteDB.OrmLite.Providers.Postgres
             fact.ConnectionString = this.ConnectionString;
             fact.TryGetValue("database", out var value);
             return value?.ToString();
+        }
+
+        /// <inheritdoc/>
+        private void InitializeApplicationEncryption()
+        {
+
+            // Is ALE even configured for this connection?
+            if (this.m_encryptionSettings == null || this.m_encryptionProvider != null)
+            {
+                return;
+            }
+
+            // Attempt to connect to the PostgreSQL encryption provider to get the secret
+            using (var connection = this.GetProviderFactory().CreateConnection())
+            {
+                try
+                {
+                    connection.ConnectionString = this.ReadonlyConnectionString;
+                    connection.Open();
+                    using (var cmd = connection.CreateCommand())
+                    {
+                        cmd.CommandType = CommandType.Text;
+                        cmd.CommandText = "SELECT TRUE FROM pg_proc WHERE proname ILIKE 'get_ale_smk'";
+                        if (!this.ConvertValue<bool>(cmd.ExecuteScalar()))
+                        {
+                            return;
+                        }
+
+                        cmd.CommandType = CommandType.StoredProcedure;
+                        cmd.CommandText = "get_ale_smk";
+                        var aleSmk = this.ConvertValue<byte[]>(cmd.ExecuteScalar());
+
+                        if (aleSmk != null)
+                        {
+                            this.m_encryptionProvider = new DefaultAesDataEncryptor(this.m_encryptionSettings, aleSmk);
+                        }
+                        else // generate an ALE
+                        {
+                            this.m_tracer.TraceWarning("GENERATING AN APPLICATION LEVEL ENCRYPTION CERTIFICATE -> IT IS RECOMMENDED YOU USE TDE RATHER THAN ALE ON SANTEDB PRODUCTION INSTANCES");
+                            aleSmk = DefaultAesDataEncryptor.GenerateMasterKey(this.m_encryptionSettings);
+                            cmd.CommandText = "set_ale_smk";
+                            var parm = cmd.CreateParameter();
+                            parm.ParameterName = "NEW_ALE_SMK_IN";
+                            parm.DbType = DbType.Binary;
+                            parm.Direction = ParameterDirection.Input;
+                            parm.Value = aleSmk;
+                            cmd.Parameters.Add(parm);
+                            cmd.ExecuteNonQuery();
+                            this.m_encryptionProvider = new DefaultAesDataEncryptor(this.m_encryptionSettings, aleSmk);
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    this.m_tracer.TraceError("Unable to load application layer encryption settings");
+                    throw new DataException("Unable to load ALE encryption", e);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get the encryption provider
+        /// </summary>
+        public IDbEncryptor GetEncryptionProvider()
+        {
+            this.InitializeApplicationEncryption();
+            return this.m_encryptionProvider;
+        }
+
+        /// <summary>
+        /// Set the encryption settings
+        /// </summary>
+        public void SetEncryptionSettings(IOrmEncryptionSettings ormEncryptionSettings)
+        {
+            if (this.m_encryptionSettings != null)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(SetEncryptionSettings)));
+            }
+            this.m_encryptionSettings = ormEncryptionSettings;
         }
     }
 }

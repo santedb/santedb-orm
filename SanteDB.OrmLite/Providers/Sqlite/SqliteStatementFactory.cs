@@ -39,6 +39,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public String Invariant => SqliteProvider.InvariantName;
 
+        /// <inheritdoc/>
+        public IDbProvider Provider { get; }
+
         /// <summary>
         /// Static CTOR
         /// </summary>
@@ -52,6 +55,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     .ToDictionary(o => o.Name, o => o));
             }
 
+        }
+
+        /// <summary>
+        /// Create a new instance of the sqlite provider
+        /// </summary>
+        public SqliteStatementFactory(SqliteProvider sqliteProvider)
+        {
+            this.Provider = sqliteProvider;
         }
 
 

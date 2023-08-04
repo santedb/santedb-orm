@@ -95,5 +95,10 @@ namespace SanteDB.OrmLite.Providers
         /// Get all filter functions
         /// </summary>
         IEnumerable<IDbFilterFunction> GetFilterFunctions();
+
+        /// <summary>
+        /// Gets the provider this statement factory belongs to
+        /// </summary>
+        IDbProvider Provider { get; }
     }
 }
