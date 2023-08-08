@@ -17,7 +17,7 @@ namespace SanteDB.OrmLite.Providers.Encryptors
     internal class DefaultAesDataEncryptor : IDbEncryptor
     {
 
-        private static readonly byte[] MAGIC = { 0xde, 0xad, 0x00, 0xfe, 0xed };
+        private static readonly byte[] MAGIC = { (byte)'S', (byte)'B', 0x00, (byte)'A', (byte)'L'};
 
         // Secret
         private readonly byte[] m_secret;
