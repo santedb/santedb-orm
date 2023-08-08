@@ -26,6 +26,7 @@ using SanteDB.OrmLite.Providers;
 using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Xml.Serialization;
 
 namespace SanteDB.OrmLite.Configuration
@@ -82,10 +83,7 @@ namespace SanteDB.OrmLite.Configuration
         /// Gets the application level certificate for decryption
         /// </summary>
         [XmlElement("aleConfiguration")]
-        [Category("Security")]
-        [DisplayName("Application Level Encryption")]
-        [Description("The ORM provider's Application Level Encryption Settings")]
-        [TypeConverter(typeof(ExpandableObjectConverter))]
+        [Browsable(false)]
         public OrmAleConfiguration AleConfiguration { get; set; }
 
         /// <summary>

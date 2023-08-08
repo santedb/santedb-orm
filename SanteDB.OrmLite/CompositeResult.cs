@@ -68,11 +68,8 @@ namespace SanteDB.OrmLite
                 try
                 {
                     var dbValue = rdr[itm.Name];
-                    if (encProvider?.IsConfiguredForEncryption(itm.EncryptedColumnId) == true && 
-                        encProvider?.TryDecrypt(dbValue, out var dencValue) == true)
-                    {
-                        dbValue = dencValue;
-                    }
+                    _ = encProvider?.IsConfiguredForEncryption(itm.EncryptedColumnId) == true &&
+                        encProvider?.TryDecrypt(dbValue, out dbValue) == true;
 
                     object value = provider.ConvertValue(dbValue, itm.SourceProperty.PropertyType);
 

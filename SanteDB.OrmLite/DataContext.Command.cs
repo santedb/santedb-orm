@@ -241,22 +241,23 @@ namespace SanteDB.OrmLite
             for (int i = 0; i < rdr.FieldCount; i++)
             {
                 var value = rdr[i];
+                var type = rdr.GetFieldType(i);
                 var name = rdr.GetName(i).ToLowerInvariant();
+                if (name.EndsWith("_utc") || name.EndsWith("_time")) // HACK: For sqlite
+                {
+                    type = typeof(DateTime);
+                }
+
                 if (value == DBNull.Value)
                 {
                     value = null;
                 }
                 else if (this.m_encryptionProvider?.HasEncryptionMagic(value) == true && this.m_encryptionProvider.TryDecrypt(value, out var decrypted))
                 {
-                    value = decrypted;
+                    value = this.m_provider.ConvertValue(decrypted, type);
                 }
                 else
                 {
-                    var type = rdr.GetFieldType(i);
-                    if (name.EndsWith("_utc") || name.EndsWith("_time")) // HACK: For sqlite
-                    {
-                        type = typeof(DateTime);
-                    }
                     value = this.m_provider.ConvertValue(value, type);
                 }
 
@@ -286,10 +287,8 @@ namespace SanteDB.OrmLite
                 try
                 {
                     object dbValue = rdr[itm.Name];
-                    if (this.m_encryptionProvider?.IsConfiguredForEncryption(itm.EncryptedColumnId) == true && this.m_encryptionProvider?.TryDecrypt(dbValue, out var dencValue) == true)
-                    {
-                        dbValue = dencValue;
-                    }
+                    _ = this.m_encryptionProvider?.IsConfiguredForEncryption(itm.EncryptedColumnId) == true &&
+                        this.m_encryptionProvider?.TryDecrypt(dbValue, out dbValue) == true;
 
                     object value = this.m_provider.ConvertValue(dbValue, itm.SourceProperty.PropertyType);
                     if (!itm.IsSecret)
@@ -1035,10 +1034,9 @@ namespace SanteDB.OrmLite
                     columnNames.Append($"{col.Name}");
 
                     // Encrypt value
-                    if(this.m_encryptionProvider?.IsConfiguredForEncryption(col.EncryptedColumnId) == true && this.m_encryptionProvider?.TryEncrypt(val, out var encData) == true)
-                    {
-                        val = encData;
-                    }
+                    _ = this.m_encryptionProvider?.IsConfiguredForEncryption(col.EncryptedColumnId) == true &&
+                        this.m_encryptionProvider?.TryEncrypt(val, out val) == true;
+                    
                     // Append value
                     values.Append("?", val);
 
@@ -1344,10 +1342,9 @@ namespace SanteDB.OrmLite
                     }
 
                     // Encrypt value
-                    if (this.m_encryptionProvider?.IsConfiguredForEncryption(col.EncryptedColumnId) == true && this.m_encryptionProvider?.TryEncrypt(itmValue, out var encData) == true)
-                    {
-                        itmValue = encData;
-                    }
+                    // Encrypt value
+                    _ = this.m_encryptionProvider?.IsConfiguredForEncryption(col.EncryptedColumnId) == true &&
+                        this.m_encryptionProvider?.TryEncrypt(itmValue, out itmValue) == true;
 
                     nUpdatedColumns++;
                     queryBuilder.Append($"{col.Name} = ? ", itmValue ?? DBNull.Value);

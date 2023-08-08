@@ -35,6 +35,11 @@ namespace SanteDB.OrmLite.Configuration
     public enum OrmAleMode
     {
         /// <summary>
+        /// No ALE is enabled
+        /// </summary>
+        [XmlEnum("off")]
+        Off = 0,
+        /// <summary>
         /// The IV is calculated using a random value each encryption cycle
         /// </summary>
         [XmlEnum("random")]
