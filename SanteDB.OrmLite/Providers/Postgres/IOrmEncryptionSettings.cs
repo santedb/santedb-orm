@@ -19,6 +19,8 @@
  * Date: 2023-5-19
  */
 using SanteDB.OrmLite.Configuration;
+using System.Collections;
+using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 
 namespace SanteDB.OrmLite.Providers.Postgres
@@ -28,6 +30,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// </summary>
     public interface IOrmEncryptionSettings
     {
+
+        /// <summary>
+        /// A seeding value for salts in the database
+        /// </summary>
+        byte[] SaltSeed { get; }
 
         /// <summary>
         /// Gets the mode of the ALE

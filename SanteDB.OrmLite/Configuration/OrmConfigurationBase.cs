@@ -34,7 +34,7 @@ namespace SanteDB.OrmLite.Configuration
     /// <summary>
     /// Represents a base ORM configuration object
     /// </summary>
-    public abstract class OrmConfigurationBase : IConfigurationSection
+    public abstract class OrmConfigurationBase : IEncryptedConfigurationSection
     {
         // DB Provider
         private IDbProvider m_dbProvider;
