@@ -18,10 +18,11 @@ namespace SanteDB.OrmLite.Providers.Encryptors
     {
 
         private static readonly byte[] MAGIC = { (byte)'S', (byte)'B', 0x00, (byte)'A', (byte)'E' };
-        private static readonly string MAGIC_STRING = MAGIC.HexEncode();
+        private const string MAGIC_STRING = "5342004145";
 
         // Secret
         private readonly byte[] m_secret;
+        private readonly byte[] m_saltSeed;
         private readonly IOrmEncryptionSettings m_settings;
 
         /// <summary>
@@ -33,6 +34,10 @@ namespace SanteDB.OrmLite.Providers.Encryptors
             using (var rsa = encryptionSettings.Certificate.GetRSAPrivateKey())
             {
                 this.m_secret = rsa.Decrypt(aleMasterKey, RSAEncryptionPadding.Pkcs1);
+            }
+            using(var rsa = encryptionSettings.Certificate.GetRSAPublicKey())
+            {
+                this.m_saltSeed = rsa.Encrypt(encryptionSettings.SaltSeed, RSAEncryptionPadding.Pkcs1);
             }
         }
 
@@ -57,13 +62,16 @@ namespace SanteDB.OrmLite.Providers.Encryptors
             using (var aes = Aes.Create())
             {
                 var originalDataHash = MD5.Create().ComputeHash(data);
-                if (this.m_settings.Mode == Configuration.OrmAleMode.Random)
+                switch (this.m_settings.Mode)
                 {
-                    aes.GenerateIV();
-                }
-                else
-                {
-                    aes.IV = originalDataHash;
+                    case Configuration.OrmAleMode.Random:
+                        aes.GenerateIV();
+                        break;
+                    case Configuration.OrmAleMode.Deterministic:
+                        aes.IV = Enumerable.Range(0, originalDataHash.Length).Select(o => (byte)(originalDataHash[o] ^ m_saltSeed[o])).ToArray();
+                        break;
+                    case Configuration.OrmAleMode.Off:
+                        return data;
                 }
 
                 aes.Key = this.m_secret;
@@ -140,16 +148,16 @@ namespace SanteDB.OrmLite.Providers.Encryptors
             switch (encryptedObject)
             {
                 case String s:
-                    if (s.IsHexEncoded())
+                    if (s.IsHexEncoded() && s.StartsWith(MAGIC_STRING))
                     {
                         decrypted = Encoding.UTF8.GetString(this.Decrypt(s.HexDecode()));
                         return true;
                     }
-                    decrypted = null;
+                    decrypted = encryptedObject;
                     return false;
                 case byte[] b:
                     decrypted = this.Decrypt(b);
-                    return false;
+                    return true;
                 default:
                     decrypted = encryptedObject;
                     return false;

@@ -26,6 +26,7 @@ using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
+using SanteDB.OrmLite.Migration;
 using SanteDB.OrmLite.Providers.Encryptors;
 using SanteDB.OrmLite.Providers.Postgres;
 using System;
@@ -578,9 +579,18 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                         if (aleSmk != null)
                         {
-                            this.m_encryptionProvider = new DefaultAesDataEncryptor(this.m_encryptionSettings, aleSmk);
+                            if (this.m_encryptionSettings.Mode != OrmAleMode.Off)
+                            {
+                                this.m_encryptionProvider = new DefaultAesDataEncryptor(this.m_encryptionSettings, aleSmk);
+                            }
+                            else
+                            {
+                                cmd.CommandText = "DELETE FROM ale_smk;";
+                                cmd.ExecuteNonQuery();
+                                this.m_encryptionSettings.AleRecrypt(this);
+                            }
                         }
-                        else // generate an ALE
+                        else if(this.m_encryptionSettings.Mode != OrmAleMode.Off) // generate an ALE
                         {
                             this.m_tracer.TraceWarning("GENERATING AN APPLICATION LEVEL ENCRYPTION CERTIFICATE -> IT IS RECOMMENDED YOU USE TDE RATHER THAN ALE ON SANTEDB PRODUCTION INSTANCES");
                             aleSmk = DefaultAesDataEncryptor.GenerateMasterKey(this.m_encryptionSettings);
@@ -592,6 +602,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             parm.Value = aleSmk;
                             cmd.Parameters.Add(parm);
                             cmd.ExecuteNonQuery();
+                            this.m_encryptionSettings.AleRecrypt(this);
                             this.m_encryptionProvider = new DefaultAesDataEncryptor(this.m_encryptionSettings, aleSmk);
                         }
                     }

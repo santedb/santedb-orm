@@ -18,10 +18,12 @@
  * User: fyfej
  * Date: 2023-5-19
  */
+using Newtonsoft.Json;
 using SanteDB.Core.Security.Configuration;
 using SanteDB.OrmLite.Providers.Postgres;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Xml.Serialization;
 
@@ -59,6 +61,15 @@ namespace SanteDB.OrmLite.Configuration
     {
 
         /// <summary>
+        /// Create new configuration
+        /// </summary>
+        public OrmAleConfiguration()
+        {
+            this.SaltSeed = new byte[16];
+            RandomNumberGenerator.Create().GetBytes(this.SaltSeed);
+        }
+
+        /// <summary>
         /// Gets or sets the ALE mode
         /// </summary>
         [XmlAttribute("aleMode")]
@@ -75,6 +86,23 @@ namespace SanteDB.OrmLite.Configuration
         [TypeConverter(typeof(ExpandableObjectConverter))]
         public X509ConfigurationElement Certificate { get; set; }
 
+        /// <summary>
+        /// Salted SEED XML
+        /// </summary>
+        [DisplayName("Salting Seed")]
+        [Description("A random (but consistent string) set by the administrator to salt the IV values in Deterministic method of encrypting (HEX ENCODED)")]
+        [XmlElement("ivSeed")]
+        public string SaltSeedXml {
+            get => this.SaltSeed.HexEncode();
+            set => this.SaltSeed = value.HexDecode(); 
+        }
+
+        /// <summary>
+        /// Salted seed
+        /// </summary>
+        [XmlIgnore, JsonIgnore]
+        [Browsable(false)]
+        public byte[] SaltSeed { get; set; }
 
         /// <summary>
         /// The fields to be enabled

@@ -884,6 +884,16 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Non-generic implementation for query
+        /// </summary>
+        public IOrmResultSet Query(Type modelType, SqlStatement query)
+        {
+            var ormType = typeof(OrmResultSet<>).MakeGenericType(modelType);
+            var ctor = ormType.GetConstructors(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).First();
+            return ctor.Invoke(new object[] { this, query }) as IOrmResultSet;
+        }
+
+        /// <summary>
         /// Executes the query against the database
         /// </summary>
         public IEnumerable<TModel> ExecQuery<TModel>(SqlStatement query)
