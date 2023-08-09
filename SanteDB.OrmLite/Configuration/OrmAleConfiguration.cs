@@ -58,13 +58,32 @@ namespace SanteDB.OrmLite.Configuration
     public class OrmAleConfiguration : IOrmEncryptionSettings
     {
 
+        // Mode
+        private OrmAleMode m_mode = OrmAleMode.Off;
+
         /// <summary>
         /// Gets or sets the ALE mode
         /// </summary>
         [XmlAttribute("aleMode")]
         [DisplayName("Mode")]
         [Description("Identifies the mode in which values are encrypted. Deterministic is less secure but provides faster queries, Randomized is more secure but may result in full-table scans for data query")]
-        public OrmAleMode Mode { get; set; }
+        public OrmAleMode Mode
+        {
+            get => this.m_mode;
+            set
+            {
+                this.m_mode = value;
+
+                if (value == OrmAleMode.Off)
+                {
+                    this.Certificate = null;
+                }
+                else
+                {
+                    this.Certificate = new X509ConfigurationElement();
+                }
+            }
+        }
 
         /// <summary>
         /// Gets or sets the ALE certificate
@@ -91,5 +110,8 @@ namespace SanteDB.OrmLite.Configuration
 
         /// <inheritdoc/>
         bool IOrmEncryptionSettings.ShouldEncrypt(string fieldName) => this.EnableFields.Contains(fieldName);
+
+        /// <inheritdoc/>
+        public override string ToString() => this.Mode.ToString();
     }
 }
