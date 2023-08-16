@@ -39,7 +39,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Gets the mode of the ALE
         /// </summary>
-        OrmAleMode Mode { get; }
+        bool AleEnabled { get; }
 
         /// <summary>
         /// Get the certificate used for encryption
@@ -49,6 +49,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// True if the <paramref name="fieldName"/> is to be encrypted
         /// </summary>
-        bool ShouldEncrypt(string fieldName);
+        bool ShouldEncrypt(string fieldName, out OrmAleMode configuredMode);
     }
 }

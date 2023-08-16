@@ -23,6 +23,7 @@ using SanteDB.Core.Security.Configuration;
 using SanteDB.OrmLite.Providers.Postgres;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Xml.Serialization;
@@ -59,9 +60,11 @@ namespace SanteDB.OrmLite.Configuration
     [XmlType(nameof(OrmAleConfiguration), Namespace = "http://santedb.org/configuration")]
     public class OrmAleConfiguration : IOrmEncryptionSettings
     {
+        // Field settings
+        private Dictionary<string, OrmAleMode> m_fieldSettings = null;
 
         // Mode
-        private OrmAleMode m_mode = OrmAleMode.Off;
+        private bool m_enable;
 
         /// <summary>
         /// Create new configuration
@@ -75,17 +78,17 @@ namespace SanteDB.OrmLite.Configuration
         /// <summary>
         /// Gets or sets the ALE mode
         /// </summary>
-        [XmlAttribute("aleMode")]
-        [DisplayName("Mode")]
+        [XmlAttribute("enabled")]
+        [DisplayName("Enable ALE")]
         [Description("Identifies the mode in which values are encrypted. Deterministic is less secure but provides faster queries, Randomized is more secure but may result in full-table scans for data query")]
-        public OrmAleMode Mode
+        public bool AleEnabled
         {
-            get => this.m_mode;
+            get => this.m_enable;
             set
             {
-                this.m_mode = value;
+                this.m_enable = value;
 
-                if (value == OrmAleMode.Off)
+                if (!value)
                 {
                     this.Certificate = null;
                 }
@@ -126,20 +129,46 @@ namespace SanteDB.OrmLite.Configuration
         /// <summary>
         /// The fields to be enabled
         /// </summary>
-        [XmlArray("fields"), XmlArrayItem("enable")]
+        [XmlElement("field")]
         [Editor("System.Windows.Forms.Design.StringCollectionEditor, System.Design", "System.Drawing.Design.UITypeEditor, System.Drawing")]
         [DisplayName("Field List")]
         [Description("The fields on which ALE encryption should be enabled. Note that once enabled, encryption fields cannot used for queries other than exact matches")]
-        public List<string> EnableFields { get; set; }
+        [Editor("SanteDB.Configuration.Editors.AleFieldSelectorEditor, SanteDB.Configuration", "System.Drawing.Design.UITypeEditor, System.Drawing, Version=4.0.0.0")]
+        public List<OrmFieldConfiguration> EnableFields { get; set; }
 
 
         /// <inheritdoc/>
         X509Certificate2 IOrmEncryptionSettings.Certificate => this.Certificate?.Certificate;
 
         /// <inheritdoc/>
-        bool IOrmEncryptionSettings.ShouldEncrypt(string fieldName) => this.EnableFields.Contains(fieldName);
+        bool IOrmEncryptionSettings.ShouldEncrypt(string fieldName, out OrmAleMode configuredMode)
+        {
+            configuredMode = OrmAleMode.Off;
+            if(this.m_fieldSettings == null)
+            {
+                this.m_fieldSettings = this.EnableFields.ToDictionaryIgnoringDuplicates(o => o.Name, o => o.Mode);
+            }
+            return !string.IsNullOrEmpty(fieldName) && this.m_fieldSettings.TryGetValue(fieldName, out configuredMode) && this.m_enable;
+        }
+    }
 
-        /// <inheritdoc/>
-        public override string ToString() => this.Mode.ToString();
+    /// <summary>
+    /// ORM field configuration
+    /// </summary>
+    [XmlType(nameof(OrmFieldConfiguration), Namespace = "http://santedb.org/configuration")]
+    public class OrmFieldConfiguration
+    {
+
+        /// <summary>
+        /// Gets or sets the name
+        /// </summary>
+        [XmlText]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Gets or sets the mode 
+        /// </summary>
+        [XmlAttribute("mode")]
+        public OrmAleMode Mode { get; set; }
     }
 }

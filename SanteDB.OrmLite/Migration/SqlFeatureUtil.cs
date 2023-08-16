@@ -153,7 +153,7 @@ namespace SanteDB.OrmLite.Migration
             var propertiesToEncrypt = AppDomain.CurrentDomain.GetAllTypes()
                 .Where(t => t.HasCustomAttribute<TableAttribute>())
                 .SelectMany(t => t.GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
-                .Where(p => p.HasCustomAttribute<ApplicationEncryptAttribute>() && ormEncryptionSettings.ShouldEncrypt(p.GetCustomAttribute<ApplicationEncryptAttribute>().FieldName)))
+                .Where(p => p.HasCustomAttribute<ApplicationEncryptAttribute>() && ormEncryptionSettings.ShouldEncrypt(p.GetCustomAttribute<ApplicationEncryptAttribute>().FieldName, out _)))
                 .ToArray();
 
             using (var context = encryptedDbProvider.GetWriteConnection())

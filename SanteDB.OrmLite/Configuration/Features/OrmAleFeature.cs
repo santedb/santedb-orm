@@ -1,6 +1,8 @@
-﻿using SanteDB.Core.Configuration;
+﻿using DocumentFormat.OpenXml.Drawing.Diagrams;
+using SanteDB.Core.Configuration;
 using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Configuration.Features;
+using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Providers;
 using SanteDB.OrmLite.Providers.Postgres;
@@ -17,7 +19,9 @@ namespace SanteDB.OrmLite.Configuration.Features
     /// </summary>
     public class OrmAleFeature : IFeature
     {
-        
+        // Tracer
+        private readonly Tracer m_tracer = Tracer.GetTracer(typeof(OrmAleFeature));
+
         // Configuration
         private GenericFeatureConfiguration m_configuration;
 
@@ -46,16 +50,16 @@ namespace SanteDB.OrmLite.Configuration.Features
         /// <inheritdoc/>
         public IEnumerable<IConfigurationTask> CreateInstallTasks()
         {
-            foreach(var itm in this.m_configuration.Values)
+            foreach (var itm in this.m_configuration.Values)
             {
                 var aleConfiguration = itm.Value as OrmAleConfiguration;
-                switch(aleConfiguration.Mode) {
-                    case OrmAleMode.Off:
-                        yield return new DecryptAleDataTask(this, itm.Key, aleConfiguration);
-                        break;
-                    default:
-                        yield return new EncryptAleDataTask(this, itm.Key, aleConfiguration);
-                        break;
+                if (aleConfiguration.AleEnabled)
+                {
+                    yield return new EncryptAleDataTask(this, itm.Key, aleConfiguration);
+                }
+                else
+                {
+                    yield return new DecryptAleDataTask(this, itm.Key, aleConfiguration);
                 }
             }
         }
@@ -72,40 +76,46 @@ namespace SanteDB.OrmLite.Configuration.Features
             this.m_configuration = this.m_configuration ?? new GenericFeatureConfiguration();
 
             // Create configuration for each of the connection strings
-            bool databaseExists = true;
-            foreach(var ormConfiguration in configuration.Sections.OfType<OrmConfigurationBase>())
+            foreach (var ormConfiguration in configuration.Sections.OfType<OrmConfigurationBase>())
             {
                 try
                 {
                     var ormSection = configuration.GetSection<OrmConfigurationSection>();
-                    var connectionString = configuration.GetSection<DataConfigurationSection>()?.ConnectionString.Find(o=>o.Name.Equals(ormConfiguration.ReadWriteConnectionString, StringComparison.OrdinalIgnoreCase));
+                    var connectionString = configuration.GetSection<DataConfigurationSection>()?.ConnectionString.Find(o => o.Name.Equals(ormConfiguration.ReadWriteConnectionString, StringComparison.OrdinalIgnoreCase));
                     var providerType = ormSection?.Providers.Find(o => o.Invariant == connectionString.Provider).Type;
                     var provider = Activator.CreateInstance(providerType) as IEncryptedDbProvider;
 
-                    if(provider == null)
+                    if (provider == null)
                     {
                         continue;
                     }
 
                     provider.ConnectionString = connectionString.ToString();
-                    if (!this.m_configuration.Options.ContainsKey(ormConfiguration.GetType().Name))
-                    {
-                        this.m_configuration.Options.Add(ormConfiguration.GetType().Name, () => ConfigurationOptionType.Object);
-                        this.m_configuration.Values.Add(ormConfiguration.GetType().Name, ormConfiguration.AleConfiguration ?? new OrmAleConfiguration());
-                    }
-
                     using (var conn = provider.GetWriteConnection())
                     {
-                         conn.Open();
-                         databaseExists &= conn.Any(new SqlStatement("SELECT 1 FROM patch_db_systbl WHERE patch_id = '20230802-01'"));
+                        conn.Open();
+                        try
+                        {
+                            conn.Any(new SqlStatement("SELECT * FROM ale_systbl"));
+                            if (!this.m_configuration.Options.ContainsKey(connectionString.Name))
+                            {
+                                this.m_configuration.Options.Add(connectionString.Name, () => ConfigurationOptionType.Object);
+                                this.m_configuration.Values.Add(connectionString.Name, ormConfiguration.AleConfiguration ?? new OrmAleConfiguration());
+                            }
+                        }
+                        catch
+                        {
+                            this.m_tracer.TraceWarning("Cannot enable ALE on {0} - SMK patching has not been installed", ormConfiguration.GetType().Name);
+                        }
                     }
                 }
-                catch {
-                    databaseExists = false;
+                catch (Exception e)
+                {
+                    this.m_tracer.TraceError("Cannot determine ALE availability on {0} ({1})", ormConfiguration.GetType().Name, e.Message);
                 } // ignore exceptions here
             }
 
-            return databaseExists ? configuration.Sections.OfType<OrmConfigurationBase>().Any(o => o.AleConfiguration != null) ? FeatureInstallState.Installed : FeatureInstallState.PartiallyInstalled : FeatureInstallState.CantInstall;
+            return configuration.Sections.OfType<OrmConfigurationBase>().Any(o => o.AleConfiguration != null) ? FeatureInstallState.Installed : FeatureInstallState.NotInstalled;
 
         }
 
@@ -149,10 +159,10 @@ namespace SanteDB.OrmLite.Configuration.Features
             }
 
             /// <inheritdoc/>
-            public bool VerifyState(SanteDBConfiguration configuration)
-            {
-                return false;
-            }
+            public bool VerifyState(SanteDBConfiguration configuration) => this.m_aleConfiguration.Certificate != null &&
+                this.m_aleConfiguration.Certificate.Certificate.HasPrivateKey &&
+                this.m_aleConfiguration.SaltSeedXml != null &&
+                this.m_aleConfiguration.EnableFields?.Count() > 0;
         }
 
         /// <summary>

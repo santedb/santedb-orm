@@ -579,18 +579,16 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                         if (aleSmk != null)
                         {
-                            if (this.m_encryptionSettings.Mode != OrmAleMode.Off)
-                            {
-                                this.m_encryptionProvider = new DefaultAesDataEncryptor(this.m_encryptionSettings, aleSmk);
-                            }
-                            else
+                            this.m_encryptionProvider = new DefaultAesDataEncryptor(this.m_encryptionSettings, aleSmk);
+                            if (!this.m_encryptionSettings.AleEnabled)
                             {
                                 cmd.CommandText = "DELETE FROM ale_smk;";
                                 cmd.ExecuteNonQuery();
                                 this.m_encryptionSettings.AleRecrypt(this);
+                                this.m_encryptionProvider = null;
                             }
                         }
-                        else if(this.m_encryptionSettings.Mode != OrmAleMode.Off) // generate an ALE
+                        else if (this.m_encryptionSettings.AleEnabled) // generate an ALE
                         {
                             this.m_tracer.TraceWarning("GENERATING AN APPLICATION LEVEL ENCRYPTION CERTIFICATE -> IT IS RECOMMENDED YOU USE TDE RATHER THAN ALE ON SANTEDB PRODUCTION INSTANCES");
                             aleSmk = DefaultAesDataEncryptor.GenerateMasterKey(this.m_encryptionSettings);

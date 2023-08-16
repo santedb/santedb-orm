@@ -144,9 +144,9 @@ namespace SanteDB.OrmLite
                 return value;
             }
             else if(this.m_statementFactory.Provider is IEncryptedDbProvider encProvider &&
-                encProvider.GetEncryptionProvider()?.IsConfiguredForEncryption(this.m_lastColumnMapping.EncryptedColumnId) == true)
+                encProvider.GetEncryptionProvider()?.TryGetEncryptionMode(this.m_lastColumnMapping.EncryptedColumnId, out var aleMode) == true)
             {
-                return encProvider.GetEncryptionProvider().CreateQueryValue(value);
+                return encProvider.GetEncryptionProvider().CreateQueryValue(aleMode, value);
             }
             return value; // TODO: Get the IDbEncryptionProvider from somewhere??
         }

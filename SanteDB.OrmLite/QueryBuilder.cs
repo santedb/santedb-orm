@@ -25,6 +25,7 @@ using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Query;
 using SanteDB.OrmLite.Attributes;
+using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Providers;
 using SanteDB.OrmLite.Providers.Postgres;
 using System;
@@ -844,12 +845,13 @@ namespace SanteDB.OrmLite
                 }
 
                 var semantic = " OR ";
-                
-                var isEncrypted = this.m_encryptionProvider?.IsConfiguredForEncryption(columnMapping.EncryptedColumnId) == true;
+
+                OrmAleMode aleMode = OrmAleMode.Off;
+                var isEncrypted = this.m_encryptionProvider?.TryGetEncryptionMode(columnMapping.EncryptedColumnId, out aleMode) == true;
                 object eValue = null;
                 if(isEncrypted)
                 {
-                    eValue = this.m_encryptionProvider.CreateQueryValue(itm);
+                    eValue = this.m_encryptionProvider.CreateQueryValue(aleMode, itm);
                 }
 
                 if (itm is String sValue)

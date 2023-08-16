@@ -68,7 +68,7 @@ namespace SanteDB.OrmLite
                 try
                 {
                     var dbValue = rdr[itm.Name];
-                    _ = encProvider?.IsConfiguredForEncryption(itm.EncryptedColumnId) == true &&
+                    _ = encProvider?.TryGetEncryptionMode(itm.EncryptedColumnId, out _) == true &&
                         encProvider?.TryDecrypt(dbValue, out dbValue) == true;
 
                     object value = provider.ConvertValue(dbValue, itm.SourceProperty.PropertyType);
@@ -78,7 +78,7 @@ namespace SanteDB.OrmLite
                         itm.SourceProperty.SetValue(result, value);
                     }
                 }
-                catch
+                catch (Exception e)
                 {
                     throw new MissingFieldException(tableMapping.TableName, itm.Name);
                 }

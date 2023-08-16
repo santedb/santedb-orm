@@ -287,7 +287,7 @@ namespace SanteDB.OrmLite
                 try
                 {
                     object dbValue = rdr[itm.Name];
-                    _ = this.m_encryptionProvider?.IsConfiguredForEncryption(itm.EncryptedColumnId) == true &&
+                    _ = this.m_encryptionProvider?.TryGetEncryptionMode(itm.EncryptedColumnId, out _) == true &&
                         this.m_encryptionProvider?.TryDecrypt(dbValue, out dbValue) == true;
 
                     object value = this.m_provider.ConvertValue(dbValue, itm.SourceProperty.PropertyType);
@@ -1044,8 +1044,8 @@ namespace SanteDB.OrmLite
                     columnNames.Append($"{col.Name}");
 
                     // Encrypt value
-                    _ = this.m_encryptionProvider?.IsConfiguredForEncryption(col.EncryptedColumnId) == true &&
-                        this.m_encryptionProvider?.TryEncrypt(val, out val) == true;
+                    _ = this.m_encryptionProvider?.TryGetEncryptionMode(col.EncryptedColumnId, out var mode) == true &&
+                        this.m_encryptionProvider?.TryEncrypt(mode, val, out val) == true;
                     
                     // Append value
                     values.Append("?", val);
@@ -1353,8 +1353,8 @@ namespace SanteDB.OrmLite
 
                     // Encrypt value
                     // Encrypt value
-                    _ = this.m_encryptionProvider?.IsConfiguredForEncryption(col.EncryptedColumnId) == true &&
-                        this.m_encryptionProvider?.TryEncrypt(itmValue, out itmValue) == true;
+                    _ = this.m_encryptionProvider?.TryGetEncryptionMode(col.EncryptedColumnId, out var mode) == true &&
+                        this.m_encryptionProvider?.TryEncrypt(mode, itmValue, out itmValue) == true;
 
                     nUpdatedColumns++;
                     queryBuilder.Append($"{col.Name} = ? ", itmValue ?? DBNull.Value);
