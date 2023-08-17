@@ -626,7 +626,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
             // Is ALE even configured for this connection?
             if (!(this.m_encryptionSettings is OrmAleConfiguration aleConfiguration) ||
-                AuthenticationContext.Current.Principal != AuthenticationContext.SystemPrincipal))
+                AuthenticationContext.Current.Principal != AuthenticationContext.SystemPrincipal)
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(MigrateEncryption)));
             }
