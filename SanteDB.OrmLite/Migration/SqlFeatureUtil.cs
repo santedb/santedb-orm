@@ -181,9 +181,12 @@ namespace SanteDB.OrmLite.Migration
                                 processed = 0;
                             foreach(var rec in context.Query(tableMap.OrmType, recordCollectorStmt.Statement))
                             {
-                                context.Update(rec); // Update should iniitlaize the encryption 
-                                processed++;
-                                progressMonitor?.Invoke("ALE_CRYPT", propertiesComplete + ((float)processed / (float)nRecords) * percentCompletePerProperty, statusText);
+                                using (var c2 = context.OpenClonedContext())
+                                {
+                                    c2.Update(rec); // Update should iniitlaize the encryption 
+                                    processed++;
+                                    progressMonitor?.Invoke("ALE_CRYPT", propertiesComplete + ((float)processed / (float)nRecords) * percentCompletePerProperty, statusText);
+                                }
                             }
 
                             propertiesComplete = (float)i / (float)propertiesToEncrypt.Length;
