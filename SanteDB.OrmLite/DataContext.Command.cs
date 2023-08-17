@@ -1354,7 +1354,7 @@ namespace SanteDB.OrmLite
                     }
 
                     // Encrypt value
-                    OrmAleMode aleMode = OrmAleMode.Off
+                    OrmAleMode aleMode = OrmAleMode.Off;
                     _ = this.m_encryptionProvider?.TryGetEncryptionMode(col.EncryptedColumnId, out aleMode) == true &&
                         this.m_encryptionProvider?.TryEncrypt(aleMode, itmValue, out itmValue) == true;
 
