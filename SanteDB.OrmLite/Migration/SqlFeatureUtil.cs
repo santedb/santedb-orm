@@ -163,8 +163,9 @@ namespace SanteDB.OrmLite.Migration
                     context.Open();
                     float percentCompletePerProperty = 1.0f / (float)propertiesToEncrypt.Length,
                         propertiesComplete = 0.0f;
-                    
-                    using (var tx = context.BeginTransaction()) {
+
+                    using (var tx = context.BeginTransaction())
+                    {
                         // Gather a list of all encryption provided settings
                         for (int i = 0; i < propertiesToEncrypt.Length; i++)
                         {
@@ -179,9 +180,9 @@ namespace SanteDB.OrmLite.Migration
                             // When we update this field it *should* encrypt the database
                             int nRecords = context.Count(recordCollectorStmt.Statement),
                                 processed = 0;
-                            foreach(var rec in context.Query(tableMap.OrmType, recordCollectorStmt.Statement))
+                            using (var c2 = context.OpenClonedContext())
                             {
-                                using (var c2 = context.OpenClonedContext())
+                                foreach (var rec in context.Query(tableMap.OrmType, recordCollectorStmt.Statement))
                                 {
                                     c2.Update(rec); // Update should iniitlaize the encryption 
                                     processed++;
@@ -197,7 +198,7 @@ namespace SanteDB.OrmLite.Migration
                     }
 
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     throw new DataPersistenceException(ErrorMessages.CRYPTO_OPERATION_FAILED, e);
                 }
