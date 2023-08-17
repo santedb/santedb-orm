@@ -501,8 +501,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
                             return;
                         }
 
-                        cmd.CommandType = CommandType.StoredProcedure;
-                        cmd.CommandText = "get_ale_smk";
+                        cmd.CommandType = CommandType.Text;
+                        cmd.CommandText = "select get_ale_smk()";
                         var aleSmk = this.ConvertValue<byte[]>(cmd.ExecuteScalar());
 
 
@@ -521,7 +521,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                         {
                             this.m_tracer.TraceWarning("GENERATING AN APPLICATION LEVEL ENCRYPTION CERTIFICATE -> IT IS RECOMMENDED YOU USE TDE RATHER THAN ALE ON SANTEDB PRODUCTION INSTANCES");
                             aleSmk = DefaultAesDataEncryptor.GenerateMasterKey(this.m_encryptionSettings);
-                            cmd.CommandText = "set_ale_smk";
+                            cmd.CommandText = "select set_ale_smk(@NEW_ALE_SMK_IN)";
                             var parm = cmd.CreateParameter();
                             parm.ParameterName = "NEW_ALE_SMK_IN";
                             parm.DbType = DbType.Binary;
