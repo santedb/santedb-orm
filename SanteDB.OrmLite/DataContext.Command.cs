@@ -21,6 +21,7 @@
 using DocumentFormat.OpenXml.Vml;
 using SanteDB.Core.Diagnostics.Performance;
 using SanteDB.Core.i18n;
+using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Providers;
 using SanteDB.OrmLite.Providers.Sqlite;
 using System;
@@ -1044,8 +1045,9 @@ namespace SanteDB.OrmLite
                     columnNames.Append($"{col.Name}");
 
                     // Encrypt value
-                    _ = this.m_encryptionProvider?.TryGetEncryptionMode(col.EncryptedColumnId, out var mode) == true &&
-                        this.m_encryptionProvider?.TryEncrypt(mode, val, out val) == true;
+                    OrmAleMode aleMode = OrmAleMode.Off;
+                    _ = this.m_encryptionProvider?.TryGetEncryptionMode(col.EncryptedColumnId, out aleMode) == true &&
+                        this.m_encryptionProvider?.TryEncrypt(aleMode, val, out val) == true;
                     
                     // Append value
                     values.Append("?", val);
@@ -1352,9 +1354,9 @@ namespace SanteDB.OrmLite
                     }
 
                     // Encrypt value
-                    // Encrypt value
-                    _ = this.m_encryptionProvider?.TryGetEncryptionMode(col.EncryptedColumnId, out var mode) == true &&
-                        this.m_encryptionProvider?.TryEncrypt(mode, itmValue, out itmValue) == true;
+                    OrmAleMode aleMode = OrmAleMode.Off
+                    _ = this.m_encryptionProvider?.TryGetEncryptionMode(col.EncryptedColumnId, out aleMode) == true &&
+                        this.m_encryptionProvider?.TryEncrypt(aleMode, itmValue, out itmValue) == true;
 
                     nUpdatedColumns++;
                     queryBuilder.Append($"{col.Name} = ? ", itmValue ?? DBNull.Value);
