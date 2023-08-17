@@ -587,7 +587,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     }
                     else if (this.m_encryptionSettings.AleEnabled) // generate an ALE
                     {
-                        this.MigrateEncryption(null);
+                        using (AuthenticationContext.EnterSystemContext())
+                        {
+                            this.MigrateEncryption(null);
+                        }
                     }
                 }
                 catch (Exception e)
@@ -637,7 +640,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 try
                 {
-                    connection.ConnectionString = this.ConnectionString;
+                    connection.ConnectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ConnectionString)).ToString();
                     connection.Open();
 
                     using (var cmd = connection.CreateCommand())
@@ -655,7 +658,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         }
 
                         this.m_tracer.TraceInfo("Encrypting with new key...");
-                        if (newOrmEncryptionSettings.AleEnabled)
+                        if (newOrmEncryptionSettings?.AleEnabled == true)
                         {
                             this.m_tracer.TraceWarning("GENERATING AN APPLICATION LEVEL ENCRYPTION CERTIFICATE -> IT IS RECOMMENDED YOU USE TDE RATHER THAN ALE ON SANTEDB PRODUCTION INSTANCES");
                             var aleSmk = DefaultAesDataEncryptor.GenerateMasterKey(newOrmEncryptionSettings);

@@ -515,7 +515,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     }
                     else if (this.m_encryptionSettings.AleEnabled) // generate an ALE
                     {
-                        this.MigrateEncryption(this.m_encryptionSettings);
+                        using (AuthenticationContext.EnterSystemContext())
+                        {
+                            this.MigrateEncryption(this.m_encryptionSettings);
+                        }
                     }
 
                 }
