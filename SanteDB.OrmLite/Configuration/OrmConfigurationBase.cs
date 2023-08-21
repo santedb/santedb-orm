@@ -20,10 +20,13 @@
  */
 using SanteDB.Core;
 using SanteDB.Core.Configuration;
+using SanteDB.Core.Security.Configuration;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Providers;
+using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Xml.Serialization;
 
 namespace SanteDB.OrmLite.Configuration
@@ -31,7 +34,7 @@ namespace SanteDB.OrmLite.Configuration
     /// <summary>
     /// Represents a base ORM configuration object
     /// </summary>
-    public abstract class OrmConfigurationBase : IConfigurationSection
+    public abstract class OrmConfigurationBase : IEncryptedConfigurationSection
     {
         // DB Provider
         private IDbProvider m_dbProvider;
@@ -77,6 +80,13 @@ namespace SanteDB.OrmLite.Configuration
         public String ProviderType { get; set; }
 
         /// <summary>
+        /// Gets the application level certificate for decryption
+        /// </summary>
+        [XmlElement("aleConfiguration")]
+        [Browsable(false)]
+        public OrmAleConfiguration AleConfiguration { get; set; }
+
+        /// <summary>
         /// Get the provider
         /// </summary>
         [XmlIgnore, Browsable(false)]
@@ -95,6 +105,10 @@ namespace SanteDB.OrmLite.Configuration
                     this.m_dbProvider.ReadonlyConnectionString = this.ResolveConnectionString(this.ReadonlyConnectionString);
                     this.m_dbProvider.ConnectionString = this.ResolveConnectionString(this.ReadWriteConnectionString);
                     this.m_dbProvider.TraceSql = this.TraceSql;
+                    if (this.AleConfiguration != null && this.m_dbProvider is IEncryptedDbProvider e)
+                    {
+                        e.SetEncryptionSettings(this.AleConfiguration);
+                    }
 
                 }
                 return this.m_dbProvider;

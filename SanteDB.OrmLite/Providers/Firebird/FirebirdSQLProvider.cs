@@ -35,6 +35,7 @@ using System.Data.Common;
 using System.Diagnostics.Tracing;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -79,7 +80,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         /// </summary>
         public FirebirdSQLProvider()
         {
-            this.StatementFactory = new FirebirdStatementFactory();
+            this.StatementFactory = new FirebirdStatementFactory(this);
         }
 
         /// <summary>
@@ -121,7 +122,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 return this.m_monitor;
             }
         }
-
 
         /// <summary>
         /// Clone a connection
@@ -543,7 +543,6 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 }
             }
         }
-
 
     }
 }

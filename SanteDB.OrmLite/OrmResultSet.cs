@@ -311,47 +311,76 @@ namespace SanteDB.OrmLite
                     TableMapping.Get(typeof(TData)).GetColumn(keyColumnName);
             }
 
-            // Union is not permitted
-
-            // HACK: Find a better way to dissassembly the query - basically we want to get the SELECT * FROM XXXX WHERE ----- and swap out the WHERE clause to only those keys in our set
+            // Union is only permitted in limited contexts
             var stmt = this.Statement.Prepare();
             var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(stmt.ToString());
             if (sqlParts.Success)
             {
-
-                // Is the inner query a sub-query?
-                if (sqlParts.Groups[Constants.SQL_GROUP_FROM].Value.TrimStart().StartsWith("("))
+                if (stmt.ToString().ToLower().Contains(" union ") || stmt.ToString().Contains(" intersect "))
                 {
-                    return new OrmResultSet<TData>(this.Context,
-                        new SqlStatement(stmt.Alias, $"{sqlParts.Groups[Constants.SQL_GROUP_FROM].Value.TrimStart().Substring(1)} WHERE {sqlParts.Groups[Constants.SQL_GROUP_WHERE].Value}".Replace($") AS {stmt.Alias}", ""), stmt.Arguments)
-                    ).HavingKeys(keyList, keyColumnName);
-                }
+                    var selectColumns = Constants.ExtractColumnBindingRegex.Replace(sqlParts.Groups[Constants.SQL_GROUP_COLUMNS].Value, (o) => $"{o.Groups[2].Value}{o.Groups[3].Value}");
+                    var sqlStatementBuilder = this.Context.CreateSqlStatementBuilder($"SELECT {selectColumns} FROM (")
+                        .Append($"WITH cte{keyColumn.Table.TableName} AS (").Append(stmt).Append($") ");
+                    var keyArray = keyList.OfType<Object>();
+                    var offset = 0;
 
-                var offset = 0;
-                var keyArray = keyList.OfType<Object>();
-                var sqlStatementBuilder = this.Context.CreateSqlStatementBuilder();
-                while (offset <= keyArray.Count())
+                    do
+                    {
+                        sqlStatementBuilder.Append($" SELECT * FROM cte{keyColumn.Table.TableName} WHERE ").Append("FALSE").Append(" OR ");
+                        var keyBatch = keyArray.Skip(offset).Take(500);
+                        if (keyBatch.Any())
+                        {
+                            sqlStatementBuilder.Append(String.Join(" OR ", keyBatch.Select(o => $" cte{keyColumn.Table.TableName}.{keyColumn.Name} = ? ")), keyBatch.ToArray());
+                            sqlStatementBuilder.Append(this.Context.Provider.StatementFactory.CreateSqlKeyword(Providers.SqlKeyword.UnionAll));
+                        }
+                        else if (offset > 0)
+                        {
+                            sqlStatementBuilder.RemoveLast(out _).RemoveLast(out _).RemoveLast(out _);
+                        }
+                        offset += 500;
+                    } while (offset < keyArray.Count());
+
+
+                    sqlStatementBuilder.RemoveLast(out _).Append($") AS {keyColumn.Table.TableName}");
+
+                    return new OrmResultSet<TData>(this.Context, sqlStatementBuilder.Statement);
+                }
+                else
                 {
-
-                    sqlStatementBuilder.Append($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_COLUMNS].Value} FROM {sqlParts.Groups[Constants.SQL_GROUP_FROM].Value} WHERE ").Append("FALSE").Append(" OR ");
-
-                    var keyBatch = keyArray.Skip(offset).Take(500);
-                    if (keyBatch.Any())
+                    // Is the inner query a sub-query?
+                    if (sqlParts.Groups[Constants.SQL_GROUP_FROM].Value.TrimStart().StartsWith("("))
                     {
-                        sqlStatementBuilder.Append(String.Join(" OR ", keyBatch.Select(o => $" {keyColumn.Table.TableName}.{keyColumn.Name} = ? ")), keyBatch.ToArray());
-                        sqlStatementBuilder.Append(this.Context.Provider.StatementFactory.CreateSqlKeyword(Providers.SqlKeyword.UnionAll));
+                        return new OrmResultSet<TData>(this.Context,
+                            new SqlStatement(stmt.Alias, $"{sqlParts.Groups[Constants.SQL_GROUP_FROM].Value.TrimStart().Substring(1)} WHERE {sqlParts.Groups[Constants.SQL_GROUP_WHERE].Value}".Replace($") AS {stmt.Alias}", ""), stmt.Arguments)
+                        ).HavingKeys(keyList, keyColumnName);
                     }
-                    else if (offset > 0)
-                    {
-                        sqlStatementBuilder.RemoveLast(out _).RemoveLast(out _).RemoveLast(out _);
-                    }
-                    offset += 500;
 
+                    var offset = 0;
+                    var keyArray = keyList.OfType<Object>();
+                    var sqlStatementBuilder = this.Context.CreateSqlStatementBuilder();
+                    while (offset <= keyArray.Count())
+                    {
+
+                        sqlStatementBuilder.Append($"SELECT {sqlParts.Groups[Constants.SQL_GROUP_COLUMNS].Value} FROM {sqlParts.Groups[Constants.SQL_GROUP_FROM].Value} WHERE ").Append("FALSE").Append(" OR ");
+
+                        var keyBatch = keyArray.Skip(offset).Take(500);
+                        if (keyBatch.Any())
+                        {
+                            sqlStatementBuilder.Append(String.Join(" OR ", keyBatch.Select(o => $" {keyColumn.Table.TableName}.{keyColumn.Name} = ? ")), keyBatch.ToArray());
+                            sqlStatementBuilder.Append(this.Context.Provider.StatementFactory.CreateSqlKeyword(Providers.SqlKeyword.UnionAll));
+                        }
+                        else if (offset > 0)
+                        {
+                            sqlStatementBuilder.RemoveLast(out _).RemoveLast(out _).RemoveLast(out _);
+                        }
+                        offset += 500;
+
+                    }
+
+                    sqlStatementBuilder.RemoveLast(out _).UsingAlias(stmt.Alias).WrapAsSubQuery();
+
+                    return new OrmResultSet<TData>(this.Context, sqlStatementBuilder.Statement);
                 }
-
-                sqlStatementBuilder.RemoveLast(out _).UsingAlias(stmt.Alias).WrapAsSubQuery();
-
-                return new OrmResultSet<TData>(this.Context, sqlStatementBuilder.Statement);
             }
             else
             {

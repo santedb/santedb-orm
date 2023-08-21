@@ -189,5 +189,6 @@ namespace SanteDB.OrmLite.MappedResultSets
                 throw new InvalidOperationException(String.Format(ErrorMessages.ARGUMENT_INCOMPATIBLE_TYPE, typeof(MappedStatefulQueryResultSet<TData>), other.GetType()));
             }
         }
+
     }
 }

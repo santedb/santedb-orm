@@ -19,6 +19,7 @@
  * Date: 2023-5-19
  */
 using SanteDB.OrmLite.Providers;
+using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.Data;
 
@@ -58,6 +59,7 @@ namespace SanteDB.OrmLite
         protected TData Parse<TData>(IDataReader rdr, IDbProvider provider)
             where TData : new()
         {
+            var encProvider = (provider as IEncryptedDbProvider)?.GetEncryptionProvider();
             var tableMapping = TableMapping.Get(typeof(TData));
             var result = new TData();
             // Read each column and pull from reader
@@ -65,10 +67,18 @@ namespace SanteDB.OrmLite
             {
                 try
                 {
-                    object value = provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
-                    itm.SourceProperty.SetValue(result, value);
+                    var dbValue = rdr[itm.Name];
+                    _ = encProvider?.TryGetEncryptionMode(itm.EncryptedColumnId, out _) == true &&
+                        encProvider?.TryDecrypt(dbValue, out dbValue) == true;
+
+                    object value = provider.ConvertValue(dbValue, itm.SourceProperty.PropertyType);
+
+                    if (!itm.IsSecret)
+                    {
+                        itm.SourceProperty.SetValue(result, value);
+                    }
                 }
-                catch
+                catch (Exception e)
                 {
                     throw new MissingFieldException(tableMapping.TableName, itm.Name);
                 }
@@ -85,7 +95,9 @@ namespace SanteDB.OrmLite
         where TData1 : new()
         where TData2 : new()
     {
-
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CompositeResult{TData1, TData2}"/>.
+        /// </summary>
         public CompositeResult()
         {
 
@@ -124,7 +136,9 @@ namespace SanteDB.OrmLite
         where TData2 : new()
         where TData3 : new()
     {
-
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CompositeResult{TData1, TData2, TData3}"/>.
+        /// </summary>
         public CompositeResult()
         {
 
@@ -160,6 +174,9 @@ namespace SanteDB.OrmLite
         where TData4 : new()
     {
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CompositeResult{TData1, TData2, TData3, TData4}"/>.
+        /// </summary>
         public CompositeResult()
         {
 

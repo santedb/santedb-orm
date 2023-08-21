@@ -22,6 +22,7 @@ using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model.Map;
 using SanteDB.OrmLite.Diagnostics;
 using SanteDB.OrmLite.Providers;
+using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -51,6 +52,8 @@ namespace SanteDB.OrmLite
         // Trace source
         private Tracer m_tracer = new Tracer(Constants.TracerName);
 
+        // Encryption provider
+        private IDbEncryptor m_encryptionProvider;
 
         /// <summary>
         /// Increment the value
@@ -211,6 +214,12 @@ namespace SanteDB.OrmLite
             {
                 this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
                 this.m_opened = true;
+            }
+
+            // Attempt to get the encryptor
+            if (this.m_provider is IEncryptedDbProvider e)
+            {
+                this.m_encryptionProvider = e.GetEncryptionProvider(); // encryption is provided
             }
         }
 

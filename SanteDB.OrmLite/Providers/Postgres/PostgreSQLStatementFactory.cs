@@ -30,12 +30,20 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// <summary>
     /// Statement factory for PostgreSQL
     /// </summary>
-    public class PostgreSQLStatementFactory : IDbStatementFactory
+    internal class PostgreSQLStatementFactory : IDbStatementFactory
     {
         private static readonly ConcurrentDictionary<string, IDbFilterFunction> s_filterFunctions;
 
         /// <inheritdoc/>
         public String Invariant => PostgreSQLProvider.InvariantName;
+
+        /// <summary>
+        /// Create a new provider
+        /// </summary>
+        public PostgreSQLStatementFactory(PostgreSQLProvider provider)
+        {
+            this.Provider = provider;
+        }
 
         /// <summary>
         /// Static CTOR
@@ -49,7 +57,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     .Where(o => o.Provider == PostgreSQLProvider.InvariantName)
                     .ToDictionary(o => o.Name, o => o));
             }
-
         }
 
         /// <summary>
@@ -194,5 +201,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
         /// <inheritdoc/>
         public IEnumerable<IDbFilterFunction> GetFilterFunctions() => s_filterFunctions?.Values;
+
+        /// <summary>
+        /// Get the provider
+        /// </summary>
+        public IDbProvider Provider { get; }
     }
 }

@@ -18,7 +18,10 @@
  * User: fyfej
  * Date: 2023-5-19
  */
+using DocumentFormat.OpenXml.Vml;
 using SanteDB.Core.Diagnostics.Performance;
+using SanteDB.Core.i18n;
+using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Providers;
 using SanteDB.OrmLite.Providers.Sqlite;
 using System;
@@ -29,6 +32,7 @@ using System.Diagnostics.Tracing;
 using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Security;
 
 namespace SanteDB.OrmLite
 {
@@ -238,19 +242,23 @@ namespace SanteDB.OrmLite
             for (int i = 0; i < rdr.FieldCount; i++)
             {
                 var value = rdr[i];
+                var type = rdr.GetFieldType(i);
                 var name = rdr.GetName(i).ToLowerInvariant();
+                if (name.EndsWith("_utc") || name.EndsWith("_time")) // HACK: For sqlite
+                {
+                    type = typeof(DateTime);
+                }
+
                 if (value == DBNull.Value)
                 {
                     value = null;
                 }
+                else if (this.m_encryptionProvider?.HasEncryptionMagic(value) == true && this.m_encryptionProvider.TryDecrypt(value, out var decrypted))
+                {
+                    value = this.m_provider.ConvertValue(decrypted, type);
+                }
                 else
                 {
-                    var type = rdr.GetFieldType(i);
-                    if (name.EndsWith("_utc") || name.EndsWith("_time")) // HACK: For sqlite
-                    {
-                        type = typeof(DateTime);
-                    }
-
                     value = this.m_provider.ConvertValue(value, type);
                 }
 
@@ -279,7 +287,11 @@ namespace SanteDB.OrmLite
             {
                 try
                 {
-                    object value = this.m_provider.ConvertValue(rdr[itm.Name], itm.SourceProperty.PropertyType);
+                    object dbValue = rdr[itm.Name];
+                    _ = this.m_encryptionProvider?.TryGetEncryptionMode(itm.EncryptedColumnId, out _) == true &&
+                        this.m_encryptionProvider?.TryDecrypt(dbValue, out dbValue) == true;
+
+                    object value = this.m_provider.ConvertValue(dbValue, itm.SourceProperty.PropertyType);
                     if (!itm.IsSecret)
                     {
                         itm.SourceProperty.SetValue(result, value);
@@ -873,6 +885,16 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Non-generic implementation for query
+        /// </summary>
+        public IOrmResultSet Query(Type modelType, SqlStatement query)
+        {
+            var ormType = typeof(OrmResultSet<>).MakeGenericType(modelType);
+            var ctor = ormType.GetConstructors(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).First();
+            return ctor.Invoke(new object[] { this, query }) as IOrmResultSet;
+        }
+
+        /// <summary>
         /// Executes the query against the database
         /// </summary>
         public IEnumerable<TModel> ExecQuery<TModel>(SqlStatement query)
@@ -1022,6 +1044,11 @@ namespace SanteDB.OrmLite
 
                     columnNames.Append($"{col.Name}");
 
+                    // Encrypt value
+                    OrmAleMode aleMode = OrmAleMode.Off;
+                    _ = this.m_encryptionProvider?.TryGetEncryptionMode(col.EncryptedColumnId, out aleMode) == true &&
+                        this.m_encryptionProvider?.TryEncrypt(aleMode, val, out val) == true;
+                    
                     // Append value
                     values.Append("?", val);
 
@@ -1303,13 +1330,13 @@ namespace SanteDB.OrmLite
                 SqlStatementBuilder queryBuilder = this.CreateSqlStatementBuilder().UpdateSet(value.GetType());
                 SqlStatementBuilder whereClauseBuilder = this.CreateSqlStatementBuilder();
                 int nUpdatedColumns = 0;
-                foreach (var itm in tableMap.Columns)
+                foreach (var col in tableMap.Columns)
                 {
-                    var itmValue = itm.SourceProperty.GetValue(value);
+                    var itmValue = col.SourceProperty.GetValue(value);
 
                     if (itmValue == null ||
-                        !itm.IsNonNull &&
-                        itm.SourceProperty.PropertyType.StripNullable() == itm.SourceProperty.PropertyType &&
+                        !col.IsNonNull &&
+                        col.SourceProperty.PropertyType.StripNullable() == col.SourceProperty.PropertyType &&
                         (
                         itmValue.Equals(default(Guid)) && !tableMap.OrmType.IsConstructedGenericType ||
                         itmValue.Equals(default(DateTime)) ||
@@ -1321,17 +1348,22 @@ namespace SanteDB.OrmLite
 
                     // Only update if specified
                     if (itmValue == null &&
-                        !itm.SourceSpecified(value))
+                        !col.SourceSpecified(value))
                     {
                         continue;
                     }
 
+                    // Encrypt value
+                    OrmAleMode aleMode = OrmAleMode.Off;
+                    _ = this.m_encryptionProvider?.TryGetEncryptionMode(col.EncryptedColumnId, out aleMode) == true &&
+                        this.m_encryptionProvider?.TryEncrypt(aleMode, itmValue, out itmValue) == true;
+
                     nUpdatedColumns++;
-                    queryBuilder.Append($"{itm.Name} = ? ", itmValue ?? DBNull.Value);
+                    queryBuilder.Append($"{col.Name} = ? ", itmValue ?? DBNull.Value);
                     queryBuilder.Append(",");
-                    if (itm.IsPrimaryKey)
+                    if (col.IsPrimaryKey)
                     {
-                        whereClauseBuilder.And($"{itm.Name} = ?", itmValue);
+                        whereClauseBuilder.And($"{col.Name} = ?", itmValue);
                     }
                 }
 

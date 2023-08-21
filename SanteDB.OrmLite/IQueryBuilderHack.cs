@@ -25,20 +25,25 @@ using System.Reflection;
 namespace SanteDB.OrmLite
 {
     /// <summary>
-    /// Query builder hack
+    /// Optimizes specific query scenarios for performance or consistent syntax.
     /// </summary>
     public interface IQueryBuilderHack
     {
 
         /// <summary>
-        /// Hacks the query in some manner
+        /// Hacks the query in some manner.
         /// </summary>
-        /// <param name="sqlStatementBuilder">The current vanilla (no WHERE clause) query</param>
+        /// <param name="builder">The query builder that will be used to assemble a hacked WHERE clause.</param>
+        /// <param name="sqlStatementBuilder">The current vanilla (no WHERE clause) query.</param>
         /// <param name="whereClause">The current where clause</param>
+        /// <param name="tmodel">The type being queried.</param>
         /// <param name="property">The property which is currently being hacked</param>
+        /// <param name="queryPrefix">The prefix appended to any identifiers in the query. In a database, this will often be the schema or database name.</param>
         /// <param name="predicate">The current predicate</param>
+        /// <param name="values">The values to use with the comparsion that this hack generates.</param>
         /// <param name="scopedTables">The tables that are scoped for the current query</param>
-        /// <returns></returns>
+        /// <param name="queryFilter"></param>
+        /// <returns>True if the <paramref name="whereClause"/> was modified by this hack, False otherwise.</returns>
         bool HackQuery(QueryBuilder builder, SqlStatementBuilder sqlStatementBuilder, SqlStatementBuilder whereClause, Type tmodel, PropertyInfo property, String queryPrefix, QueryPredicate predicate, String[] values, IEnumerable<TableMapping> scopedTables, IDictionary<String, String[]> queryFilter);
 
     }
