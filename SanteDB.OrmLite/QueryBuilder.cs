@@ -847,7 +847,8 @@ namespace SanteDB.OrmLite
                 var semantic = " OR ";
 
                 OrmAleMode aleMode = OrmAleMode.Off;
-                var isEncrypted = this.m_encryptionProvider?.TryGetEncryptionMode(columnMapping.EncryptedColumnId, out aleMode) == true;
+                var isEncrypted = this.m_encryptionProvider?.TryGetEncryptionMode(columnMapping.EncryptedColumnId, out aleMode) == true && 
+                    aleMode != OrmAleMode.Off;
                 object eValue = null;
                 if(isEncrypted)
                 {

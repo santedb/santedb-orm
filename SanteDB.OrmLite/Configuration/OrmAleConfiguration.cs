@@ -117,9 +117,10 @@ namespace SanteDB.OrmLite.Configuration
         [DisplayName("Salting Seed")]
         [Description("A random (but consistent string) set by the administrator to salt the IV values in Deterministic method of encrypting (HEX ENCODED)")]
         [XmlElement("ivSeed")]
-        public string SaltSeedXml {
+        public string SaltSeedXml
+        {
             get => this.SaltSeed.HexEncode();
-            set => this.SaltSeed = value.HexDecode(); 
+            set => this.SaltSeed = value.HexDecode();
         }
 
         /// <summary>
@@ -143,11 +144,19 @@ namespace SanteDB.OrmLite.Configuration
         /// <inheritdoc/>
         X509Certificate2 IOrmEncryptionSettings.Certificate => this.Certificate?.Certificate;
 
+        /// <summary>
+        /// Disable all fields
+        /// </summary>
+        internal void DisableAll()
+        {
+            this.m_fieldSettings = this.EnableFields.Select(o => new OrmFieldConfiguration() { Name = o.Name, Mode = OrmAleMode.Off }).ToDictionary(o => o.Name, o => OrmAleMode.Off);
+        }
+
         /// <inheritdoc/>
         bool IOrmEncryptionSettings.ShouldEncrypt(string fieldName, out OrmAleMode configuredMode)
         {
             configuredMode = OrmAleMode.Off;
-            if(this.m_fieldSettings == null)
+            if (this.m_fieldSettings == null)
             {
                 this.m_fieldSettings = this.EnableFields.ToDictionaryIgnoringDuplicates(o => o.Name, o => o.Mode);
             }

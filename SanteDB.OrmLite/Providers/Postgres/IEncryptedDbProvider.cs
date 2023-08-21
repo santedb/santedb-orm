@@ -58,5 +58,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <returns></returns>
         IDbEncryptor GetEncryptionProvider();
 
+        /// <summary>
+        /// Migrate the encryption
+        /// </summary>
+        void MigrateEncryption(IOrmEncryptionSettings ormEncryptionSettings);
     }
 }
