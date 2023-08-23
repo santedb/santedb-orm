@@ -21,10 +21,12 @@
 using Newtonsoft.Json;
 using SanteDB.Core.Security.Configuration;
 using SanteDB.OrmLite.Providers.Postgres;
+using SharpCompress;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Xml.Serialization;
@@ -180,5 +182,9 @@ namespace SanteDB.OrmLite.Configuration
         /// </summary>
         [XmlAttribute("mode")]
         public OrmAleMode Mode { get; set; }
+
+        /// <inheritdoc/>
+        public override string ToString() => $"{this.Name}({this.Mode})";
+
     }
 }
