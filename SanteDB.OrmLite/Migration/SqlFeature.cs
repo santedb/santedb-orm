@@ -64,6 +64,11 @@ namespace SanteDB.OrmLite.Migration
         internal Uri Url { get; private set; }
 
         /// <summary>
+        /// Gets or sets whether the feature is required
+        /// </summary>
+        public bool Required { get; private set; }
+
+        /// <summary>
         /// Indicates whether the pre-check must succeed
         /// </summary>
         public bool MustSucceed { get; private set; }
@@ -97,6 +102,7 @@ namespace SanteDB.OrmLite.Migration
                 retVal.Scope = xd.SelectSingleNode("/feature/@scope")?.Value;
                 retVal.m_checkSql = xd.SelectSingleNode("/feature/isInstalled/text()")?.Value;
                 retVal.m_canInstallSql = xd.SelectSingleNode("/feature/canInstall/text()")?.Value;
+                retVal.Required = Boolean.Parse(xd.SelectSingleNode("/feature/@required")?.Value ?? "true");
                 retVal.MustSucceed = Boolean.Parse(xd.SelectSingleNode("/feature/isInstalled/@mustSucceed")?.Value ?? "false");
                 retVal.InvariantName = xd.SelectSingleNode("/feature/@invariantName")?.Value;
 
