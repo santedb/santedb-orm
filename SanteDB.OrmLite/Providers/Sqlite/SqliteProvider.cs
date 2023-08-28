@@ -45,7 +45,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     /// <summary>
     /// SQL Lite provider
     /// </summary>
-    public class SqliteProvider : IDbProvider, IEncryptedDbProvider
+    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged
     {
 
         /// <summary>
@@ -76,6 +76,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         private IOrmEncryptionSettings m_encryptionSettings;
 
         private DefaultAesDataEncryptor m_encryptionProvider;
+        
+        /// <inheritdoc/>
+        public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
 
 
         /// <summary>
@@ -671,7 +674,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             cmd.Parameters.Add(parm);
                             cmd.ExecuteNonQuery();
                             this.m_encryptionSettings = newOrmEncryptionSettings;
-                            this.m_encryptionSettings.AleRecrypt(this);
+                            this.m_encryptionSettings.AleRecrypt(this, (a,b,c) => this.ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(a, b, c)));
                             this.m_encryptionProvider = new DefaultAesDataEncryptor(newOrmEncryptionSettings, aleSmk);
                         }
                     }

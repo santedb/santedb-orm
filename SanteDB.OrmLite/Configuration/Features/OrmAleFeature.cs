@@ -3,6 +3,7 @@ using SanteDB.Core.Configuration;
 using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Configuration.Features;
 using SanteDB.Core.Diagnostics;
+using SanteDB.Core.Security;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Providers;
 using SanteDB.OrmLite.Providers.Postgres;
@@ -39,7 +40,7 @@ namespace SanteDB.OrmLite.Configuration.Features
         public string Description => "Settings related to Application Level Encryption";
 
         /// <inheritdoc/>
-        public FeatureFlags Flags => FeatureFlags.None | FeatureFlags.AlwaysConfigure;
+        public FeatureFlags Flags => FeatureFlags.None;
 
         /// <inheritdoc/>
         public string Group => FeatureGroup.Security;
@@ -53,21 +54,20 @@ namespace SanteDB.OrmLite.Configuration.Features
             foreach (var itm in this.m_configuration.Values)
             {
                 var aleConfiguration = itm.Value as OrmAleConfiguration;
-                if (aleConfiguration.AleEnabled)
-                {
-                    yield return new EncryptAleDataTask(this, itm.Key, aleConfiguration);
-                }
-                else
-                {
-                    yield return new DecryptAleDataTask(this, itm.Key, aleConfiguration);
-                }
+                yield return new EncryptAleDataTask(this, itm.Key, aleConfiguration);
             }
         }
 
         /// <inheritdoc/>
         public IEnumerable<IConfigurationTask> CreateUninstallTasks()
         {
-            return this.m_configuration.Values.Select(o => new DecryptAleDataTask(this, o.Key, o.Value as OrmAleConfiguration));
+            return this.m_configuration.Values.Select(o =>
+            {
+                var conf = o.Value as OrmAleConfiguration;
+                conf.AleEnabled = false;
+                conf.Certificate = null;
+                return new EncryptAleDataTask(this, o.Key, conf);
+            });
         }
 
         /// <inheritdoc/>
@@ -97,10 +97,10 @@ namespace SanteDB.OrmLite.Configuration.Features
                         try
                         {
                             conn.Any(new SqlStatement("SELECT * FROM ale_systbl"));
-                            if (!this.m_configuration.Options.ContainsKey(connectionString.Name))
+                            if (!this.m_configuration.Options.ContainsKey(ormConfiguration.ReadWriteConnectionString))
                             {
-                                this.m_configuration.Options.Add(connectionString.Name, () => ConfigurationOptionType.Object);
-                                this.m_configuration.Values.Add(connectionString.Name, ormConfiguration.AleConfiguration ?? new OrmAleConfiguration());
+                                this.m_configuration.Options.Add(ormConfiguration.ReadWriteConnectionString, () => ConfigurationOptionType.Object);
+                                this.m_configuration.Values.Add(ormConfiguration.ReadWriteConnectionString, ormConfiguration.AleConfiguration ?? new OrmAleConfiguration());
                             }
                         }
                         catch
@@ -126,6 +126,7 @@ namespace SanteDB.OrmLite.Configuration.Features
         {
             private readonly string m_ormSection;
             private readonly OrmAleConfiguration m_aleConfiguration;
+            private readonly Tracer m_tracer = Tracer.GetTracer(typeof(OrmAleFeature));
 
             public EncryptAleDataTask(OrmAleFeature ownerFeature, string ormSectionName, OrmAleConfiguration configuration)
             {
@@ -141,7 +142,7 @@ namespace SanteDB.OrmLite.Configuration.Features
             public IFeature Feature { get; }
 
             /// <inheritdoc/>
-            public string Name => $"Encrypt {this.m_ormSection}";
+            public string Name => $"Re-Encrypt {this.m_ormSection}";
 
             /// <inheritdoc/>
             public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
@@ -149,7 +150,55 @@ namespace SanteDB.OrmLite.Configuration.Features
             /// <inheritdoc/>
             public bool Execute(SanteDBConfiguration configuration)
             {
-                throw new NotImplementedException();
+                // We want to execute the orm recrypt function
+                var ormConfigurations = configuration.Sections.OfType<OrmConfigurationBase>().Where(o => o.ReadWriteConnectionString == this.m_ormSection);
+
+                var currentlyEnabled = ormConfigurations.All(o=>o.AleConfiguration?.AleEnabled != true);
+                var ormSection = configuration.GetSection<OrmConfigurationSection>();
+                var connectionString = configuration.GetSection<DataConfigurationSection>()?.ConnectionString.Find(o => o.Name.Equals(ormConfigurations.First().ReadWriteConnectionString, StringComparison.OrdinalIgnoreCase));
+                var providerType = ormSection?.Providers.Find(o => o.Invariant == connectionString.Provider).Type;
+                var provider = Activator.CreateInstance(providerType) as IEncryptedDbProvider;
+
+                if (provider == null)
+                {
+                    this.m_tracer.TraceWarning("Cannot install ALE - provider not found");
+                    return false;
+                }
+
+                provider.ConnectionString = connectionString.ToString();
+
+                // Decrypt - 
+                this.ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(0.0f, "Rotating ALE Keys"));
+                if (provider is IReportProgressChanged irpc && this.ProgressChanged != null)
+                {
+                    irpc.ProgressChanged += this.ProgressChanged;
+                }
+
+                using (AuthenticationContext.EnterSystemContext())
+                {
+                    var config = new OrmAleConfiguration()
+                    {
+                        AleEnabled = this.m_aleConfiguration.AleEnabled,
+                        Certificate = this.m_aleConfiguration.Certificate != null ? new Core.Security.Configuration.X509ConfigurationElement(this.m_aleConfiguration.Certificate) : null,
+                        SaltSeed = this.m_aleConfiguration.SaltSeed,
+                        EnableFields = new List<OrmFieldConfiguration>(this.m_aleConfiguration.EnableFields)
+                    };
+
+                    if (ormConfigurations.First().AleConfiguration != null) // decrypt and recrypt
+                    {
+                        provider.SetEncryptionSettings(ormConfigurations.First().AleConfiguration);
+                        provider.GetEncryptionProvider();
+                        provider.MigrateEncryption(config);
+                    }
+                    else
+                    {
+                        provider.SetEncryptionSettings(config);
+                        provider.GetEncryptionProvider();
+                    }
+                    ormConfigurations.ToList().ForEach(o => o.AleConfiguration = config);
+                }
+
+                return true;
             }
 
             /// <inheritdoc/>
@@ -159,57 +208,12 @@ namespace SanteDB.OrmLite.Configuration.Features
             }
 
             /// <inheritdoc/>
-            public bool VerifyState(SanteDBConfiguration configuration) => this.m_aleConfiguration.Certificate != null &&
+            public bool VerifyState(SanteDBConfiguration configuration) => this.m_aleConfiguration.AleEnabled &&
+                this.m_aleConfiguration.Certificate != null &&
                 this.m_aleConfiguration.Certificate.Certificate.HasPrivateKey &&
                 this.m_aleConfiguration.SaltSeedXml != null &&
-                this.m_aleConfiguration.EnableFields?.Count() > 0;
+                this.m_aleConfiguration.EnableFields?.Count() > 0 ||
+                !this.m_aleConfiguration.AleEnabled;
         }
-
-        /// <summary>
-        /// Decrypt data task
-        /// </summary>
-        private class DecryptAleDataTask : IConfigurationTask
-        {
-            private readonly string m_ormSection;
-            private readonly OrmAleConfiguration m_aleConfiguration;
-
-            public DecryptAleDataTask(OrmAleFeature ownerFeature, string ormSectionName, OrmAleConfiguration configuration)
-            {
-                this.Feature = ownerFeature;
-                this.m_ormSection = ormSectionName;
-                this.m_aleConfiguration = configuration;
-            }
-
-            /// <inheritdoc/>
-            public string Description => $"Decrypt the selected columns in {this.m_ormSection} using application level encryption";
-
-            /// <inheritdoc/>
-            public IFeature Feature { get; }
-
-            /// <inheritdoc/>
-            public string Name => $"Decrypt {this.m_ormSection}";
-
-            /// <inheritdoc/>
-            public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
-
-            /// <inheritdoc/>
-            public bool Execute(SanteDBConfiguration configuration)
-            {
-                throw new NotImplementedException();
-            }
-
-            /// <inheritdoc/>
-            public bool Rollback(SanteDBConfiguration configuration)
-            {
-                throw new NotImplementedException();
-            }
-
-            /// <inheritdoc/>
-            public bool VerifyState(SanteDBConfiguration configuration)
-            {
-                return false;
-            }
-        }
-
     }
 }
