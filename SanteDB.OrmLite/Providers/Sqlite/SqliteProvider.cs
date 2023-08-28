@@ -29,7 +29,6 @@ using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Migration;
 using SanteDB.OrmLite.Providers.Encryptors;
-using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.Data;
 using System.Data.Common;
@@ -622,7 +621,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(SetEncryptionSettings)));
             }
-            this.m_encryptionSettings = ormEncryptionSettings;
+            else if (ormEncryptionSettings.AleEnabled)
+            {
+                this.m_encryptionSettings = ormEncryptionSettings;
+            }
         }
 
 

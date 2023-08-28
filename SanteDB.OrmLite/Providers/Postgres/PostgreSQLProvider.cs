@@ -551,7 +551,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(SetEncryptionSettings)));
             }
-            this.m_encryptionSettings = ormEncryptionSettings;
+            else if (ormEncryptionSettings.AleEnabled)
+            {
+                this.m_encryptionSettings = ormEncryptionSettings;
+            }
         }
 
         /// <inheritdoc/>
