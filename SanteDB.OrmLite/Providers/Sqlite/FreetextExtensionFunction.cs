@@ -66,11 +66,33 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             throw new InvalidOperationException("SQLite does not understand freetext search on this type of data");
                     }
 
-                    current.Append("LOWER(term) LIKE '?'", QueryBuilder.CreateParameterValue($"%{terms[0]}%", typeof(String)));
-                    if(m_hasSpellFix.GetValueOrDefault())
+                    foreach (var t in terms[0].Split(' '))
                     {
-                        current.Or("editdist3(LOWER(term), ?) < 2", QueryBuilder.CreateParameterValue(terms[0].ToLowerInvariant(), typeof(String)));
+                        switch (t.ToLowerInvariant())
+                        {
+                            case "and":
+                            case "&":
+                                current.Append(" and ");
+                                break;
+                            case "or":
+                            case "|":
+                                current.Append(" or ");
+                                break;
+                            case "not":
+                            case "!":
+                                current.Append(" not ");
+                                break;
+                            default:
+                                current.Append("(").Append("LOWER(term) LIKE '%?%'", QueryBuilder.CreateParameterValue(terms[0].ToLowerInvariant(), typeof(String)));
+                                if (m_hasSpellFix.GetValueOrDefault())
+                                {
+                                    current.Or("editdist3(LOWER(term), ?) < 2", QueryBuilder.CreateParameterValue(terms[0].ToLowerInvariant(), typeof(String)));
+                                }
+                                current.Append(")");
+                                break;
+                        }
                     }
+
                     current.Append(")");
                     return current;
                 }
