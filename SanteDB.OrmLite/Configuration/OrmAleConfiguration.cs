@@ -20,7 +20,7 @@
  */
 using Newtonsoft.Json;
 using SanteDB.Core.Security.Configuration;
-using SanteDB.OrmLite.Providers.Postgres;
+using SanteDB.OrmLite.Providers;
 using SharpCompress;
 using System;
 using System.Collections.Generic;

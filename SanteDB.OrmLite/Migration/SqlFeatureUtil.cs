@@ -25,7 +25,6 @@ using SanteDB.Core.Exceptions;
 using SanteDB.Core.i18n;
 using SanteDB.OrmLite.Attributes;
 using SanteDB.OrmLite.Providers;
-using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.Collections.Generic;
 using System.Data;

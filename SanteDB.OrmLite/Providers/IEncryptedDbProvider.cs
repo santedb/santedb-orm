@@ -25,7 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 
-namespace SanteDB.OrmLite.Providers.Postgres
+namespace SanteDB.OrmLite.Providers
 {
     /// <summary>
     /// Represents a DB provider that can perform Application Level Encryption

@@ -23,7 +23,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 
-namespace SanteDB.OrmLite.Providers.Postgres
+namespace SanteDB.OrmLite.Providers
 {
     /// <summary>
     /// Represents encryption settings

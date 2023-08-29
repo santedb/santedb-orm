@@ -44,7 +44,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// Represents a IDbProvider for PostgreSQL
     /// </summary>
     [ExcludeFromCodeCoverage] // PostgreSQL is not used in unit testing
-    public class PostgreSQLProvider : IDbMonitorProvider, IEncryptedDbProvider
+    public class PostgreSQLProvider : IDbMonitorProvider, IEncryptedDbProvider, IReportProgressChanged
     {
         // Last rr host used
 #pragma warning disable CS0414 // The field 'PostgreSQLProvider.m_lastRrHost' is assigned but its value is never used
@@ -195,6 +195,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
         // Parameter regex
         private static readonly Regex m_parmRegex = new Regex(@"\?", RegexOptions.Compiled);
+
+        /// <inheritdoc/>
+        public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
 
         /// <summary>
         /// Create command internally
@@ -548,7 +551,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(SetEncryptionSettings)));
             }
-            this.m_encryptionSettings = ormEncryptionSettings;
+            else if (ormEncryptionSettings.AleEnabled)
+            {
+                this.m_encryptionSettings = ormEncryptionSettings;
+            }
         }
 
         /// <inheritdoc/>
@@ -600,7 +606,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                             cmd.Parameters.Add(parm);
                             cmd.ExecuteNonQuery();
                             this.m_encryptionSettings = newOrmEncryptionSettings;
-                            this.m_encryptionSettings.AleRecrypt(this);
+                            this.m_encryptionSettings.AleRecrypt(this, (a,b,c) => this.ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(a, b, c)));
                             this.m_encryptionProvider = new DefaultAesDataEncryptor(newOrmEncryptionSettings, aleSmk);
                         }
                     }

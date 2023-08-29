@@ -29,7 +29,6 @@ using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Migration;
 using SanteDB.OrmLite.Providers.Encryptors;
-using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.Data;
 using System.Data.Common;
@@ -45,7 +44,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     /// <summary>
     /// SQL Lite provider
     /// </summary>
-    public class SqliteProvider : IDbProvider, IEncryptedDbProvider
+    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged
     {
 
         /// <summary>
@@ -76,6 +75,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         private IOrmEncryptionSettings m_encryptionSettings;
 
         private DefaultAesDataEncryptor m_encryptionProvider;
+        
+        /// <inheritdoc/>
+        public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
 
 
         /// <summary>
@@ -619,7 +621,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(SetEncryptionSettings)));
             }
-            this.m_encryptionSettings = ormEncryptionSettings;
+            else if (ormEncryptionSettings.AleEnabled)
+            {
+                this.m_encryptionSettings = ormEncryptionSettings;
+            }
         }
 
 
@@ -671,7 +676,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             cmd.Parameters.Add(parm);
                             cmd.ExecuteNonQuery();
                             this.m_encryptionSettings = newOrmEncryptionSettings;
-                            this.m_encryptionSettings.AleRecrypt(this);
+                            this.m_encryptionSettings.AleRecrypt(this, (a,b,c) => this.ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(a, b, c)));
                             this.m_encryptionProvider = new DefaultAesDataEncryptor(newOrmEncryptionSettings, aleSmk);
                         }
                     }
