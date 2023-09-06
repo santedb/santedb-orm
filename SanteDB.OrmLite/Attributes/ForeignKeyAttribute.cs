@@ -19,6 +19,7 @@
  * Date: 2023-5-19
  */
 using System;
+using System.Linq;
 
 namespace SanteDB.OrmLite.Attributes
 {
@@ -46,5 +47,15 @@ namespace SanteDB.OrmLite.Attributes
         /// Gets or sets the column to which the key applies
         /// </summary>
         public String Column { get; set; }
+
+        /// <summary>
+        /// Returns TRUE if this foreign key can be fulfilled by a join on <paramref name="otherTable"/>
+        /// </summary>
+        /// <param name="otherTable">The other table</param>
+        internal bool CanQueryFrom(Type otherTable)
+        {
+            return this.Table == otherTable ||
+                TableMapping.Get(otherTable).Columns.Any(c => c.ForeignKey != null && c.ForeignKey.Table == this.Table);
+        }
     }
 }
