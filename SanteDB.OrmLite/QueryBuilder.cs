@@ -25,6 +25,7 @@ using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Query;
 using SanteDB.OrmLite.Attributes;
+using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Providers;
 using SanteDB.OrmLite.Providers.Postgres;
 using System;
@@ -497,7 +498,8 @@ namespace SanteDB.OrmLite
                     if (!m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, tmodel, subProp, tablePrefix, propertyPredicate, parm.Value, scopedTables, subQueryParms.ToDictionary(q => q.Key, q => q.Value))))
                     {
                         // Is this a collection?
-                        if (typeof(IList).IsAssignableFrom(subProp.PropertyType)) // Other table points at this on
+                        if (typeof(IList).IsAssignableFrom(subProp.PropertyType) ||
+                            typeof(IEnumerable).IsAssignableFrom(subProp.PropertyType) && subProp.PropertyType.IsGenericType) // Other table points at this on
                         {
                             var propertyType = subProp.PropertyType.StripGeneric();
                             // map and get ORM def'n
@@ -519,7 +521,7 @@ namespace SanteDB.OrmLite
                             {
                                 var tableWithJoin = scopedTables.Select(o => o.AssociationWith(subTableMap)).FirstOrDefault(o => o != null);
                                 linkColumn = tableWithJoin.Columns.SingleOrDefault(o => scopedTables.Any(s => s.OrmType == o.ForeignKey?.Table));
-                                var targetColumn = tableWithJoin.Columns.SingleOrDefault(o => o.ForeignKey?.Table == subTableMap.OrmType);
+                                var targetColumn = tableWithJoin.Columns.SingleOrDefault(o => o.ForeignKey?.CanQueryFrom(subTableMap.OrmType) == true);
                                 subTableColumn = subTableMap.GetColumn(targetColumn.ForeignKey.Column);
                                 // The sub-query statement needs to be joined as well
                                 subQueryStatement.Append($"SELECT 1 FROM {tableWithJoin.TableName} AS {lnkPfx}{tableWithJoin.TableName} WHERE ");
@@ -652,9 +654,10 @@ namespace SanteDB.OrmLite
                             // If the domain property is not set, we may have to infer the link
                             if (domainProperty == null)
                             {
-                                var subPropType = m_mapper.MapModelType(subProp.PropertyType);
+                                var subPropType = m_mapper.MapModelType(subProp.PropertyType.StripGeneric());
                                 // We find the first column with a foreign key that points to the other !!!
                                 linkColumn = scopedTables.SelectMany(o => o.Columns).FirstOrDefault(o => o.ForeignKey?.Table == subPropType);
+
                             }
                             else
                             {
@@ -844,12 +847,14 @@ namespace SanteDB.OrmLite
                 }
 
                 var semantic = " OR ";
-                
-                var isEncrypted = this.m_encryptionProvider?.IsConfiguredForEncryption(columnMapping.EncryptedColumnId) == true;
+
+                OrmAleMode aleMode = OrmAleMode.Off;
+                var isEncrypted = this.m_encryptionProvider?.TryGetEncryptionMode(columnMapping.EncryptedColumnId, out aleMode) == true && 
+                    aleMode != OrmAleMode.Off;
                 object eValue = null;
                 if(isEncrypted)
                 {
-                    eValue = this.m_encryptionProvider.CreateQueryValue(itm);
+                    eValue = this.m_encryptionProvider.CreateQueryValue(aleMode, itm);
                 }
 
                 if (itm is String sValue)

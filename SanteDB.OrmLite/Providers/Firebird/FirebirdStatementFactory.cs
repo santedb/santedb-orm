@@ -106,6 +106,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     SqlEngineFeatures.FetchOffset |
                     SqlEngineFeatures.AutoGenerateSequences |
                     SqlEngineFeatures.ReturnedInsertsAsParms |
+                    SqlEngineFeatures.StoredFreetextIndex |
                     SqlEngineFeatures.StrictSubQueryColumnNames;
             }
         }

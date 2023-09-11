@@ -165,10 +165,28 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Association with table type
+        /// </summary>
+        public TableMapping AssociationWith(Type otherTableType)
+        {
+            if(otherTableType == null)
+            {
+                return null;
+            }
+            else
+            {
+                return this.AssociationWith(TableMapping.Get(otherTableType));
+            }
+        }
+        /// <summary>
         /// Gets the association table mapping
         /// </summary>
         public TableMapping AssociationWith(TableMapping subTableMap)
         {
+            if(subTableMap == null)
+            {
+                return null;
+            }
             var att = this.OrmType.GetCustomAttributes<AssociativeTableAttribute>().FirstOrDefault(o => o.TargetTable == subTableMap.OrmType);
             if (att == null)
             {

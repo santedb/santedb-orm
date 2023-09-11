@@ -87,6 +87,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     SqlEngineFeatures.SetTimeout |
                     SqlEngineFeatures.MaterializedViews |
                     SqlEngineFeatures.Cascades |
+                    SqlEngineFeatures.StoredFreetextIndex |
                     SqlEngineFeatures.Truncate;
             }
         }

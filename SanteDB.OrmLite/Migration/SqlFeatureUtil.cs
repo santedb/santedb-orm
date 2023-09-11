@@ -18,15 +18,20 @@
  * User: fyfej
  * Date: 2023-5-19
  */
+using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Exceptions;
 using SanteDB.Core.i18n;
+using SanteDB.OrmLite.Attributes;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Dynamic;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite.Migration
@@ -139,6 +144,67 @@ namespace SanteDB.OrmLite.Migration
         }
 
         /// <summary>
+        /// Perform a full encryption (or decryption) of the ALE fields configured for the specified data context
+        /// </summary>
+        internal static void AleRecrypt(this IOrmEncryptionSettings ormEncryptionSettings, IEncryptedDbProvider encryptedDbProvider, Action<string, float, string> progressMonitor = null)
+        {
+            var tracer = Tracer.GetTracer(typeof(SqlFeatureUtil));
+            var propertiesToEncrypt = AppDomain.CurrentDomain.GetAllTypes()
+                .Where(t => t.HasCustomAttribute<TableAttribute>())
+                .SelectMany(t => t.GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
+                .Where(p => p.HasCustomAttribute<ApplicationEncryptAttribute>() && ormEncryptionSettings.ShouldEncrypt(p.GetCustomAttribute<ApplicationEncryptAttribute>().FieldName, out _)))
+                .ToArray();
+
+            using (var context = encryptedDbProvider.GetWriteConnection())
+            {
+                try
+                {
+                    context.Open();
+                    float percentCompletePerProperty = 1.0f / (float)propertiesToEncrypt.Length,
+                        propertiesComplete = 0.0f;
+
+                    using (var tx = context.BeginTransaction())
+                    {
+                        // Gather a list of all encryption provided settings
+                        for (int i = 0; i < propertiesToEncrypt.Length; i++)
+                        {
+                            var property = propertiesToEncrypt[i];
+                            var tableMap = TableMapping.Get(property.DeclaringType);
+                            var column = tableMap.GetColumn(property);
+                            tracer.TraceInfo("Encrypting all data in {0}.{1}...", tableMap.TableName, column.Name);
+                            var statusText = String.Format(UserMessages.ENCRYPTING, $"{tableMap.TableName}.{column.Name}");
+                            progressMonitor?.Invoke("ALE_CRYPT", propertiesComplete, statusText);
+
+                            var recordCollectorStmt = context.CreateSqlStatementBuilder($"SELECT * FROM {tableMap.TableName}");
+                            // When we update this field it *should* encrypt the database
+                            int nRecords = context.Count(recordCollectorStmt.Statement),
+                                processed = 0;
+                            using (var c2 = context.OpenClonedContext())
+                            {
+                                foreach (var rec in context.Query(tableMap.OrmType, recordCollectorStmt.Statement))
+                                {
+                                    c2.Update(rec); // Update should iniitlaize the encryption 
+                                    processed++;
+                                    progressMonitor?.Invoke("ALE_CRYPT", propertiesComplete + ((float)processed / (float)nRecords) * percentCompletePerProperty, statusText);
+                                }
+                            }
+
+                            propertiesComplete = (float)i / (float)propertiesToEncrypt.Length;
+
+                        }
+
+                        tx.Commit();
+                    }
+
+                }
+                catch (Exception e)
+                {
+                    throw new DataPersistenceException(ErrorMessages.CRYPTO_OPERATION_FAILED, e);
+                }
+            }
+        }
+
+        /// <summary>
         /// Install the specified object
         /// </summary>
         public static bool Install(this DataContext conn, SqlFeature migration)
@@ -207,9 +273,16 @@ namespace SanteDB.OrmLite.Migration
                 {
                     cmd.CommandText = preConditionSql;
                     cmd.CommandType = System.Data.CommandType.Text;
-                    if ((bool?)cmd.ExecuteScalar() != true) // can't install
+                    if ((bool?)cmd.ExecuteScalar() != true ) // can't install
                     {
-                        throw new ConstraintException($"Pre-check for {migration.Id} failed");
+                        if (migration.Required)
+                        {
+                            throw new ConstraintException($"Pre-check for required {migration.Id} failed");
+                        }
+                        else
+                        {
+                            return true; // skip
+                        }
                     }
                 }
             }

@@ -1,9 +1,10 @@
 ﻿using DocumentFormat.OpenXml.Drawing;
 using SanteDB.Core.Configuration;
 using SanteDB.Core.i18n;
-using SanteDB.OrmLite.Providers.Postgres;
+using SanteDB.OrmLite.Configuration;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -17,10 +18,12 @@ namespace SanteDB.OrmLite.Providers.Encryptors
     internal class DefaultAesDataEncryptor : IDbEncryptor
     {
 
-        private static readonly byte[] MAGIC = { 0xde, 0xad, 0x00, 0xfe, 0xed };
+        private static readonly byte[] MAGIC = { (byte)'S', (byte)'B', 0x00, (byte)'A', (byte)'E' };
+        private const string MAGIC_STRING = "5342004145";
 
         // Secret
         private readonly byte[] m_secret;
+        private readonly byte[] m_saltSeed;
         private readonly IOrmEncryptionSettings m_settings;
 
         /// <summary>
@@ -33,6 +36,10 @@ namespace SanteDB.OrmLite.Providers.Encryptors
             {
                 this.m_secret = rsa.Decrypt(aleMasterKey, RSAEncryptionPadding.Pkcs1);
             }
+            using (var rsa = encryptionSettings.Certificate.GetRSAPublicKey())
+            {
+                this.m_saltSeed = rsa.Encrypt(encryptionSettings.SaltSeed, RSAEncryptionPadding.Pkcs1);
+            }
         }
 
         /// <summary>
@@ -40,7 +47,7 @@ namespace SanteDB.OrmLite.Providers.Encryptors
         /// </summary>
         public static byte[] GenerateMasterKey(IOrmEncryptionSettings encryptionSettings)
         {
-            using(var rsa = encryptionSettings.Certificate.GetRSAPublicKey())
+            using (var rsa = encryptionSettings.Certificate.GetRSAPublicKey())
             {
                 var byteBuffer = new byte[32];
                 RandomNumberGenerator.Create().GetBytes(byteBuffer);
@@ -51,37 +58,33 @@ namespace SanteDB.OrmLite.Providers.Encryptors
         /// <summary>
         /// Encrypt the data
         /// </summary>
-        private byte[] Encrypt(byte[] data)
+        private byte[] Encrypt(OrmAleMode mode, byte[] data)
         {
             using (var aes = Aes.Create())
             {
                 var originalDataHash = MD5.Create().ComputeHash(data);
-                if (this.m_settings.Mode == Configuration.OrmAleMode.Random)
+                switch (mode)
                 {
-                    aes.GenerateIV();
-                }
-                else
-                {
-                    aes.IV = originalDataHash;
+                    case Configuration.OrmAleMode.Random:
+                        aes.GenerateIV();
+                        break;
+                    case Configuration.OrmAleMode.Deterministic:
+                        aes.IV = Enumerable.Range(0, originalDataHash.Length).Select(o => (byte)(originalDataHash[o] ^ m_saltSeed[o])).ToArray();
+                        break;
+                    case Configuration.OrmAleMode.Off:
+                        return data;
                 }
 
                 aes.Key = this.m_secret;
-                using (var encryptor = aes.CreateEncryptor()) {
+                using (var encryptor = aes.CreateEncryptor())
+                {
                     var encData = encryptor.TransformFinalBlock(data, 0, data.Length);
 
-                    var retVal = new byte[encData.Length + aes.IV.Length + MAGIC.Length + (this.m_settings.Mode == Configuration.OrmAleMode.Random ? 16 : 0)];
+                    var retVal = new byte[encData.Length + aes.IV.Length + MAGIC.Length];
                     Array.Copy(MAGIC, 0, retVal, 0, MAGIC.Length);
 
-                    if (this.m_settings.Mode == Configuration.OrmAleMode.Random) // to allow queries - we need a consistent hash stored in the output buffer so our queries will be on the first 22 bytes
-                    {
-                        Array.Copy(originalDataHash, 0, retVal, 5, 16);
-                        Array.Copy(aes.IV, 0, retVal, 21, aes.IV.Length);
-                        Array.Copy(encData, 0, retVal, 37, encData.Length);
-                    }else
-                    {
-                        Array.Copy(aes.IV, 0, retVal, 5, aes.IV.Length);
-                        Array.Copy(encData, 0, retVal, 21, encData.Length);
-                    }
+                    Array.Copy(aes.IV, 0, retVal, 5, aes.IV.Length);
+                    Array.Copy(encData, 0, retVal, 21, encData.Length);
 
                     return retVal;
                 }
@@ -93,60 +96,66 @@ namespace SanteDB.OrmLite.Providers.Encryptors
         /// </summary>
         private byte[] Decrypt(byte[] data)
         {
-            using (var aes = Aes.Create())
+            try
             {
-                // Does our MAGIC appear?
-                if(!this.HasEncryptionMagic(data))
+                using (var aes = Aes.Create())
                 {
-                    return data; // not encrypted by US!
+                    // Does our MAGIC appear?
+                    if (!this.HasEncryptionMagic(data))
+                    {
+                        return data; // not encrypted by US!
+                    }
+                    var iv = data.Skip(5).Take(16).ToArray();
+                    aes.Key = this.m_secret;
+                    aes.IV = iv;
+                    using (var decryptor = aes.CreateDecryptor())
+                    {
+                        return decryptor.TransformFinalBlock(data, 21, data.Length - 21);
+                    }
                 }
-                var dataOffset = this.m_settings.Mode == Configuration.OrmAleMode.Random ? 21 : 5;
-                var iv = data.Skip(dataOffset).Take(16).ToArray();
-                aes.Key = this.m_secret;
-                aes.IV = iv;
-                using (var decryptor = aes.CreateDecryptor())
-                {
-                    return decryptor.TransformFinalBlock(data, dataOffset + 16, data.Length - dataOffset - 16); 
-                }
+            }
+            catch (Exception e)
+            {
+                throw new DataException(ErrorMessages.DECRYPTION_FAILED, e);
             }
         }
 
         /// <summary>
         /// Create the query value for the object
         /// </summary>
-        public object CreateQueryValue(object unencryptedObject)
+        public object CreateQueryValue(OrmAleMode aleMode, object unencryptedObject)
         {
-            if(this.m_settings.Mode == Configuration.OrmAleMode.Random)
+            switch (aleMode)
             {
-                // TODO: Implement random query filters
-                throw new NotSupportedException(ErrorMessages.FILTER_RANDOM_ENCRYPTION_NOT_SUPPORTED);
-            }
-            else if(this.TryEncrypt(unencryptedObject, out var retVal))
-            {
-                return retVal;
-            }
-            else
-            {
-                return retVal;  
+                case OrmAleMode.Random:
+                    throw new NotSupportedException(ErrorMessages.FILTER_RANDOM_ENCRYPTION_NOT_SUPPORTED);
+                case OrmAleMode.Deterministic:
+                    if(this.TryEncrypt(aleMode, unencryptedObject, out var retVal))
+                    {
+                        return retVal;
+                    }
+                    return unencryptedObject;
+                default:
+                    return unencryptedObject;
             }
         }
 
         /// <inheritdoc/>
         public bool TryDecrypt(object encryptedObject, out object decrypted)
         {
-            switch(encryptedObject)
+            switch (encryptedObject)
             {
                 case String s:
-                    if (s.IsHexEncoded())
+                    if (s.IsHexEncoded() && s.StartsWith(MAGIC_STRING))
                     {
                         decrypted = Encoding.UTF8.GetString(this.Decrypt(s.HexDecode()));
                         return true;
                     }
-                    decrypted = null;
+                    decrypted = encryptedObject;
                     return false;
                 case byte[] b:
                     decrypted = this.Decrypt(b);
-                    return false;
+                    return true;
                 default:
                     decrypted = encryptedObject;
                     return false;
@@ -154,27 +163,37 @@ namespace SanteDB.OrmLite.Providers.Encryptors
         }
 
         /// <inheritdoc/>
-        public bool TryEncrypt(object unencryptedObject, out object encrypted)
+        public bool TryEncrypt(OrmAleMode mode, object unencryptedObject, out object encrypted)
         {
-            switch(unencryptedObject)
+            if (mode == OrmAleMode.Off)
             {
-                case String s:
-                    encrypted = this.Encrypt(Encoding.UTF8.GetBytes(s)).HexEncode();
-                    return true;
-                case byte[] b:
-                    encrypted = this.Encrypt(b);
-                    return true;
-                default:
-                    encrypted = null;
-                    return false;
+                encrypted = unencryptedObject;
+                return true;
+            }
+            else
+            {
+                switch (unencryptedObject)
+                {
+                    case String s:
+                        encrypted = this.Encrypt(mode, Encoding.UTF8.GetBytes(s)).HexEncode();
+                        return true;
+                    case byte[] b:
+                        encrypted = this.Encrypt(mode, b);
+                        return true;
+                    default:
+                        encrypted = null;
+                        return false;
+                }
             }
         }
 
         /// <inheritdoc/>
-        public bool HasEncryptionMagic(object encrypted) {
-            switch (encrypted) {
+        public bool HasEncryptionMagic(object encrypted)
+        {
+            switch (encrypted)
+            {
                 case string s:
-                    return s.Length > 10 && s.IsHexEncoded() && s.StartsWith("DEAD00FEED", StringComparison.OrdinalIgnoreCase);
+                    return s.StartsWith(MAGIC_STRING, StringComparison.OrdinalIgnoreCase) && s.IsHexEncoded();
                 case byte[] b:
                     return b.Take(5).SequenceEqual(MAGIC);
                 default:
@@ -183,6 +202,6 @@ namespace SanteDB.OrmLite.Providers.Encryptors
         }
 
         /// <inheritdoc/>
-        public bool IsConfiguredForEncryption(string fieldName) => !String.IsNullOrEmpty(fieldName) && this.m_settings.ShouldEncrypt(fieldName);
+        public bool TryGetEncryptionMode(string fieldName, out OrmAleMode configuredMode) => this.m_settings.ShouldEncrypt(fieldName, out configuredMode);
     }
 }

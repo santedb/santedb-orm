@@ -19,9 +19,11 @@
  * Date: 2023-5-19
  */
 using SanteDB.OrmLite.Configuration;
+using System.Collections;
+using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 
-namespace SanteDB.OrmLite.Providers.Postgres
+namespace SanteDB.OrmLite.Providers
 {
     /// <summary>
     /// Represents encryption settings
@@ -30,9 +32,14 @@ namespace SanteDB.OrmLite.Providers.Postgres
     {
 
         /// <summary>
+        /// A seeding value for salts in the database
+        /// </summary>
+        byte[] SaltSeed { get; }
+
+        /// <summary>
         /// Gets the mode of the ALE
         /// </summary>
-        OrmAleMode Mode { get; }
+        bool AleEnabled { get; }
 
         /// <summary>
         /// Get the certificate used for encryption
@@ -42,6 +49,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// True if the <paramref name="fieldName"/> is to be encrypted
         /// </summary>
-        bool ShouldEncrypt(string fieldName);
+        bool ShouldEncrypt(string fieldName, out OrmAleMode configuredMode);
     }
 }

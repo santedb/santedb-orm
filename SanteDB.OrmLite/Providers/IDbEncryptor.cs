@@ -18,6 +18,8 @@
  * User: fyfej
  * Date: 2023-5-19
  */
+using SanteDB.OrmLite.Configuration;
+
 namespace SanteDB.OrmLite.Providers
 {
     /// <summary>
@@ -29,10 +31,11 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Attempt to encrypt the data with the configured encryption setting
         /// </summary>
+        /// <param name="aleMode">The strategy to use to encrypt</param>
         /// <param name="unencryptedObject">The data to be encrypted</param>
         /// <param name="encrypted">The encrypted data</param>
         /// <returns>True if the data could be encrypted by the provider</returns>
-        bool TryEncrypt(object unencryptedObject, out object encrypted);
+        bool TryEncrypt(OrmAleMode aleMode, object unencryptedObject, out object encrypted);
 
         /// <summary>
         /// Attempt to decrypt the data from the database
@@ -45,9 +48,10 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Create a query parameter value based on the configuration of the encryption
         /// </summary>
+        /// <param name="aleMode">The ALE mode</param>
         /// <param name="decryptedSource">The decrypted source</param>
         /// <returns>The value of the parmeter suitable for use in queries</returns>
-        object CreateQueryValue(object decryptedSource);
+        object CreateQueryValue(OrmAleMode aleMode, object decryptedSource);
 
         /// <summary>
         /// Tests whether <paramref name="objectToTest"/> is encrypted by looking at the MAGIC which should appear at the start of the object data
@@ -60,7 +64,8 @@ namespace SanteDB.OrmLite.Providers
         /// Tests whether <paramref name="columnIdentifier"/> is configured for encryption
         /// </summary>
         /// <param name="columnIdentifier">The identifier of the column</param>
+        /// <param name="aleMode">The configured ale mode</param>
         /// <returns>True if the column was configured for encryption</returns>
-        bool IsConfiguredForEncryption(string columnIdentifier);
+        bool TryGetEncryptionMode(string columnIdentifier, out OrmAleMode aleMode);
     }
 }

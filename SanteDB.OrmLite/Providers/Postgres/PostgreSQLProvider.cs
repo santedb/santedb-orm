@@ -18,12 +18,15 @@
  * User: fyfej
  * Date: 2023-5-19
  */
+using DocumentFormat.OpenXml.Office.Word;
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Map;
+using SanteDB.Core.Security;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
+using SanteDB.OrmLite.Migration;
 using SanteDB.OrmLite.Providers.Encryptors;
 using System;
 using System.Collections.Generic;
@@ -41,7 +44,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// Represents a IDbProvider for PostgreSQL
     /// </summary>
     [ExcludeFromCodeCoverage] // PostgreSQL is not used in unit testing
-    public class PostgreSQLProvider : IDbMonitorProvider, IEncryptedDbProvider
+    public class PostgreSQLProvider : IDbMonitorProvider, IEncryptedDbProvider, IReportProgressChanged
     {
         // Last rr host used
 #pragma warning disable CS0414 // The field 'PostgreSQLProvider.m_lastRrHost' is assigned but its value is never used
@@ -192,6 +195,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
         // Parameter regex
         private static readonly Regex m_parmRegex = new Regex(@"\?", RegexOptions.Compiled);
+
+        /// <inheritdoc/>
+        public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
 
         /// <summary>
         /// Create command internally
@@ -489,40 +495,35 @@ namespace SanteDB.OrmLite.Providers.Postgres
             {
                 try
                 {
-                    connection.ConnectionString = this.ReadonlyConnectionString;
+                    connection.ConnectionString = this.ConnectionString;
                     connection.Open();
+                    byte[] aleSmk = null;
                     using (var cmd = connection.CreateCommand())
                     {
                         cmd.CommandType = CommandType.Text;
                         cmd.CommandText = "SELECT TRUE FROM pg_proc WHERE proname ILIKE 'get_ale_smk'";
-                        if (!this.ConvertValue<bool>(cmd.ExecuteScalar()))
+                        if (this.ConvertValue<bool?>(cmd.ExecuteScalar()) != true)
                         {
                             return;
                         }
 
-                        cmd.CommandType = CommandType.StoredProcedure;
-                        cmd.CommandText = "get_ale_smk";
-                        var aleSmk = this.ConvertValue<byte[]>(cmd.ExecuteScalar());
+                        cmd.CommandType = CommandType.Text;
+                        cmd.CommandText = "select get_ale_smk()";
+                        aleSmk = this.ConvertValue<byte[]>(cmd.ExecuteScalar());
+                    }
 
-                        if (aleSmk != null)
+                    if (aleSmk != null) // SMK already set
+                    {
+                        this.m_encryptionProvider = new DefaultAesDataEncryptor(this.m_encryptionSettings, aleSmk);
+                    }
+                    else if (this.m_encryptionSettings.AleEnabled) // generate an ALE
+                    {
+                        using (AuthenticationContext.EnterSystemContext())
                         {
-                            this.m_encryptionProvider = new DefaultAesDataEncryptor(this.m_encryptionSettings, aleSmk);
-                        }
-                        else // generate an ALE
-                        {
-                            this.m_tracer.TraceWarning("GENERATING AN APPLICATION LEVEL ENCRYPTION CERTIFICATE -> IT IS RECOMMENDED YOU USE TDE RATHER THAN ALE ON SANTEDB PRODUCTION INSTANCES");
-                            aleSmk = DefaultAesDataEncryptor.GenerateMasterKey(this.m_encryptionSettings);
-                            cmd.CommandText = "set_ale_smk";
-                            var parm = cmd.CreateParameter();
-                            parm.ParameterName = "NEW_ALE_SMK_IN";
-                            parm.DbType = DbType.Binary;
-                            parm.Direction = ParameterDirection.Input;
-                            parm.Value = aleSmk;
-                            cmd.Parameters.Add(parm);
-                            cmd.ExecuteNonQuery();
-                            this.m_encryptionProvider = new DefaultAesDataEncryptor(this.m_encryptionSettings, aleSmk);
+                            this.MigrateEncryption(this.m_encryptionSettings);
                         }
                     }
+
                 }
                 catch (Exception e)
                 {
@@ -550,7 +551,72 @@ namespace SanteDB.OrmLite.Providers.Postgres
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(SetEncryptionSettings)));
             }
-            this.m_encryptionSettings = ormEncryptionSettings;
+            else if (ormEncryptionSettings.AleEnabled)
+            {
+                this.m_encryptionSettings = ormEncryptionSettings;
+            }
+        }
+
+        /// <inheritdoc/>
+        public void MigrateEncryption(IOrmEncryptionSettings newOrmEncryptionSettings)
+        {
+
+            // Is ALE even configured for this connection?
+            if (!(this.m_encryptionSettings is OrmAleConfiguration aleConfiguration) ||
+                AuthenticationContext.Current.Principal != AuthenticationContext.SystemPrincipal)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(MigrateEncryption)));
+            }
+
+            // Decrypt the databases
+            // Attempt to connect to the PostgreSQL encryption provider to get the secret
+            using (var connection = this.GetProviderFactory().CreateConnection())
+            {
+                try
+                {
+                    connection.ConnectionString = this.ConnectionString;
+                    connection.Open();
+
+                    using (var cmd = connection.CreateCommand())
+                    {
+
+                        if (this.m_encryptionProvider != null) // current encryption provider so decrypt
+                        {
+                            this.m_tracer.TraceInfo("Decrypting with old key...");
+                            aleConfiguration.DisableAll();
+                            this.m_encryptionSettings.AleRecrypt(this);
+                            this.m_encryptionSettings = null;
+                            this.m_encryptionProvider = null;
+                            cmd.CommandType = CommandType.Text;
+                            cmd.CommandText = "DELETE FROM ale_systbl;";
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        this.m_tracer.TraceInfo("Encrypting with new key...");
+                        if (newOrmEncryptionSettings.AleEnabled)
+                        {
+                            this.m_tracer.TraceWarning("GENERATING AN APPLICATION LEVEL ENCRYPTION CERTIFICATE -> IT IS RECOMMENDED YOU USE TDE RATHER THAN ALE ON SANTEDB PRODUCTION INSTANCES");
+                            var aleSmk = DefaultAesDataEncryptor.GenerateMasterKey(newOrmEncryptionSettings);
+                            cmd.CommandText = "select set_ale_smk(@NEW_ALE_SMK_IN)";
+                            var parm = cmd.CreateParameter();
+                            parm.ParameterName = "NEW_ALE_SMK_IN";
+                            parm.DbType = DbType.Binary;
+                            parm.Direction = ParameterDirection.Input;
+                            parm.Value = aleSmk;
+                            cmd.Parameters.Add(parm);
+                            cmd.ExecuteNonQuery();
+                            this.m_encryptionSettings = newOrmEncryptionSettings;
+                            this.m_encryptionSettings.AleRecrypt(this, (a,b,c) => this.ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(a, b, c)));
+                            this.m_encryptionProvider = new DefaultAesDataEncryptor(newOrmEncryptionSettings, aleSmk);
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    this.m_tracer.TraceError("Unable to migrate application layer encryption settings");
+                    throw new DataException("Unable to migrate ALE encryption", e);
+                }
+            }
         }
     }
 }

@@ -18,6 +18,7 @@
  * User: fyfej
  * Date: 2023-5-19
  */
+using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Providers;
 using SanteDB.OrmLite.Providers.Postgres;
 using System;
@@ -139,14 +140,15 @@ namespace SanteDB.OrmLite
         /// </summary>
         private object AleSafeValue(object value)
         {
+            OrmAleMode aleMode = OrmAleMode.Off;
             if (this.m_lastColumnMapping == null)
             {
                 return value;
             }
             else if(this.m_statementFactory.Provider is IEncryptedDbProvider encProvider &&
-                encProvider.GetEncryptionProvider()?.IsConfiguredForEncryption(this.m_lastColumnMapping.EncryptedColumnId) == true)
+                encProvider.GetEncryptionProvider()?.TryGetEncryptionMode(this.m_lastColumnMapping.EncryptedColumnId, out aleMode) == true)
             {
-                return encProvider.GetEncryptionProvider().CreateQueryValue(value);
+                return encProvider.GetEncryptionProvider().CreateQueryValue(aleMode, value);
             }
             return value; // TODO: Get the IDbEncryptionProvider from somewhere??
         }
