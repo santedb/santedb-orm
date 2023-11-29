@@ -239,7 +239,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Dispose this object
         /// </summary>
-        public void Dispose()
+        public virtual void Dispose()
         {
 
             if (this.m_lastCommand != null)
