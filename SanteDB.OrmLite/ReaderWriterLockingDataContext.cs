@@ -1,4 +1,6 @@
-﻿using SanteDB.OrmLite.Providers;
+﻿using SanteDB.Core.i18n;
+using SanteDB.Core.Model.Roles;
+using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -55,8 +57,7 @@ namespace SanteDB.OrmLite
         /// <remarks>This constructor will mark the data context as writable and lock the provider.</remarks>
         public ReaderWriterLockingDataContext(IDbProvider provider, IDbConnection connection) : base(provider, connection)
         {
-            _Lock = GetLock(provider);
-            _Lock.EnterWriteLock();
+            
         }
 
         /// <summary>
@@ -67,11 +68,7 @@ namespace SanteDB.OrmLite
         /// <param name="isReadonly">True to mark the connection as read-only. Multiple read-only contexts can execute simultaneously. False to mark the connection writable. Only one writable context can execute simultaneously.</param>
         public ReaderWriterLockingDataContext(IDbProvider provider, IDbConnection connection, bool isReadonly) : base(provider, connection, isReadonly)
         {
-            _Lock = GetLock(provider);
-            if (IsReadonly)
-                _Lock.EnterReadLock();
-            else
-                _Lock.EnterWriteLock();
+           
         }
 
         /// <summary>
@@ -83,8 +80,39 @@ namespace SanteDB.OrmLite
         /// <remarks>This constructor will mark the data context as writable and lock the provider.</remarks>
         public ReaderWriterLockingDataContext(IDbProvider provider, IDbConnection connection, IDbTransaction tx) : base(provider, connection, tx)
         {
-            _Lock = GetLock(provider);
-            _Lock.EnterWriteLock();
+            
+        }
+        /// <inheritdoc />
+        public override bool Open()
+        {
+            if (base.Open())
+            {
+                _Lock = GetLock(this.Provider);
+                if (IsReadonly)
+                    _Lock.EnterReadLock();
+                else if (!_Lock.TryEnterWriteLock(1000))
+                    throw new InvalidOperationException(ErrorMessages.WRITE_LOCK_UNAVAILABLE);
+                return true;
+            }
+            return false;
+        }
+
+        /// <inheritdoc/>
+        public override void Close()
+        {
+            this.EnsureLockRelease();
+            base.Close();
+        }
+
+        /// <summary>
+        /// Ensure lock is released
+        /// </summary>
+        private void EnsureLockRelease()
+        {
+            if (this.IsReadonly && _Lock.IsReadLockHeld)
+                _Lock.ExitReadLock();
+            else if(!this.IsReadonly && _Lock.IsWriteLockHeld)
+                _Lock.ExitWriteLock();
         }
 
         ///<inheritdoc />
@@ -96,10 +124,7 @@ namespace SanteDB.OrmLite
             }
             finally
             {
-                if (IsReadonly)
-                    _Lock.ExitReadLock();
-                else
-                    _Lock.ExitWriteLock();
+                this.EnsureLockRelease();
             }
         }
 

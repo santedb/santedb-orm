@@ -170,7 +170,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Close the connection however don't dispose
         /// </summary>
-        public void Close()
+        public virtual void Close()
         {
             this.ThrowIfDisposed();
             if (this.m_transaction != null)
@@ -189,28 +189,31 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Open the connection to the database
         /// </summary>
-        public void Open()
+        /// <returns>True if a new connection was opened (false if the connection was already open)</returns>
+        public virtual bool Open()
         {
+            var wasOpened = false;
             this.ThrowIfDisposed();
-
-
             if (this.m_connection.State == ConnectionState.Closed)
             {
                 this.m_connection.Open();
+                wasOpened = true;
             }
             else if (this.m_connection.State == ConnectionState.Broken)
             {
                 this.m_connection.Close();
                 this.m_connection.Open();
+                wasOpened = true;
             }
             else if (this.m_connection.State != ConnectionState.Open)
             {
                 this.m_connection.Open();
+                wasOpened = true;
             }
 
             _ = this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
 
-            if (!this.m_opened)
+            if (!this.m_opened && wasOpened)
             {
                 this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
                 this.m_opened = true;
@@ -221,12 +224,14 @@ namespace SanteDB.OrmLite
             {
                 this.m_encryptionProvider = e.GetEncryptionProvider(); // encryption is provided
             }
+
+            return wasOpened;
         }
 
         /// <summary>
         /// Opens a cloned context
         /// </summary>
-        public DataContext OpenClonedContext()
+        public virtual DataContext OpenClonedContext()
         {
 
             var retVal = this.m_provider.CloneConnection(this);

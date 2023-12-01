@@ -449,7 +449,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             var conn = this.GetProviderFactory().CreateConnection();
             var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
             connectionString.SetComponent("Mode", "ReadWriteCreate");
-            connectionString.SetComponent("Cache", "Shared");
+            connectionString.SetComponent("Cache", "Private");
             conn.ConnectionString = connectionString.ToString();
             return new ReaderWriterLockingDataContext(this, conn, false);
         }
@@ -541,8 +541,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 m_provider = Activator.CreateInstance(Type.GetType("System.Data.SQLite.SQLiteProviderFactory, System.Data.SQLite, Culture=nuetral")) as DbProviderFactory;
             }
+            if(!source.IsReadonly)
+            {
+                throw new InvalidOperationException(ErrorMessages.CLONE_READONLY_ALLOWED);
+            }
 
-            var retVal = source.IsReadonly ? this.GetReadonlyConnection() : this.GetWriteConnection();
+            var retVal = this.GetReadonlyConnection();
             retVal.ContextId = source.ContextId;
             return retVal;
 
