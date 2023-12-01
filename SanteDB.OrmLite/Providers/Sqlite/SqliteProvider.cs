@@ -541,10 +541,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 m_provider = Activator.CreateInstance(Type.GetType("System.Data.SQLite.SQLiteProviderFactory, System.Data.SQLite, Culture=nuetral")) as DbProviderFactory;
             }
-            if(!source.IsReadonly)
-            {
-                throw new InvalidOperationException(ErrorMessages.CLONE_READONLY_ALLOWED);
-            }
 
             var retVal = this.GetReadonlyConnection();
             retVal.ContextId = source.ContextId;
