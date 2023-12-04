@@ -1,5 +1,7 @@
-﻿using SanteDB.Core.i18n;
+﻿using DocumentFormat.OpenXml.Bibliography;
+using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Roles;
+using SanteDB.OrmLite.Diagnostics;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Concurrent;
@@ -85,14 +87,26 @@ namespace SanteDB.OrmLite
         /// <inheritdoc />
         public override bool Open()
         {
+            var ormProbe = this.Provider is IDbMonitorProvider monitorProvider ? monitorProvider.MonitorProbe as OrmClientProbe : null;
+
             if (base.Open())
             {
-                _Lock = GetLock(this.Provider);
-                if (IsReadonly)
-                    _Lock.EnterReadLock();
-                else if (!_Lock.TryEnterWriteLock(1000))
-                    throw new InvalidOperationException(ErrorMessages.WRITE_LOCK_UNAVAILABLE);
-                return true;
+                try
+                {
+
+                    ormProbe?.Increment(OrmPerformanceMetric.AwaitingLock);
+
+                    _Lock = GetLock(this.Provider);
+                    if (IsReadonly)
+                        _Lock.EnterReadLock();
+                    else if (!_Lock.TryEnterWriteLock(1000))
+                        throw new InvalidOperationException(ErrorMessages.WRITE_LOCK_UNAVAILABLE);
+                    return true;
+                } 
+                finally
+                {
+                    ormProbe?.Decrement(OrmPerformanceMetric.AwaitingLock);
+                }
             }
             return false;
         }
