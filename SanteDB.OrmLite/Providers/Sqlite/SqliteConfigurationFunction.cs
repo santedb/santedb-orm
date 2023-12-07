@@ -63,7 +63,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 if ("wal".Equals(connection.ExecuteScalar<string>("PRAGMA journal_mode=wal;"), StringComparison.OrdinalIgnoreCase))
                 {
-                    connection.Execute("PRAGMA synchronous=NORMAL;");
+                    //connection.Execute("PRAGMA synchronous=NORMAL;");
                 }
                 else
                 {
