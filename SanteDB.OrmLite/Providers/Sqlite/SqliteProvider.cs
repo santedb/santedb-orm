@@ -29,8 +29,8 @@ using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Migration;
 using SanteDB.OrmLite.Providers.Encryptors;
-using SanteDB.OrmLite.Providers.Postgres;
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.Tracing;
@@ -45,7 +45,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     /// <summary>
     /// SQL Lite provider
     /// </summary>
-    public class SqliteProvider : IDbProvider, IEncryptedDbProvider
+    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged
     {
 
         /// <summary>
@@ -76,6 +76,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         private IOrmEncryptionSettings m_encryptionSettings;
 
         private DefaultAesDataEncryptor m_encryptionProvider;
+
+        /// <inheritdoc/>
+        public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
 
 
         /// <summary>
@@ -286,82 +289,131 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             return cmd;
         }
 
+
+        /// <summary>
+        /// Static type map cache. Contains the same types that were checked with a per-command type check. Enum types will also be cached in this dictionary.
+        /// </summary>
+        private static Dictionary<Type, DbType> s_DbTypeMap = new Dictionary<Type, DbType>()
+        {
+            {typeof(string), DbType.String },
+            {typeof(DateTime), DbType.Int32 },
+            {typeof(DateTimeOffset), DbType.Int32 },
+            {typeof(int), DbType.Int32 },
+            {typeof(long), DbType.Int64 },
+            {typeof(bool), DbType.Boolean },
+            {typeof(byte[]), DbType.Binary },
+            {typeof(float), DbType.Double },
+            {typeof(double), DbType.Double },
+            {typeof(decimal), DbType.Decimal },
+            {typeof(Guid), DbType.Binary },
+            {typeof(DBNull), DbType.Object },
+            {typeof(Nullable<DateTime>), DbType.Int32},
+            {typeof(Nullable<DateTimeOffset>), DbType.Int32 },
+            {typeof(Nullable<int>), DbType.Int32},
+            {typeof(Nullable<long>), DbType.Int64 },
+            {typeof(Nullable<bool>), DbType.Boolean },
+            {typeof(Nullable<float>), DbType.Double },
+            {typeof(Nullable<double>), DbType.Double },
+            {typeof(Nullable<decimal>), DbType.Decimal },
+            {typeof(Nullable<Guid>), DbType.Binary },
+        };
+
+
+
         /// <summary>
         /// Map a parameter type from the provided type
         /// </summary>
         public DbType MapParameterType(Type type)
         {
-            if (type == null)
+            if (null == type)
             {
                 return DbType.Object;
             }
-            else if (type.StripNullable() == typeof(string))
+            else if (s_DbTypeMap.TryGetValue(type, out var dbtype))
             {
-                return DbType.String;
-            }
-            else if (type.StripNullable() == typeof(DateTime))
-            {
-                return DbType.Int32;
-            }
-            else if (type.StripNullable() == typeof(DateTimeOffset))
-            {
-                return DbType.Int32;
-            }
-            else if (type.StripNullable() == typeof(int))
-            {
-                return DbType.Int32;
-            }
-            else if (type.StripNullable() == typeof(long))
-            {
-                return DbType.Int64;
-            }
-            else if (type.StripNullable() == typeof(bool))
-            {
-                return DbType.Boolean;
-            }
-            else if (type.StripNullable() == typeof(byte[]))
-            {
-                return DbType.Binary;
-            }
-            else if (type.StripNullable() == typeof(float) || type.StripNullable() == typeof(double))
-            {
-                return DbType.Double;
-            }
-            else if (type.StripNullable() == typeof(decimal))
-            {
-                return DbType.Decimal;
-            }
-            else if (type.StripNullable() == typeof(Guid))
-            {
-                return DbType.Binary;
-            }
-            else if (type == typeof(DBNull))
-            {
-                return DbType.Object;
+                return dbtype;
             }
             else if (type.StripNullable().IsEnum)
             {
+                s_DbTypeMap.Add(type, DbType.Int32);
                 return DbType.Int32;
             }
             else
             {
                 throw new ArgumentOutOfRangeException(nameof(type), "Can't map parameter type");
             }
+
+            //if (type == null)
+            //{
+            //    return DbType.Object;
+            //}
+            //else if (type.StripNullable() == typeof(string))
+            //{
+            //    return DbType.String;
+            //}
+            //else if (type.StripNullable() == typeof(DateTime))
+            //{
+            //    return DbType.Int32;
+            //}
+            //else if (type.StripNullable() == typeof(DateTimeOffset))
+            //{
+            //    return DbType.Int32;
+            //}
+            //else if (type.StripNullable() == typeof(int))
+            //{
+            //    return DbType.Int32;
+            //}
+            //else if (type.StripNullable() == typeof(long))
+            //{
+            //    return DbType.Int64;
+            //}
+            //else if (type.StripNullable() == typeof(bool))
+            //{
+            //    return DbType.Boolean;
+            //}
+            //else if (type.StripNullable() == typeof(byte[]))
+            //{
+            //    return DbType.Binary;
+            //}
+            //else if (type.StripNullable() == typeof(float) || type.StripNullable() == typeof(double))
+            //{
+            //    return DbType.Double;
+            //}
+            //else if (type.StripNullable() == typeof(decimal))
+            //{
+            //    return DbType.Decimal;
+            //}
+            //else if (type.StripNullable() == typeof(Guid))
+            //{
+            //    return DbType.Binary;
+            //}
+            //else if (type == typeof(DBNull))
+            //{
+            //    return DbType.Object;
+            //}
+            //else if (type.StripNullable().IsEnum)
+            //{
+            //    return DbType.Int32;
+            //}
+            //else
+            //{
+            //    throw new ArgumentOutOfRangeException(nameof(type), "Can't map parameter type");
+            //}
         }
 
         /// <summary>
         /// Get provider factory
         /// </summary>
-        /// <returns>The FirebirdSQL provider </returns>
+        /// <returns>The SQLite provider</returns>
         private DbProviderFactory GetProviderFactory()
         {
-            if (this.m_provider == null) // HACK for Mono
+            if (this.m_provider == null) // HACK for Mono - WHY IS THIS A HACK?
             {
                 var provType = ApplicationServiceContext.Current?.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type
                     ?? Type.GetType(ProviderFactoryType);
                 if (provType == null)
                 {
-                    throw new InvalidOperationException("Cannot find SQlite provider");
+                    throw new InvalidOperationException("Cannot find SQLite provider");
                 }
 
                 this.m_provider = provType.GetField("Instance").GetValue(null) as DbProviderFactory;
@@ -385,7 +437,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             connectionString.SetComponent("Mode", "ReadOnly");
             connectionString.SetComponent("Cache", "Shared");
             conn.ConnectionString = connectionString.ToString();
-            return new DataContext(this, conn, true);
+            return new ReaderWriterLockingDataContext(this, conn, true);
         }
 
         /// <summary>
@@ -399,7 +451,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             connectionString.SetComponent("Mode", "ReadWriteCreate");
             connectionString.SetComponent("Cache", "Private");
             conn.ConnectionString = connectionString.ToString();
-            return new DataContext(this, conn, false);
+            return new ReaderWriterLockingDataContext(this, conn, false);
         }
 
 
@@ -490,9 +542,13 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 m_provider = Activator.CreateInstance(Type.GetType("System.Data.SQLite.SQLiteProviderFactory, System.Data.SQLite, Culture=nuetral")) as DbProviderFactory;
             }
 
-            var conn = m_provider.CreateConnection();
-            conn.ConnectionString = source.Connection.ConnectionString;
-            return new DataContext(this, conn) { ContextId = source.ContextId };
+            var retVal = this.GetReadonlyConnection();
+            retVal.ContextId = source.ContextId;
+            return retVal;
+
+            //var conn = m_provider.CreateConnection();
+            //conn.ConnectionString = source.Connection.ConnectionString;
+            //return new DataContext(this, conn) { ContextId = source.ContextId };
         }
 
 
@@ -619,7 +675,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(SetEncryptionSettings)));
             }
-            this.m_encryptionSettings = ormEncryptionSettings;
+            else if (ormEncryptionSettings.AleEnabled)
+            {
+                this.m_encryptionSettings = ormEncryptionSettings;
+            }
         }
 
 
@@ -671,7 +730,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             cmd.Parameters.Add(parm);
                             cmd.ExecuteNonQuery();
                             this.m_encryptionSettings = newOrmEncryptionSettings;
-                            this.m_encryptionSettings.AleRecrypt(this);
+                            this.m_encryptionSettings.AleRecrypt(this, (a, b, c) => this.ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(a, b, c)));
                             this.m_encryptionProvider = new DefaultAesDataEncryptor(newOrmEncryptionSettings, aleSmk);
                         }
                     }

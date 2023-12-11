@@ -25,7 +25,6 @@ using SanteDB.Core.Exceptions;
 using SanteDB.Core.i18n;
 using SanteDB.OrmLite.Attributes;
 using SanteDB.OrmLite.Providers;
-using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -274,9 +273,16 @@ namespace SanteDB.OrmLite.Migration
                 {
                     cmd.CommandText = preConditionSql;
                     cmd.CommandType = System.Data.CommandType.Text;
-                    if ((bool?)cmd.ExecuteScalar() != true) // can't install
+                    if ((bool?)cmd.ExecuteScalar() != true ) // can't install
                     {
-                        throw new ConstraintException($"Pre-check for {migration.Id} failed");
+                        if (migration.Required)
+                        {
+                            throw new ConstraintException($"Pre-check for required {migration.Id} failed");
+                        }
+                        else
+                        {
+                            return true; // skip
+                        }
                     }
                 }
             }

@@ -2,7 +2,6 @@
 using SanteDB.Core.Configuration;
 using SanteDB.Core.i18n;
 using SanteDB.OrmLite.Configuration;
-using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.Collections.Generic;
 using System.Data;

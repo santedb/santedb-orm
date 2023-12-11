@@ -305,6 +305,29 @@ namespace SanteDB.OrmLite
             return sb.ToString();
         }
 
+        //public IEnumerable<object> AllArguments
+        //{
+        //    get
+        //    {
+        //        List<object> args = new List<object>();
+
+        //        var focal = this;
+
+        //        do
+        //        {
+        //            if (focal?.Arguments != null)
+        //            {
+        //                args.AddRange(focal.Arguments);
+        //            }
+
+        //            focal = focal?.m_next;
+        //        }
+        //        while (focal != null);
+
+        //        return args;
+        //    }
+        //}
+
         /// <summary>
         /// Represent as a literal query string
         /// </summary>

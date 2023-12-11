@@ -88,6 +88,10 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// The SQL engine supports TRUNCATE X CASCADE or DELETE FROM X CASCADE syntax
         /// </summary>
-        Cascades = 0x2000
+        Cascades = 0x2000,
+        /// <summary>
+        /// The SQL engine requires manual intervention of the freetext index
+        /// </summary>
+        StoredFreetextIndex = 0x4000
     }
 }
