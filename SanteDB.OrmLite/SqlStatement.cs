@@ -302,7 +302,7 @@ namespace SanteDB.OrmLite
                 sb.Append(focus.m_sql);
                 focus = focus.m_next;
             }
-            return sb.ToString();
+            return sb.ToString().Trim();
         }
 
         //public IEnumerable<object> AllArguments
