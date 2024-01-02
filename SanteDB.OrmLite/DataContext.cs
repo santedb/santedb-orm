@@ -56,6 +56,11 @@ namespace SanteDB.OrmLite
         private IDbEncryptor m_encryptionProvider;
 
         /// <summary>
+        /// Fired when the connection is disposed
+        /// </summary>
+        public event EventHandler Disposed;
+
+        /// <summary>
         /// Increment the value
         /// </summary>
         private void IncrementProbe(OrmPerformanceMetric metric)
@@ -257,7 +262,10 @@ namespace SanteDB.OrmLite
                     }
                 }
                 catch { }
-                finally { this.m_lastCommand?.Dispose(); this.m_lastCommand = null; }
+                finally { 
+                    this.m_lastCommand?.Dispose(); 
+                    this.m_lastCommand = null;
+                }
             }
 
             if (this.m_connection != null && this.m_opened)
@@ -273,6 +281,8 @@ namespace SanteDB.OrmLite
             this.m_connection = null;
             this.m_dataDictionary?.Clear();
             this.m_dataDictionary = null;
+            this.Disposed?.Invoke(this, EventArgs.Empty);
+
 
         }
 

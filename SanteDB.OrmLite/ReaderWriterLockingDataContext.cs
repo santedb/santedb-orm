@@ -21,7 +21,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// The global lock object that is used to control access to the provider.
         /// </summary>
-        private static readonly ConcurrentDictionary<IDbProvider, ReaderWriterLockSlim> s_Locks = new ConcurrentDictionary<IDbProvider, ReaderWriterLockSlim>();
+        private static readonly ConcurrentDictionary<String, ReaderWriterLockSlim> s_Locks = new ConcurrentDictionary<String, ReaderWriterLockSlim>();
 
         /// <summary>
         /// Gets a reference to the lock for a specific <paramref name="provider"/> or creates one if it does not exist.
@@ -31,15 +31,15 @@ namespace SanteDB.OrmLite
         /// <exception cref="InvalidOperationException">Thrown when <see cref="ConcurrentDictionary{TKey, TValue}.TryGetValue(TKey, out TValue)"/> and <see cref="ConcurrentDictionary{TKey, TValue}.TryAdd(TKey, TValue)"/> both return false indicating we cannot add to the dictionary but the key does not exist.</exception>
         protected static ReaderWriterLockSlim GetLock(IDbProvider provider)
         {
-            if (!s_Locks.TryGetValue(provider, out var lck))
+            if (!s_Locks.TryGetValue(provider.GetDatabaseName(), out var lck))
             {
                 //We support recursion for the case of cloning a write context. Not safe but need to be fixed by the caller, not us.
                 lck = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion); 
 
-                if (!s_Locks.TryAdd(provider, lck))
+                if (!s_Locks.TryAdd(provider.GetDatabaseName(), lck))
                 {
                     lck.Dispose();
-                    if (!s_Locks.TryGetValue(provider, out lck))
+                    if (!s_Locks.TryGetValue(provider.GetDatabaseName(), out lck))
                     {
                         throw new InvalidOperationException("Failed to get lock after failing to add lock to dictionary. This usually indicates a serious thread synchronization problem.");
                     }
@@ -89,26 +89,39 @@ namespace SanteDB.OrmLite
         {
             var ormProbe = this.Provider is IDbMonitorProvider monitorProvider ? monitorProvider.MonitorProbe as OrmClientProbe : null;
 
-            if (base.Open())
+            // Get the lock 
+            try
             {
-                try
+                ormProbe?.Increment(OrmPerformanceMetric.AwaitingLock);
+                _Lock = GetLock(this.Provider);
+                if(this.IsReadonly)
                 {
-
-                    ormProbe?.Increment(OrmPerformanceMetric.AwaitingLock);
-
-                    _Lock = GetLock(this.Provider);
-                    if (IsReadonly)
-                        _Lock.EnterReadLock();
-                    else if (!_Lock.TryEnterWriteLock(1000))
-                        throw new InvalidOperationException(ErrorMessages.WRITE_LOCK_UNAVAILABLE);
-                    return true;
-                } 
-                finally
-                {
-                    ormProbe?.Decrement(OrmPerformanceMetric.AwaitingLock);
+                    this._Lock.EnterReadLock();
                 }
+                else if(!this._Lock.TryEnterWriteLock(1000))
+                {
+                    throw new InvalidOperationException(ErrorMessages.WRITE_LOCK_UNAVAILABLE);
+                }
+
+                if (!base.Open())
+                {
+                    if (_Lock.IsReadLockHeld)
+                    {
+                        this._Lock.ExitReadLock();
+                    }
+                    if (_Lock.IsWriteLockHeld)
+                    {
+                        this._Lock.ExitWriteLock();
+                    }
+                    return false;
+                }
+                return true;
             }
-            return false;
+            finally
+            {
+                ormProbe?.Decrement(OrmPerformanceMetric.AwaitingLock);
+            }
+
         }
 
         /// <inheritdoc/>
