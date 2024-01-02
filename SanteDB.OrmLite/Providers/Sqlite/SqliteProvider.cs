@@ -454,11 +454,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public virtual DataContext GetReadonlyConnection()
         {
-            if(m_threadWriteContext != null) // HACK: See documentation on m_threadWriteContext
-            {
-                return m_threadWriteContext;
-            }
-
+         
             var conn = this.GetProviderFactory().CreateConnection();
             var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
             connectionString.SetComponent("Mode", "ReadOnly");
