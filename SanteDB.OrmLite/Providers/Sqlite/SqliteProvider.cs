@@ -48,28 +48,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged
     {
 
-        // HACK: SQLite does not like when two WRITE connections are opened on the same thread to the same database where one 
-        //       connection is in a transaction and the other is not. For example:
-        //          void foo() {
-        //              using(var conn = provider.GetWriteConnection()) {
-        //                  conn.Open(); // <- Checks for Write Lock
-        //                  using(var tx = conn.BeginTransaction()) {
-        //                      bar();
-        //                  }
-        //              }
-        //          }
-        //          
-        //          void bar() {
-        //              using(var conn = provider.GetWriteConnection()) {
-        //                  conn.Open(); // <- Checks write lock - and succeeds because on same thread
-        //                  conn.Insert(new Bar()); // <- Throws database locked exception because the previous connection is open and blocking
-        //              }
-        //          }
-        //       this variable allows calls to GetWriteConnection() to reuse these instances on the same thread so
-        //       long as they are not disposed
-        [ThreadStatic]
-        private static Dictionary<String, ReaderWriterLockingDataContext> m_threadWriteContext = new Dictionary<string, ReaderWriterLockingDataContext>(); 
-
+     
         /// <summary>
         /// Invariant name
         /// </summary>
@@ -454,7 +433,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public virtual DataContext GetReadonlyConnection()
         {
-         
+
             var conn = this.GetProviderFactory().CreateConnection();
             var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
             connectionString.SetComponent("Mode", "ReadOnly");
@@ -469,25 +448,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns></returns>
         public virtual DataContext GetWriteConnection()
         {
-
-            // is there currently an active connection?
-            if(m_threadWriteContext == null)
-            {
-                m_threadWriteContext = new Dictionary<string, ReaderWriterLockingDataContext>();
-            }
-
-            if (!m_threadWriteContext.TryGetValue(this.GetDatabaseName(), out var threadConnection))
-            {
-                var conn = this.GetProviderFactory().CreateConnection();
-                var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
-                connectionString.SetComponent("Mode", "ReadWriteCreate");
-                connectionString.SetComponent("Cache", "Private");
-                conn.ConnectionString = connectionString.ToString();
-                threadConnection = new ReaderWriterLockingDataContext(this, conn, false);
-                m_threadWriteContext.Add(this.GetDatabaseName(), threadConnection);
-                threadConnection.Disposed += (o, e) => m_threadWriteContext.Remove(this.GetDatabaseName());
-            }
-            return threadConnection;
+            var conn = this.GetProviderFactory().CreateConnection();
+            var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
+            connectionString.SetComponent("Mode", "ReadWriteCreate");
+            connectionString.SetComponent("Cache", "Private");
+            conn.ConnectionString = connectionString.ToString();
+            return new ReaderWriterLockingDataContext(this, conn, false);
         }
 
 
