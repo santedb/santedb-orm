@@ -98,9 +98,17 @@ namespace SanteDB.OrmLite
                 {
                     this._Lock.EnterReadLock();
                 }
-                else if(!this._Lock.TryEnterWriteLock(1000))
+                else 
                 {
-                    throw new InvalidOperationException(ErrorMessages.WRITE_LOCK_UNAVAILABLE);
+                    // Release our read lock and attempt to get a write lock
+                    if(this._Lock.IsReadLockHeld)
+                    {
+                        this._Lock.ExitReadLock();
+                    }
+                    if (!this._Lock.TryEnterWriteLock(1000))
+                    {
+                        throw new InvalidOperationException(ErrorMessages.WRITE_LOCK_UNAVAILABLE);
+                    }
                 }
 
                 if (!base.Open())

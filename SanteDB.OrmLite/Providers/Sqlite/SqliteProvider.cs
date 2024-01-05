@@ -68,7 +68,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         //       this variable allows calls to GetWriteConnection() to reuse these instances on the same thread so
         //       long as they are not disposed
         [ThreadStatic]
-        private static ReaderWriterLockingDataContext m_threadWriteContext; 
+        private static Dictionary<String, ReaderWriterLockingDataContext> m_threadWriteContext = new Dictionary<string, ReaderWriterLockingDataContext>(); 
 
         /// <summary>
         /// Invariant name
@@ -471,17 +471,23 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
 
             // is there currently an active connection?
-            if (m_threadWriteContext == null)
+            if(m_threadWriteContext == null)
+            {
+                m_threadWriteContext = new Dictionary<string, ReaderWriterLockingDataContext>();
+            }
+
+            if (!m_threadWriteContext.TryGetValue(this.GetDatabaseName(), out var threadConnection))
             {
                 var conn = this.GetProviderFactory().CreateConnection();
                 var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
                 connectionString.SetComponent("Mode", "ReadWriteCreate");
                 connectionString.SetComponent("Cache", "Private");
                 conn.ConnectionString = connectionString.ToString();
-                m_threadWriteContext = new ReaderWriterLockingDataContext(this, conn, false);
-                m_threadWriteContext.Disposed += (o, e) => m_threadWriteContext = null;
+                threadConnection = new ReaderWriterLockingDataContext(this, conn, false);
+                m_threadWriteContext.Add(this.GetDatabaseName(), threadConnection);
+                threadConnection.Disposed += (o, e) => m_threadWriteContext.Remove(this.GetDatabaseName());
             }
-            return m_threadWriteContext;
+            return threadConnection;
         }
 
 
