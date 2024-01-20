@@ -96,10 +96,9 @@ namespace SanteDB.OrmLite
                 _Lock = GetLock(this.Provider);
                 if(this.IsReadonly)
                 {
-                    if (!this._Lock.TryEnterReadLock(10000))
+                    if (!this._Lock.TryEnterReadLock(30000))
                     {
                         throw new InvalidOperationException(ErrorMessages.READ_LOCK_UNAVAILABLE);
-
                     }
                 }
                 else 

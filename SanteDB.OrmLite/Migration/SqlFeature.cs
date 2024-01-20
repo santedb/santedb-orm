@@ -18,6 +18,7 @@
  * User: fyfej
  * Date: 2023-5-19
  */
+using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
 using SanteDB.OrmLite.Providers.Firebird;
 using SanteDB.OrmLite.Providers.Postgres;
@@ -95,6 +96,10 @@ namespace SanteDB.OrmLite.Migration
                 xd.LoadXml(xmlText);
                 retVal.Id = xd.SelectSingleNode("/feature/@id")?.Value ?? "0-0";
                 retVal.Name = xd.SelectSingleNode("/feature/@name")?.Value ?? "Other";
+                if(Enum.TryParse<SanteDBHostType>(xd.SelectSingleNode("/feature/@environment")?.Value, out var environment))
+                {
+                    retVal.EnvironmentType = environment;
+                }
                 retVal.Description = xd.SelectSingleNode("/feature/summary/text()")?.Value ?? "other update";
                 retVal.Remarks = xd.SelectSingleNode("/feature/remarks/text()")?.Value ?? "other update";
                 retVal.Url = new Uri(xd.SelectSingleNode("/feature/url/text()")?.Value ?? $"http://help.santesuite.org/ops/santedb/fixpatch/{retVal.Id}");
@@ -141,6 +146,10 @@ namespace SanteDB.OrmLite.Migration
         /// Gets the scope of the object
         /// </summary>
         public String Scope { get; internal set; }
+        /// <summary>
+        /// Gets the environment that this update applies to
+        /// </summary>
+        public SanteDBHostType? EnvironmentType { get; internal set; }
 
         /// <summary>
         /// Gets the check sql
