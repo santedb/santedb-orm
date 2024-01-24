@@ -132,7 +132,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public SqliteProvider()
         {
-            this.m_monitor = Diagnostics.OrmClientProbe.CreateProbe(this);
             this.StatementFactory = new SqliteStatementFactory(this);
 
         }

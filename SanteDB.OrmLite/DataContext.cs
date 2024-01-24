@@ -65,7 +65,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         private void IncrementProbe(OrmPerformanceMetric metric)
         {
-            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            if (this.m_provider.MonitorProbe is OrmClientProbe ocp)
             {
                 ocp.Increment(metric);
             }
@@ -76,7 +76,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         private void DecrementProbe(OrmPerformanceMetric metric)
         {
-            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            if (this.m_provider.MonitorProbe is OrmClientProbe ocp)
             {
                 ocp.Decrement(metric);
             }
