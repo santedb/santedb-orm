@@ -113,7 +113,19 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Build a sql statement from a copy
         /// </summary>
-        public SqlStatement(SqlStatement copyFrom, String alias = null) : this(alias ?? copyFrom.m_alias, copyFrom.m_sql, copyFrom.m_next?.Copy(), false, copyFrom.m_arguments) { }
+        public SqlStatement(SqlStatement copyFrom, String alias = null)
+        {
+            this.m_alias = alias ?? copyFrom.m_alias;
+            this.m_arguments = copyFrom.Arguments;
+            this.m_sql = copyFrom.m_sql;
+            SqlStatement otherCurrent = copyFrom.m_next, thisCurrent = this;
+            while (otherCurrent != null)
+            {
+                thisCurrent = thisCurrent.m_next = new SqlStatement(otherCurrent.m_alias, otherCurrent.m_sql, otherCurrent.m_arguments);
+                otherCurrent = otherCurrent.m_next;
+            }
+
+        }
 
         /// <summary>
         /// Copy this object
