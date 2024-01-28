@@ -135,6 +135,15 @@ namespace SanteDB.OrmLite
 
         }
 
+        /// <summary>
+        /// Prevent all connections to the database 
+        /// </summary>
+        internal void Lock()
+        {
+            this._Lock = GetLock(this.Provider);
+            this._Lock.EnterWriteLock(); // block here until we get a lock - this will prevent all other connection attempts
+        }
+
         /// <inheritdoc/>
         public override void Close()
         {
