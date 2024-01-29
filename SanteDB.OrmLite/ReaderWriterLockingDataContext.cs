@@ -156,9 +156,9 @@ namespace SanteDB.OrmLite
         /// </summary>
         private void EnsureLockRelease()
         {
-            if (this.IsReadonly && _Lock.IsReadLockHeld)
+            if (this.IsReadonly && _Lock?.IsReadLockHeld == true)
                 _Lock.ExitReadLock();
-            else if(!this.IsReadonly && _Lock.IsWriteLockHeld)
+            else if(!this.IsReadonly && _Lock?.IsWriteLockHeld == true)
                 _Lock.ExitWriteLock();
         }
 
