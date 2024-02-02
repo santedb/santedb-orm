@@ -63,7 +63,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Regex to extract property, guards and cast
         /// </summary>
-        public static readonly Regex ExtractionRegex = new Regex(@"^(\w*?)(\[(.*?)\])?(\@(\w*))?(\.(.*))?$", RegexOptions.Compiled);
+        public static readonly Regex ExtractionRegex = new Regex(@"^([\$\w]*?)(\[(.*?)\])?(\@(\w*))?(\.(.*))?$", RegexOptions.Compiled);
 
         private const int PropertyRegexGroup = 1;
         private const int GuardRegexGroup = 3;
