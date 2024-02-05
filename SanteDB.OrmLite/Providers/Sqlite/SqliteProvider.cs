@@ -608,7 +608,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns></returns>
         public string GetDatabaseName()
         {
-            var filePath = new ConnectionString(this.Invariant, this.ConnectionString).GetComponent("Data Source");
+            var filePath = CorrectConnectionString(new ConnectionString(this.Invariant, this.ConnectionString)).GetComponent("Data Source");
             if(Path.IsPathRooted(filePath))
             {
                 return Path.GetFileName(filePath);

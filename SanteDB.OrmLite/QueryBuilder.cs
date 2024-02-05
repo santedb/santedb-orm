@@ -768,7 +768,16 @@ namespace SanteDB.OrmLite
         {
             // Map the type
             var tableMapping = scopedTables.First();
-            var propertyInfo = tmodel.GetQueryProperty(propertyPath);
+            PropertyInfo propertyInfo = null;
+            if (propertyPath == "$self")
+            {
+                propertyInfo = tableMapping.PrimaryKey.First().SourceProperty;
+            }
+            else
+            {
+                propertyInfo = tmodel.GetQueryProperty(propertyPath);
+
+            }
             if (propertyInfo == null)
             {
                 throw new ArgumentOutOfRangeException(propertyPath);
@@ -878,7 +887,12 @@ namespace SanteDB.OrmLite
                                 var parmExtract = QueryFilterExtensions.ParameterExtractRegex.Match(parms + ",");
                                 while (parmExtract.Success)
                                 {
-                                    extendedParms.Add(parmExtract.Groups[1].Value);
+                                    var pv = parmExtract.Groups[1].Value;
+                                    if(pv.StartsWith("\"") && pv.EndsWith("\""))
+                                    {
+                                        pv = pv.Substring(1, pv.Length - 2);
+                                    }
+                                    extendedParms.Add(pv);
                                     parmExtract = QueryFilterExtensions.ParameterExtractRegex.Match(parmExtract.Groups[2].Value);
                                 }
                                 // Now find the function
