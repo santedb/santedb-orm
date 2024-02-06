@@ -294,6 +294,11 @@ namespace SanteDB.OrmLite
                     object value = this.m_provider.ConvertValue(dbValue, itm.SourceProperty.PropertyType);
                     if (!itm.IsSecret)
                     {
+                        // Hack for SQLite - 
+                        if(itm.SourceProperty.PropertyType.StripNullable() == typeof(byte[]) && value is Guid gval)
+                        {
+                            value = gval.ToByteArray();
+                        }
                         itm.SourceProperty.SetValue(result, value);
                     }
                 }

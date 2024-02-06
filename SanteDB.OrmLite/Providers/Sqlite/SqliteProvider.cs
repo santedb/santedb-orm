@@ -18,6 +18,7 @@
  * User: fyfej
  * Date: 2023-5-19
  */
+using DocumentFormat.OpenXml.Wordprocessing;
 using SanteDB;
 using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
@@ -38,14 +39,16 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace SanteDB.OrmLite.Providers.Sqlite
 {
     /// <summary>
     /// SQL Lite provider
     /// </summary>
-    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged
+    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged, IDbBackupProvider
     {
 
      
@@ -66,6 +69,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         private static readonly Regex m_dateRegex = new Regex(@"(CURRENT_TIMESTAMP|CURRENT_DATE)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         // Provider
         private DbProviderFactory m_provider = null;
+
+        // Blocker for backup process
+        private readonly ManualResetEventSlim m_lockoutEvent = new ManualResetEventSlim(true);
 
         // Monitoring probe
         private IDiagnosticsProbe m_monitor;
@@ -132,7 +138,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public SqliteProvider()
         {
-            this.m_monitor = Diagnostics.OrmClientProbe.CreateProbe(this);
             this.StatementFactory = new SqliteStatementFactory(this);
 
         }
@@ -408,6 +413,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns>The SQLite provider</returns>
         private DbProviderFactory GetProviderFactory()
         {
+            
             if (this.m_provider == null) // HACK for Mono - WHY IS THIS A HACK?
             {
                 var provType = ApplicationServiceContext.Current?.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type
@@ -433,11 +439,13 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public virtual DataContext GetReadonlyConnection()
         {
-
+            // If a backup is in progress do not call
+            this.m_lockoutEvent.Wait();
             var conn = this.GetProviderFactory().CreateConnection();
             var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
             connectionString.SetComponent("Mode", "ReadOnly");
             connectionString.SetComponent("Cache", "Private");
+            connectionString.SetComponent("Pooling", "True");
             conn.ConnectionString = connectionString.ToString();
             return new ReaderWriterLockingDataContext(this, conn, true);
         }
@@ -448,14 +456,15 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns></returns>
         public virtual DataContext GetWriteConnection()
         {
+            this.m_lockoutEvent.Wait();
             var conn = this.GetProviderFactory().CreateConnection();
             var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
             connectionString.SetComponent("Mode", "ReadWriteCreate");
             connectionString.SetComponent("Cache", "Private");
+            connectionString.SetComponent("Pooling", "True");
             conn.ConnectionString = connectionString.ToString();
             return new ReaderWriterLockingDataContext(this, conn, false);
         }
-
 
         ///// <summary>
         ///// Lock the specified connection
@@ -599,7 +608,15 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns></returns>
         public string GetDatabaseName()
         {
-            return new ConnectionString(this.Invariant, this.ConnectionString).GetComponent("Data Source");
+            var filePath = CorrectConnectionString(new ConnectionString(this.Invariant, this.ConnectionString)).GetComponent("Data Source");
+            if(Path.IsPathRooted(filePath))
+            {
+                return Path.GetFileName(filePath);
+            }
+            else
+            {
+                return filePath;
+            }
         }
 
 
@@ -742,6 +759,113 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     this.m_tracer.TraceError("Unable to migrate application layer encryption settings");
                     throw new DataException("Unable to migrate ALE encryption", e);
                 }
+            }
+        }
+
+        /// <inheritdoc/>
+        public bool BackupToStream(Stream backupStream)
+        {
+            try
+            {
+                // Grab a lock and prevent everyone from interacting with this database
+                this.m_lockoutEvent.Reset();
+                // Clear all pools
+                this.GetProviderFactory().CreateConnection().GetType().GetMethod("ClearAllPools").Invoke(null, new object[0]);
+
+                using (var rw = new ReaderWriterLockingDataContext(this, null))
+                {
+                    rw.Lock();
+
+                    var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
+                    using (var fs = File.OpenRead(cstr.GetComponent("Data Source")))
+                    {
+
+                        // First bytes for the password or NIL for no password
+                        var pwd = Encoding.UTF8.GetBytes(cstr.GetComponent("password"));
+                        backupStream.WriteByte((byte)pwd.Length); // Pascal String
+                        backupStream.Write(pwd, 0, pwd.Length); // Pascal string contents
+
+                        // Next write the file contents
+                        fs.CopyTo(backupStream);
+                        return true;
+                    }
+                } // lock is released
+            }
+            finally
+            {
+                this.m_lockoutEvent.Set();
+            }
+        }
+
+        /// <inheritdoc/>
+        public bool RestoreFromStream(Stream restoreStream)
+        {
+            try
+            {
+                // Grab a lock and prevent everyone from interacting with this database
+                this.m_lockoutEvent.Reset();
+                using (var rw = new ReaderWriterLockingDataContext(this, null))
+                {
+                    rw.Lock();
+
+                    var tempFile = Path.GetTempFileName();
+                    try
+                    {
+                        var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
+                        var productionFile = cstr.GetComponent("Data Source");
+                        var sourcePassword = String.Empty;
+                        using (var fs = File.OpenWrite(tempFile))
+                        {
+                            // First bytes for the password or NIL for no password
+                            var pwdLen = restoreStream.ReadByte();
+                            var pwdBuf = new byte[pwdLen];
+                            restoreStream.Read(pwdBuf, 0, pwdLen);
+                            if (pwdLen > 0)
+                            {
+                                sourcePassword = Encoding.UTF8.GetString(pwdBuf);
+                            }
+
+                            restoreStream.CopyTo(fs);
+
+                        }
+
+                        // Does the database need to be re-keyed?
+                        var myPassword = cstr.GetComponent("password");
+                        if (!String.IsNullOrEmpty(sourcePassword) && !sourcePassword.Equals(myPassword))
+                        {
+                            using (var conn = this.GetProviderFactory().CreateConnection())
+                            {
+                                conn.ConnectionString = $"Data Source={tempFile}; Password={sourcePassword}";
+                                conn.Open();
+                                using (var c = conn.CreateCommand())
+                                {
+                                    c.CommandText = "SELECT quote($password)";
+                                    var passwordParm = c.CreateParameter();
+                                    passwordParm.ParameterName = "$password";
+                                    passwordParm.Value = myPassword;
+                                    c.Parameters.Add(passwordParm);
+                                    c.CommandText = $"PRAGMA rekey = {c.ExecuteScalar()}";
+                                    c.Parameters.Clear();
+                                    c.ExecuteNonQuery();
+                                }
+                            }
+                        }
+                        // Clear all pools
+                        this.GetProviderFactory().CreateConnection().GetType().GetMethod("ClearAllPools").Invoke(null, new object[0]);
+
+                        // Move the file
+                        File.Copy(tempFile, productionFile, true); // Move the file to replace the original
+                        return true;
+                    }
+                    finally
+                    {
+                        File.Delete(tempFile);
+                    }
+                }
+            }
+            finally
+            {
+                this.m_lockoutEvent.Set();
             }
         }
     }

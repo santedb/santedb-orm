@@ -25,6 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -70,15 +71,57 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Create a new SQL statement
         /// </summary>
-        private SqlStatement(String alias, String sql, SqlStatement next, bool isPrepared, params object[] arguments)
+        private SqlStatement(String alias, String sql, bool isPrepared, object[] arguments)
         {
             sql = sql ?? String.Empty;
-            if (sql.Contains("--") == true)
+            this.m_sql = sql;
+
+            this.m_isPrepared = isPrepared;
+            this.m_alias = alias;
+            this.m_arguments = arguments ?? new object[0];
+        }
+
+        /// <summary>
+        /// Create a new SqlStatmeent
+        /// </summary>
+        public SqlStatement(String sql, params object[] arguments) : this(null, sql, arguments)
+        {
+            
+        }
+
+        /// <summary>
+        /// Create new SQL statement
+        /// </summary>
+        public SqlStatement(String alias, String sql, params object[] arguments) 
+        {
+            // OPTIMIZATION: We only want to iterate through the sql string once
+            int argC = 0;
+            bool hasComment = false, hasNewline = false;
+            for(var p = 0; p < sql.Length; p++)
+            {
+                switch(sql[p])
+                {
+                    case '?': argC++; break;
+                    case '\n':
+                    case '\r':
+                        hasNewline = true;
+                        break;
+                    case '-': 
+                        hasComment |= p < sql.Length - 1 && sql[p + 1] == '-'; 
+                        break;
+                }
+            }
+            
+            if (argC != arguments.Length)
+            {
+                throw new ArgumentOutOfRangeException(String.Format(ErrorMessages.ARGUMENT_COUNT_MISMATCH, argC, arguments.Length));
+            }
+            else if(hasComment)
             {
                 // Strip out comments
                 this.m_sql = Constants.ExtractCommentsRegex.Replace(sql ?? "", (m) => m.Groups[1].Value).Replace("\r", " ").Replace("\n", " ");
             }
-            else if (sql.Contains("\n"))
+            else if(hasNewline)
             {
                 this.m_sql = sql?.Replace("\r", "").Replace("\n", "");
             }
@@ -87,33 +130,26 @@ namespace SanteDB.OrmLite
                 this.m_sql = sql;
             }
 
-            this.m_isPrepared = isPrepared;
-            this.m_alias = alias;
             this.m_arguments = arguments ?? new object[0];
-            this.m_next = next;
-        }
-
-        /// <summary>
-        /// Create a new SqlStatmeent
-        /// </summary>
-        public SqlStatement(String sql, params object[] arguments) : this(null, sql, null, false, arguments) { }
-
-        /// <summary>
-        /// Create new SQL statement
-        /// </summary>
-        public SqlStatement(String alias, String sql, params object[] arguments) : this(alias, sql, null, false, arguments)
-        {
-            var expected = sql.Count(c => c == '?');
-            if (expected != arguments.Length)
-            {
-                throw new ArgumentOutOfRangeException(String.Format(ErrorMessages.ARGUMENT_COUNT_MISMATCH, expected, arguments.Length));
-            }
+            this.m_alias = alias;
         }
 
         /// <summary>
         /// Build a sql statement from a copy
         /// </summary>
-        public SqlStatement(SqlStatement copyFrom, String alias = null) : this(alias ?? copyFrom.m_alias, copyFrom.m_sql, copyFrom.m_next?.Copy(), false, copyFrom.m_arguments) { }
+        public SqlStatement(SqlStatement copyFrom, String alias = null)
+        {
+            this.m_alias = alias ?? copyFrom.m_alias;
+            this.m_arguments = copyFrom.Arguments;
+            this.m_sql = copyFrom.m_sql;
+            SqlStatement otherCurrent = copyFrom.m_next, thisCurrent = this;
+            while (otherCurrent != null)
+            {
+                thisCurrent = thisCurrent.m_next = new SqlStatement(otherCurrent.m_alias, otherCurrent.m_sql, false, otherCurrent.m_arguments);
+                otherCurrent = otherCurrent.m_next;
+            }
+
+        }
 
         /// <summary>
         /// Copy this object
@@ -152,7 +188,7 @@ namespace SanteDB.OrmLite
                 focus = focus.m_next;
             }
 
-            return new SqlStatement(this.m_alias, sb.ToString(), null, true, parameters.ToArray());
+            return new SqlStatement(this.m_alias, sb.ToString(), true, parameters.ToArray());
         }
 
         /// <summary>
@@ -217,7 +253,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public static SqlStatement operator +(string a, SqlStatement b)
         {
-            return new SqlStatement(null, a, b, false);
+            return new SqlStatement(a) { m_next = b };
         }
 
         /// <summary>

@@ -96,7 +96,10 @@ namespace SanteDB.OrmLite
                 _Lock = GetLock(this.Provider);
                 if(this.IsReadonly)
                 {
-                    this._Lock.EnterReadLock();
+                    if (!this._Lock.TryEnterReadLock(30000))
+                    {
+                        throw new InvalidOperationException(ErrorMessages.READ_LOCK_UNAVAILABLE);
+                    }
                 }
                 else 
                 {
@@ -105,7 +108,7 @@ namespace SanteDB.OrmLite
                     {
                         this._Lock.ExitReadLock();
                     }
-                    if (!this._Lock.TryEnterWriteLock(1000))
+                    if (!this._Lock.TryEnterWriteLock(5000))
                     {
                         throw new InvalidOperationException(ErrorMessages.WRITE_LOCK_UNAVAILABLE);
                     }
@@ -132,6 +135,15 @@ namespace SanteDB.OrmLite
 
         }
 
+        /// <summary>
+        /// Prevent all connections to the database 
+        /// </summary>
+        internal void Lock()
+        {
+            this._Lock = GetLock(this.Provider);
+            this._Lock.EnterWriteLock(); // block here until we get a lock - this will prevent all other connection attempts
+        }
+
         /// <inheritdoc/>
         public override void Close()
         {
@@ -144,9 +156,9 @@ namespace SanteDB.OrmLite
         /// </summary>
         private void EnsureLockRelease()
         {
-            if (this.IsReadonly && _Lock.IsReadLockHeld)
+            if (this.IsReadonly && _Lock?.IsReadLockHeld == true)
                 _Lock.ExitReadLock();
-            else if(!this.IsReadonly && _Lock.IsWriteLockHeld)
+            else if(!this.IsReadonly && _Lock?.IsWriteLockHeld == true)
                 _Lock.ExitWriteLock();
         }
 
