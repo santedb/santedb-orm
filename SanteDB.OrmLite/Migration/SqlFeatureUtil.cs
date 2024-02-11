@@ -116,7 +116,7 @@ namespace SanteDB.OrmLite.Migration
 
             // Some of the updates from V2 to V3 can take hours to complete - this timer allows us to report progress on the log
             int i = 0;
-            foreach (var itm in updates.Where(o=>o.EnvironmentType == null || o.EnvironmentType == ApplicationServiceContext.Current.HostType))
+            foreach (var itm in updates.Where(o=>o.EnvironmentType == null || o.EnvironmentType.Contains(ApplicationServiceContext.Current.HostType)))
             {
                 try
                 {
