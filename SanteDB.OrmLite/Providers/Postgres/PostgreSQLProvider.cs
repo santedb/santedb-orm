@@ -562,6 +562,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
 
             // Is ALE even configured for this connection?
+            if(this.m_encryptionSettings == null && newOrmEncryptionSettings.AleEnabled == false)
+            {
+                return;
+            }
             if (!(this.m_encryptionSettings is OrmAleConfiguration aleConfiguration) ||
                 AuthenticationContext.Current.Principal != AuthenticationContext.SystemPrincipal)
             {
