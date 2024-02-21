@@ -46,9 +46,14 @@ namespace SanteDB.OrmLite.Diagnostics
         /// </summary>
         ActiveStatements = 2,
         /// <summary>
+        /// Connections which are waiting for a lock
+        /// </summary>
+        AwaitingLock = 3,
+        /// <summary>
         /// Average time
         /// </summary>
-        AverageTime = 3
+        AverageTime = 4,
+        
     }
 
     /// <summary>
@@ -157,19 +162,22 @@ namespace SanteDB.OrmLite.Diagnostics
             };
             this.m_postingThread.Start();
 #if DEBUG
-            this.m_componentValues = new OrmPerformanceComponentProbe[4]
+            this.m_componentValues = new OrmPerformanceComponentProbe[]
             {
                 new OrmPerformanceComponentProbe(Guid.NewGuid(), "Read-Only Connections", "Shows active read-only connections between this server and the read-only database pool"),
                 new OrmPerformanceComponentProbe(Guid.NewGuid(), "Read-Write Connections", "Shows active read/write connections between this server and the database pool"),
                 new OrmPerformanceComponentProbe(Guid.NewGuid(), "Active Statements", "Shows the active statements between this server and the database pool"),
+                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Waiting for Lock", "Shows the number of connections which are waiting for a read or write lock to continue opening"),
                 new OrmPerformanceComponentProbe(Guid.NewGuid(), "Average Execution Time", "Shows the rolling average of DbCommand result times in MS", "ms")
         };
 #else
-            this.m_componentValues = new OrmPerformanceComponentProbe[3]
+            this.m_componentValues = new OrmPerformanceComponentProbe[]
 {
                 new OrmPerformanceComponentProbe(Guid.NewGuid(), "Read-Only Connections", "Shows active read-only connections between this server and the read-only database pool"),
                 new OrmPerformanceComponentProbe(Guid.NewGuid(), "Read-Write Connections", "Shows active read/write connections between this server and the database pool"),
-                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Active Statements", "Shows the active statements between this server and the database pool")
+                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Active Statements", "Shows the active statements between this server and the database pool"),
+                new OrmPerformanceComponentProbe(Guid.NewGuid(), "Waiting for Lock", "Shows the number of connections which are waiting for a read or write lock to continue opening")
+
 };
 
 #endif

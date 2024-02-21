@@ -393,7 +393,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// </summary>
         public DataContext CloneConnection(DataContext source)
         {
-            var retVal = source.IsReadonly ? this.GetReadonlyConnection() : this.GetWriteConnection();
+            var retVal = this.GetReadonlyConnection();
             retVal.ContextId = source.ContextId;
             return retVal;
         }

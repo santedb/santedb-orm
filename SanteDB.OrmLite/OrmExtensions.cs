@@ -46,6 +46,40 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
+        /// Execute a command that does not return a value.
+        /// </summary>
+        /// <param name="me">The connection to execute the command on.</param>
+        /// <param name="sql">The statement to run in the command.</param>
+        /// <param name="parameters">Parameters for the statement that will be inserted into the statement.</param>
+        public static void Execute(this IDbConnection me, String sql, params object[] parameters)
+        {
+            using (var cmd = me.CreateCommand())
+            {
+                cmd.CommandText = sql;
+                cmd.CommandType = CommandType.Text;
+                int i = 0;
+                foreach (var itm in parameters)
+                {
+                    if (itm is IDbDataParameter iddp)
+                    {
+                        cmd.Parameters.Add(iddp);
+                    }
+                    else
+                    {
+                        var parm = cmd.CreateParameter();
+                        parm.ParameterName = $"@parm{i++}";
+                        parm.Value = itm;
+                        cmd.Parameters.Add(parm);
+                    }
+
+                }
+
+                var retVal = cmd.ExecuteNonQuery();
+                
+            }
+        }
+
+        /// <summary>
         /// Execute a scalar command returning the result
         /// </summary>
         public static TReturn ExecuteScalar<TReturn>(this IDbConnection me, String sql, params object[] parameters)

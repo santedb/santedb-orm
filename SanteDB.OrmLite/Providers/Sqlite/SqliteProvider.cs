@@ -18,6 +18,7 @@
  * User: fyfej
  * Date: 2023-5-19
  */
+using DocumentFormat.OpenXml.Wordprocessing;
 using SanteDB;
 using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
@@ -30,6 +31,7 @@ using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Migration;
 using SanteDB.OrmLite.Providers.Encryptors;
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.Tracing;
@@ -37,16 +39,19 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace SanteDB.OrmLite.Providers.Sqlite
 {
     /// <summary>
     /// SQL Lite provider
     /// </summary>
-    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged
+    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged, IDbBackupProvider
     {
 
+     
         /// <summary>
         /// Invariant name
         /// </summary>
@@ -65,6 +70,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         // Provider
         private DbProviderFactory m_provider = null;
 
+        // Blocker for backup process
+        private readonly ManualResetEventSlim m_lockoutEvent = new ManualResetEventSlim(true);
+
         // Monitoring probe
         private IDiagnosticsProbe m_monitor;
 
@@ -75,7 +83,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         private IOrmEncryptionSettings m_encryptionSettings;
 
         private DefaultAesDataEncryptor m_encryptionProvider;
-        
+
         /// <inheritdoc/>
         public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
 
@@ -130,7 +138,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public SqliteProvider()
         {
-            this.m_monitor = Diagnostics.OrmClientProbe.CreateProbe(this);
             this.StatementFactory = new SqliteStatementFactory(this);
 
         }
@@ -288,82 +295,132 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             return cmd;
         }
 
+
+        /// <summary>
+        /// Static type map cache. Contains the same types that were checked with a per-command type check. Enum types will also be cached in this dictionary.
+        /// </summary>
+        private static Dictionary<Type, DbType> s_DbTypeMap = new Dictionary<Type, DbType>()
+        {
+            {typeof(string), DbType.String },
+            {typeof(DateTime), DbType.Int32 },
+            {typeof(DateTimeOffset), DbType.Int32 },
+            {typeof(int), DbType.Int32 },
+            {typeof(long), DbType.Int64 },
+            {typeof(bool), DbType.Boolean },
+            {typeof(byte[]), DbType.Binary },
+            {typeof(float), DbType.Double },
+            {typeof(double), DbType.Double },
+            {typeof(decimal), DbType.Decimal },
+            {typeof(Guid), DbType.Binary },
+            {typeof(DBNull), DbType.Object },
+            {typeof(Nullable<DateTime>), DbType.Int32},
+            {typeof(Nullable<DateTimeOffset>), DbType.Int32 },
+            {typeof(Nullable<int>), DbType.Int32},
+            {typeof(Nullable<long>), DbType.Int64 },
+            {typeof(Nullable<bool>), DbType.Boolean },
+            {typeof(Nullable<float>), DbType.Double },
+            {typeof(Nullable<double>), DbType.Double },
+            {typeof(Nullable<decimal>), DbType.Decimal },
+            {typeof(Nullable<Guid>), DbType.Binary },
+        };
+
+
+
         /// <summary>
         /// Map a parameter type from the provided type
         /// </summary>
         public DbType MapParameterType(Type type)
         {
-            if (type == null)
+            if (null == type)
             {
                 return DbType.Object;
             }
-            else if (type.StripNullable() == typeof(string))
+            else if (s_DbTypeMap.TryGetValue(type, out var dbtype))
             {
-                return DbType.String;
-            }
-            else if (type.StripNullable() == typeof(DateTime))
-            {
-                return DbType.Int32;
-            }
-            else if (type.StripNullable() == typeof(DateTimeOffset))
-            {
-                return DbType.Int32;
-            }
-            else if (type.StripNullable() == typeof(int))
-            {
-                return DbType.Int32;
-            }
-            else if (type.StripNullable() == typeof(long))
-            {
-                return DbType.Int64;
-            }
-            else if (type.StripNullable() == typeof(bool))
-            {
-                return DbType.Boolean;
-            }
-            else if (type.StripNullable() == typeof(byte[]))
-            {
-                return DbType.Binary;
-            }
-            else if (type.StripNullable() == typeof(float) || type.StripNullable() == typeof(double))
-            {
-                return DbType.Double;
-            }
-            else if (type.StripNullable() == typeof(decimal))
-            {
-                return DbType.Decimal;
-            }
-            else if (type.StripNullable() == typeof(Guid))
-            {
-                return DbType.Binary;
-            }
-            else if (type == typeof(DBNull))
-            {
-                return DbType.Object;
+                return dbtype;
             }
             else if (type.StripNullable().IsEnum)
             {
+                s_DbTypeMap.Add(type, DbType.Int32);
                 return DbType.Int32;
             }
             else
             {
                 throw new ArgumentOutOfRangeException(nameof(type), "Can't map parameter type");
             }
+
+            //if (type == null)
+            //{
+            //    return DbType.Object;
+            //}
+            //else if (type.StripNullable() == typeof(string))
+            //{
+            //    return DbType.String;
+            //}
+            //else if (type.StripNullable() == typeof(DateTime))
+            //{
+            //    return DbType.Int32;
+            //}
+            //else if (type.StripNullable() == typeof(DateTimeOffset))
+            //{
+            //    return DbType.Int32;
+            //}
+            //else if (type.StripNullable() == typeof(int))
+            //{
+            //    return DbType.Int32;
+            //}
+            //else if (type.StripNullable() == typeof(long))
+            //{
+            //    return DbType.Int64;
+            //}
+            //else if (type.StripNullable() == typeof(bool))
+            //{
+            //    return DbType.Boolean;
+            //}
+            //else if (type.StripNullable() == typeof(byte[]))
+            //{
+            //    return DbType.Binary;
+            //}
+            //else if (type.StripNullable() == typeof(float) || type.StripNullable() == typeof(double))
+            //{
+            //    return DbType.Double;
+            //}
+            //else if (type.StripNullable() == typeof(decimal))
+            //{
+            //    return DbType.Decimal;
+            //}
+            //else if (type.StripNullable() == typeof(Guid))
+            //{
+            //    return DbType.Binary;
+            //}
+            //else if (type == typeof(DBNull))
+            //{
+            //    return DbType.Object;
+            //}
+            //else if (type.StripNullable().IsEnum)
+            //{
+            //    return DbType.Int32;
+            //}
+            //else
+            //{
+            //    throw new ArgumentOutOfRangeException(nameof(type), "Can't map parameter type");
+            //}
         }
 
         /// <summary>
         /// Get provider factory
         /// </summary>
-        /// <returns>The FirebirdSQL provider </returns>
+        /// <returns>The SQLite provider</returns>
         private DbProviderFactory GetProviderFactory()
         {
-            if (this.m_provider == null) // HACK for Mono
+            
+            if (this.m_provider == null) // HACK for Mono - WHY IS THIS A HACK?
             {
                 var provType = ApplicationServiceContext.Current?.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type
                     ?? Type.GetType(ProviderFactoryType);
                 if (provType == null)
                 {
-                    throw new InvalidOperationException("Cannot find SQlite provider");
+                    throw new InvalidOperationException("Cannot find SQLite provider");
                 }
 
                 this.m_provider = provType.GetField("Instance").GetValue(null) as DbProviderFactory;
@@ -382,12 +439,15 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public virtual DataContext GetReadonlyConnection()
         {
+            // If a backup is in progress do not call
+            this.m_lockoutEvent.Wait();
             var conn = this.GetProviderFactory().CreateConnection();
             var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
             connectionString.SetComponent("Mode", "ReadOnly");
-            connectionString.SetComponent("Cache", "Shared");
+            connectionString.SetComponent("Cache", "Private");
+            connectionString.SetComponent("Pooling", "True");
             conn.ConnectionString = connectionString.ToString();
-            return new DataContext(this, conn, true);
+            return new ReaderWriterLockingDataContext(this, conn, true);
         }
 
         /// <summary>
@@ -396,14 +456,15 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns></returns>
         public virtual DataContext GetWriteConnection()
         {
+            this.m_lockoutEvent.Wait();
             var conn = this.GetProviderFactory().CreateConnection();
             var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
             connectionString.SetComponent("Mode", "ReadWriteCreate");
             connectionString.SetComponent("Cache", "Private");
+            connectionString.SetComponent("Pooling", "True");
             conn.ConnectionString = connectionString.ToString();
-            return new DataContext(this, conn, false);
+            return new ReaderWriterLockingDataContext(this, conn, false);
         }
-
 
         ///// <summary>
         ///// Lock the specified connection
@@ -492,9 +553,13 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 m_provider = Activator.CreateInstance(Type.GetType("System.Data.SQLite.SQLiteProviderFactory, System.Data.SQLite, Culture=nuetral")) as DbProviderFactory;
             }
 
-            var conn = m_provider.CreateConnection();
-            conn.ConnectionString = source.Connection.ConnectionString;
-            return new DataContext(this, conn) { ContextId = source.ContextId };
+            var retVal = this.GetReadonlyConnection();
+            retVal.ContextId = source.ContextId;
+            return retVal;
+
+            //var conn = m_provider.CreateConnection();
+            //conn.ConnectionString = source.Connection.ConnectionString;
+            //return new DataContext(this, conn) { ContextId = source.ContextId };
         }
 
 
@@ -543,7 +608,15 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns></returns>
         public string GetDatabaseName()
         {
-            return new ConnectionString(this.Invariant, this.ConnectionString).GetComponent("Data Source");
+            var filePath = CorrectConnectionString(new ConnectionString(this.Invariant, this.ConnectionString)).GetComponent("Data Source");
+            if(Path.IsPathRooted(filePath))
+            {
+                return Path.GetFileName(filePath);
+            }
+            else
+            {
+                return filePath;
+            }
         }
 
 
@@ -676,7 +749,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             cmd.Parameters.Add(parm);
                             cmd.ExecuteNonQuery();
                             this.m_encryptionSettings = newOrmEncryptionSettings;
-                            this.m_encryptionSettings.AleRecrypt(this, (a,b,c) => this.ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(a, b, c)));
+                            this.m_encryptionSettings.AleRecrypt(this, (a, b, c) => this.ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(a, b, c)));
                             this.m_encryptionProvider = new DefaultAesDataEncryptor(newOrmEncryptionSettings, aleSmk);
                         }
                     }
@@ -686,6 +759,113 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     this.m_tracer.TraceError("Unable to migrate application layer encryption settings");
                     throw new DataException("Unable to migrate ALE encryption", e);
                 }
+            }
+        }
+
+        /// <inheritdoc/>
+        public bool BackupToStream(Stream backupStream)
+        {
+            try
+            {
+                // Grab a lock and prevent everyone from interacting with this database
+                this.m_lockoutEvent.Reset();
+                // Clear all pools
+                this.GetProviderFactory().CreateConnection().GetType().GetMethod("ClearAllPools").Invoke(null, new object[0]);
+
+                using (var rw = new ReaderWriterLockingDataContext(this, null))
+                {
+                    rw.Lock();
+
+                    var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
+                    using (var fs = File.OpenRead(cstr.GetComponent("Data Source")))
+                    {
+
+                        // First bytes for the password or NIL for no password
+                        var pwd = Encoding.UTF8.GetBytes(cstr.GetComponent("password"));
+                        backupStream.WriteByte((byte)pwd.Length); // Pascal String
+                        backupStream.Write(pwd, 0, pwd.Length); // Pascal string contents
+
+                        // Next write the file contents
+                        fs.CopyTo(backupStream);
+                        return true;
+                    }
+                } // lock is released
+            }
+            finally
+            {
+                this.m_lockoutEvent.Set();
+            }
+        }
+
+        /// <inheritdoc/>
+        public bool RestoreFromStream(Stream restoreStream)
+        {
+            try
+            {
+                // Grab a lock and prevent everyone from interacting with this database
+                this.m_lockoutEvent.Reset();
+                using (var rw = new ReaderWriterLockingDataContext(this, null))
+                {
+                    rw.Lock();
+
+                    var tempFile = Path.GetTempFileName();
+                    try
+                    {
+                        var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
+                        var productionFile = cstr.GetComponent("Data Source");
+                        var sourcePassword = String.Empty;
+                        using (var fs = File.OpenWrite(tempFile))
+                        {
+                            // First bytes for the password or NIL for no password
+                            var pwdLen = restoreStream.ReadByte();
+                            var pwdBuf = new byte[pwdLen];
+                            restoreStream.Read(pwdBuf, 0, pwdLen);
+                            if (pwdLen > 0)
+                            {
+                                sourcePassword = Encoding.UTF8.GetString(pwdBuf);
+                            }
+
+                            restoreStream.CopyTo(fs);
+
+                        }
+
+                        // Does the database need to be re-keyed?
+                        var myPassword = cstr.GetComponent("password");
+                        if (!String.IsNullOrEmpty(sourcePassword) && !sourcePassword.Equals(myPassword))
+                        {
+                            using (var conn = this.GetProviderFactory().CreateConnection())
+                            {
+                                conn.ConnectionString = $"Data Source={tempFile}; Password={sourcePassword}";
+                                conn.Open();
+                                using (var c = conn.CreateCommand())
+                                {
+                                    c.CommandText = "SELECT quote($password)";
+                                    var passwordParm = c.CreateParameter();
+                                    passwordParm.ParameterName = "$password";
+                                    passwordParm.Value = myPassword;
+                                    c.Parameters.Add(passwordParm);
+                                    c.CommandText = $"PRAGMA rekey = {c.ExecuteScalar()}";
+                                    c.Parameters.Clear();
+                                    c.ExecuteNonQuery();
+                                }
+                            }
+                        }
+                        // Clear all pools
+                        this.GetProviderFactory().CreateConnection().GetType().GetMethod("ClearAllPools").Invoke(null, new object[0]);
+
+                        // Move the file
+                        File.Copy(tempFile, productionFile, true); // Move the file to replace the original
+                        return true;
+                    }
+                    finally
+                    {
+                        File.Delete(tempFile);
+                    }
+                }
+            }
+            finally
+            {
+                this.m_lockoutEvent.Set();
             }
         }
     }

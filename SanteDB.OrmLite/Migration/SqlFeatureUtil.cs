@@ -20,6 +20,8 @@
  */
 using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
+using SanteDB.Core.Data;
+using SanteDB.Core.Data.Backup;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Exceptions;
 using SanteDB.Core.i18n;
@@ -29,6 +31,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Dynamic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -113,7 +116,7 @@ namespace SanteDB.OrmLite.Migration
 
             // Some of the updates from V2 to V3 can take hours to complete - this timer allows us to report progress on the log
             int i = 0;
-            foreach (var itm in updates)
+            foreach (var itm in updates.Where(o=>o.EnvironmentType == null || o.EnvironmentType.Contains(ApplicationServiceContext.Current.HostType)))
             {
                 try
                 {
@@ -326,6 +329,52 @@ namespace SanteDB.OrmLite.Migration
             }
 
             return m_features.Where(o => o.InvariantName == invariantName);
+        }
+
+        /// <summary>
+        /// Create a backup asset for a provider
+        /// </summary>
+        public static IBackupAsset CreateBackupAsset(this IDbProvider me, Guid assetId)
+        {
+            if (me is IDbBackupProvider dbb)
+            {
+                var tfs = new TemporaryFileStream();
+                dbb.BackupToStream(tfs);
+                tfs.Seek(0, SeekOrigin.Begin);
+                return new StreamBackupAsset(assetId, $"{dbb.GetDatabaseName()}#{dbb.Invariant}", () => tfs);
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Restore a backup asset
+        /// </summary>
+        public static bool RestoreBackupAsset(this IDbProvider me, IBackupAsset backupAsset)
+        {
+            if (backupAsset == null)
+            {
+                throw new ArgumentNullException(nameof(backupAsset));
+            }
+
+            var assetFname = backupAsset.Name.Split('#');
+            if (assetFname.Length != 2 || !me.Invariant.Equals(assetFname[1]))
+            {
+                throw new InvalidOperationException();
+            }
+            if (me is IDbBackupProvider dbb)
+            {
+                using (var str = backupAsset.Open())
+                {
+                    return dbb.RestoreFromStream(str);
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException();
+            }
         }
     }
 }

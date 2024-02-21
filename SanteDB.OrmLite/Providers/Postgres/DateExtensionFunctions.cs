@@ -36,6 +36,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
     [ExcludeFromCodeCoverage]
     public class PostgreDateDiffFunction : IDbFilterFunction
     {
+        private static readonly Regex s_FilterUnitRegex = new Regex(@"^(\d*?)([yMdwhms])$", RegexOptions.None, TimeSpan.FromMilliseconds(250));
+
         /// <summary>
         /// Get the name for the function
         /// </summary>
@@ -63,7 +65,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 op = "=";
             }
 
-            match = new Regex(@"^(\d*?)([yMdwhms])$").Match(value);
+            match = s_FilterUnitRegex.Match(value);
             if (match.Success)
             {
                 String qty = match.Groups[1].Value,

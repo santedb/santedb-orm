@@ -57,11 +57,16 @@ namespace SanteDB.OrmLite
         private IDbEncryptor m_encryptionProvider;
 
         /// <summary>
+        /// Fired when the connection is disposed
+        /// </summary>
+        public event EventHandler Disposed;
+
+        /// <summary>
         /// Increment the value
         /// </summary>
         private void IncrementProbe(OrmPerformanceMetric metric)
         {
-            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            if (this.m_provider.MonitorProbe is OrmClientProbe ocp)
             {
                 ocp.Increment(metric);
             }
@@ -72,7 +77,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         private void DecrementProbe(OrmPerformanceMetric metric)
         {
-            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            if (this.m_provider.MonitorProbe is OrmClientProbe ocp)
             {
                 ocp.Decrement(metric);
             }
@@ -171,7 +176,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Close the connection however don't dispose
         /// </summary>
-        public void Close()
+        public virtual void Close()
         {
             this.ThrowIfDisposed();
             if (this.m_transaction != null)
@@ -190,35 +195,32 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Open the connection to the database
         /// </summary>
-        public void Open()
+        /// <returns>True if a new connection was opened (false if the connection was already open)</returns>
+        public virtual bool Open()
         {
+            var wasOpened = false;
             this.ThrowIfDisposed();
 
-            try
+            if (this.m_connection.State == ConnectionState.Closed)
             {
-                if (this.m_connection.State == ConnectionState.Closed)
-                {
-                    this.m_connection.Open();
-                }
-                else if (this.m_connection.State == ConnectionState.Broken)
-                {
-                    this.m_connection.Close();
-                    this.m_connection.Open();
-                }
-                else if (this.m_connection.State != ConnectionState.Open)
-                {
-                    this.m_connection.Open();
-                }
-
-                _ = this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
-
-                if (!this.m_opened)
-                {
-                    this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
-                    this.m_opened = true;
-                }
+                this.m_connection.Open();
+                wasOpened = true;
             }
-            catch (Exception ex)
+            else if (this.m_connection.State == ConnectionState.Broken)
+            {
+                this.m_connection.Close();
+                this.m_connection.Open();
+                wasOpened = true;
+            }
+            else if (this.m_connection.State != ConnectionState.Open)
+            {
+                this.m_connection.Open();
+                wasOpened = true;
+            }
+
+            _ = this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
+
+            if (!this.m_opened && wasOpened)
             {
                 if (ex.InnerException is SocketException sockex)
                 {
@@ -248,12 +250,14 @@ namespace SanteDB.OrmLite
             {
                 this.m_encryptionProvider = e.GetEncryptionProvider(); // encryption is provided
             }
+
+            return wasOpened;
         }
 
         /// <summary>
         /// Opens a cloned context
         /// </summary>
-        public DataContext OpenClonedContext()
+        public virtual DataContext OpenClonedContext()
         {
 
             var retVal = this.m_provider.CloneConnection(this);
@@ -266,7 +270,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Dispose this object
         /// </summary>
-        public void Dispose()
+        public virtual void Dispose()
         {
 
             if (this.m_lastCommand != null)
@@ -279,7 +283,10 @@ namespace SanteDB.OrmLite
                     }
                 }
                 catch { }
-                finally { this.m_lastCommand?.Dispose(); this.m_lastCommand = null; }
+                finally { 
+                    this.m_lastCommand?.Dispose(); 
+                    this.m_lastCommand = null;
+                }
             }
 
             if (this.m_connection != null && this.m_opened)
@@ -295,6 +302,8 @@ namespace SanteDB.OrmLite
             this.m_connection = null;
             this.m_dataDictionary?.Clear();
             this.m_dataDictionary = null;
+            this.Disposed?.Invoke(this, EventArgs.Empty);
+
 
         }
 
