@@ -139,6 +139,16 @@ namespace SanteDB.OrmLite.MappedResultSets
             }
         }
 
+        public override IOrderableQueryResultSet<TData> OrderBy<TKey>(Expression<Func<TData, TKey>> sortExpression)
+        {
+            throw new NotSupportedException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderBy)));
+        }
+
+        public override IOrderableQueryResultSet<TData> OrderByDescending<TKey>(Expression<Func<TData, TKey>> expression)
+        {
+            throw new NotSupportedException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderByDescending)));
+        }
+
         /// <inheritdoc/>
         /// <exception cref="InvalidOperationException">Stateful result sets are already stateful</exception>
         public override IQueryResultSet<TData> AsStateful(Guid stateId)
