@@ -770,9 +770,9 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Remove ordering
         /// </summary>
-        public IOrmResultSet WithoutOrdering()
+        public IOrmResultSet WithoutOrdering(out SqlStatement orderByStatement)
         {
-            var builder = this.Context.CreateSqlStatementBuilder(this.Statement).RemoveOrderBy(out var orderBy);
+            var builder = this.Context.CreateSqlStatementBuilder(this.Statement).RemoveOrderBy(out orderByStatement);
             return new OrmResultSet<TData>(this.Context, builder.Statement);
         }
 

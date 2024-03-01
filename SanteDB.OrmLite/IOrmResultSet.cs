@@ -136,7 +136,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Remove the odering instructions
         /// </summary>
-        IOrmResultSet WithoutOrdering();
+        IOrmResultSet WithoutOrdering(out SqlStatement orderByStatement);
 
         /// <summary>
         /// Remove the skip instructions

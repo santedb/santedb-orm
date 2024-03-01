@@ -289,7 +289,7 @@ namespace SanteDB.OrmLite
             {
                 if (pattern.IsMatch(focus.m_next.Sql))
                 {
-                    removed = focus.m_next;
+                    removed = new SqlStatement(focus.m_next.Sql, focus.m_next.Arguments);
                     focus.m_next = focus.m_next.m_next; // skip this node in copy tree
                     focus = focus.m_next;
                 }
