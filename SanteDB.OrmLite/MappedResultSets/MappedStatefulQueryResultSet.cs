@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,9 +16,8 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
-using SanteDB.Core.Data.Quality;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Query;
@@ -118,11 +117,11 @@ namespace SanteDB.OrmLite.MappedResultSets
 
             // Rewrite the ordering statement
             var orderingMatch = Constants.ExtractOrderByRegex.Match(ordering?.Sql ?? String.Empty);
-            if(orderingMatch.Success)
+            if (orderingMatch.Success)
             {
                 // Get the prefix and strip
                 var prefix = orderingMatch.Groups[4].Value?.Split('.');
-                if(prefix.Length == 2)
+                if (prefix.Length == 2)
                 {
                     ordering = new SqlStatement(ordering.Sql.Replace($"{prefix[0]}.", ""), ordering.Arguments);
                 }

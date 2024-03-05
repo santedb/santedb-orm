@@ -1,13 +1,29 @@
-﻿using DocumentFormat.OpenXml.Bibliography;
+﻿/*
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
+ * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
+ * the License.
+ * 
+ * User: fyfej
+ * Date: 2023-11-30
+ */
 using SanteDB.Core.i18n;
-using SanteDB.Core.Model.Roles;
 using SanteDB.OrmLite.Diagnostics;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Data;
-using System.Text;
 using System.Threading;
 
 namespace SanteDB.OrmLite
@@ -34,7 +50,7 @@ namespace SanteDB.OrmLite
             if (!s_Locks.TryGetValue(provider.GetDatabaseName(), out var lck))
             {
                 //We support recursion for the case of cloning a write context. Not safe but need to be fixed by the caller, not us.
-                lck = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion); 
+                lck = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
 
                 if (!s_Locks.TryAdd(provider.GetDatabaseName(), lck))
                 {
@@ -59,7 +75,7 @@ namespace SanteDB.OrmLite
         /// <remarks>This constructor will mark the data context as writable and lock the provider.</remarks>
         public ReaderWriterLockingDataContext(IDbProvider provider, IDbConnection connection) : base(provider, connection)
         {
-            
+
         }
 
         /// <summary>
@@ -70,7 +86,7 @@ namespace SanteDB.OrmLite
         /// <param name="isReadonly">True to mark the connection as read-only. Multiple read-only contexts can execute simultaneously. False to mark the connection writable. Only one writable context can execute simultaneously.</param>
         public ReaderWriterLockingDataContext(IDbProvider provider, IDbConnection connection, bool isReadonly) : base(provider, connection, isReadonly)
         {
-           
+
         }
 
         /// <summary>
@@ -82,7 +98,7 @@ namespace SanteDB.OrmLite
         /// <remarks>This constructor will mark the data context as writable and lock the provider.</remarks>
         public ReaderWriterLockingDataContext(IDbProvider provider, IDbConnection connection, IDbTransaction tx) : base(provider, connection, tx)
         {
-            
+
         }
         /// <inheritdoc />
         public override bool Open()
@@ -94,17 +110,17 @@ namespace SanteDB.OrmLite
             {
                 ormProbe?.Increment(OrmPerformanceMetric.AwaitingLock);
                 _Lock = GetLock(this.Provider);
-                if(this.IsReadonly)
+                if (this.IsReadonly)
                 {
                     if (!this._Lock.TryEnterReadLock(30000))
                     {
                         throw new InvalidOperationException(ErrorMessages.READ_LOCK_UNAVAILABLE);
                     }
                 }
-                else 
+                else
                 {
                     // Release our read lock and attempt to get a write lock
-                    if(this._Lock.IsReadLockHeld)
+                    if (this._Lock.IsReadLockHeld)
                     {
                         this._Lock.ExitReadLock();
                     }
@@ -157,9 +173,13 @@ namespace SanteDB.OrmLite
         private void EnsureLockRelease()
         {
             if (this.IsReadonly && _Lock?.IsReadLockHeld == true)
+            {
                 _Lock.ExitReadLock();
-            else if(!this.IsReadonly && _Lock?.IsWriteLockHeld == true)
+            }
+            else if (!this.IsReadonly && _Lock?.IsWriteLockHeld == true)
+            {
                 _Lock.ExitWriteLock();
+            }
         }
 
         ///<inheritdoc />

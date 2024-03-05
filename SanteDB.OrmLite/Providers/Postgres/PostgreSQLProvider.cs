@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,9 +16,8 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
-using DocumentFormat.OpenXml.Office.Word;
 using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
@@ -35,7 +34,6 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Tracing;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite.Providers.Postgres
@@ -562,7 +560,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
 
             // Is ALE even configured for this connection?
-            if(this.m_encryptionSettings == null && newOrmEncryptionSettings.AleEnabled == false)
+            if (this.m_encryptionSettings == null && newOrmEncryptionSettings.AleEnabled == false)
             {
                 return;
             }
@@ -610,7 +608,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                             cmd.Parameters.Add(parm);
                             cmd.ExecuteNonQuery();
                             this.m_encryptionSettings = newOrmEncryptionSettings;
-                            this.m_encryptionSettings.AleRecrypt(this, (a,b,c) => this.ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(a, b, c)));
+                            this.m_encryptionSettings.AleRecrypt(this, (a, b, c) => this.ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(a, b, c)));
                             this.m_encryptionProvider = new DefaultAesDataEncryptor(newOrmEncryptionSettings, aleSmk);
                         }
                     }
