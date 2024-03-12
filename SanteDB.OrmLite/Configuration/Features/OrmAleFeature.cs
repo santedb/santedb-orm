@@ -1,4 +1,23 @@
-﻿using DocumentFormat.OpenXml.Drawing.Diagrams;
+﻿/*
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
+ * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you 
+ * may not use this file except in compliance with the License. You may 
+ * obtain a copy of the License at 
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0 
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the 
+ * License for the specific language governing permissions and limitations under 
+ * the License.
+ * 
+ * User: fyfej
+ * Date: 2023-8-9
+ */
 using SanteDB.Core.Configuration;
 using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Configuration.Features;
@@ -6,12 +25,9 @@ using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Security;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Providers;
-using SanteDB.OrmLite.Providers.Postgres;
-using SharpCompress;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace SanteDB.OrmLite.Configuration.Features
 {
@@ -153,7 +169,7 @@ namespace SanteDB.OrmLite.Configuration.Features
                 // We want to execute the orm recrypt function
                 var ormConfigurations = configuration.Sections.OfType<OrmConfigurationBase>().Where(o => o.ReadWriteConnectionString == this.m_ormSection);
 
-                var currentlyEnabled = ormConfigurations.All(o=>o.AleConfiguration?.AleEnabled != true);
+                var currentlyEnabled = ormConfigurations.All(o => o.AleConfiguration?.AleEnabled != true);
                 var ormSection = configuration.GetSection<OrmConfigurationSection>();
                 var connectionString = configuration.GetSection<DataConfigurationSection>()?.ConnectionString.Find(o => o.Name.Equals(ormConfigurations.First().ReadWriteConnectionString, StringComparison.OrdinalIgnoreCase));
                 var providerType = ormSection?.Providers.Find(o => o.Invariant == connectionString.Provider).Type;

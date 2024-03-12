@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Map;
@@ -25,7 +25,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -86,42 +85,42 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement(String sql, params object[] arguments) : this(null, sql, arguments)
         {
-            
+
         }
 
         /// <summary>
         /// Create new SQL statement
         /// </summary>
-        public SqlStatement(String alias, String sql, params object[] arguments) 
+        public SqlStatement(String alias, String sql, params object[] arguments)
         {
             // OPTIMIZATION: We only want to iterate through the sql string once
             int argC = 0;
             bool hasComment = false, hasNewline = false;
-            for(var p = 0; p < sql.Length; p++)
+            for (var p = 0; p < sql.Length; p++)
             {
-                switch(sql[p])
+                switch (sql[p])
                 {
                     case '?': argC++; break;
                     case '\n':
                     case '\r':
                         hasNewline = true;
                         break;
-                    case '-': 
-                        hasComment |= p < sql.Length - 1 && sql[p + 1] == '-'; 
+                    case '-':
+                        hasComment |= p < sql.Length - 1 && sql[p + 1] == '-';
                         break;
                 }
             }
-            
+
             if (argC != arguments.Length)
             {
                 throw new ArgumentOutOfRangeException(String.Format(ErrorMessages.ARGUMENT_COUNT_MISMATCH, argC, arguments.Length));
             }
-            else if(hasComment)
+            else if (hasComment)
             {
                 // Strip out comments
                 this.m_sql = Constants.ExtractCommentsRegex.Replace(sql ?? "", (m) => m.Groups[1].Value).Replace("\r", " ").Replace("\n", " ");
             }
-            else if(hasNewline)
+            else if (hasNewline)
             {
                 this.m_sql = sql?.Replace("\r", "").Replace("\n", "");
             }
@@ -261,7 +260,10 @@ namespace SanteDB.OrmLite
         /// </summary>
         public SqlStatement Append(SqlStatement other)
         {
-            if (other == null) return this;
+            if (other == null)
+            {
+                return this;
+            }
 
             var retVal = new SqlStatement(this);
             var focus = retVal;
@@ -289,7 +291,7 @@ namespace SanteDB.OrmLite
             {
                 if (pattern.IsMatch(focus.m_next.Sql))
                 {
-                    removed = focus.m_next;
+                    removed = new SqlStatement(focus.m_next.Sql, focus.m_next.Arguments);
                     focus.m_next = focus.m_next.m_next; // skip this node in copy tree
                     focus = focus.m_next;
                 }

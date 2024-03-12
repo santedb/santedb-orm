@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using System;
 using System.Diagnostics.CodeAnalysis;
@@ -51,7 +51,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
             var match = Constants.ExtractFilterOperandRegex.Match(operand);
             String op = match.Groups[1].Value, value = match.Groups[2].Value;
-            if (String.IsNullOrEmpty(op)) op = "=";
+            if (String.IsNullOrEmpty(op))
+            {
+                op = "=";
+            }
 
             match = new Regex(@"^(\d*?)([yMdwhms])$").Match(value);
             if (match.Success)
@@ -91,7 +94,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 return current.Append($"ABS({filterColumn} - ?) {op} {timespan.Ticks}", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(parms[0], operandType));
             }
             else
+            {
                 throw new InvalidOperationException("Date difference needs to have whole number distance and single character unit or be a valid TimeSpan");
+            }
         }
     }
 

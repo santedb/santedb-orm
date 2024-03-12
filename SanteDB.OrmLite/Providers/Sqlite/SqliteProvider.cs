@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,9 +16,8 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
-using DocumentFormat.OpenXml.Wordprocessing;
 using SanteDB;
 using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
@@ -38,7 +37,6 @@ using System.Diagnostics.Tracing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -51,7 +49,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged, IDbBackupProvider
     {
 
-     
+
         /// <summary>
         /// Invariant name
         /// </summary>
@@ -413,7 +411,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns>The SQLite provider</returns>
         private DbProviderFactory GetProviderFactory()
         {
-            
+
             if (this.m_provider == null) // HACK for Mono - WHY IS THIS A HACK?
             {
                 var provType = ApplicationServiceContext.Current?.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type
@@ -609,7 +607,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public string GetDatabaseName()
         {
             var filePath = CorrectConnectionString(new ConnectionString(this.Invariant, this.ConnectionString)).GetComponent("Data Source");
-            if(Path.IsPathRooted(filePath))
+            if (Path.IsPathRooted(filePath))
             {
                 return Path.GetFileName(filePath);
             }

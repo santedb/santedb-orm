@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,11 +16,9 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
-using DocumentFormat.OpenXml.Vml;
 using SanteDB.Core.Diagnostics.Performance;
-using SanteDB.Core.i18n;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Providers;
 using SanteDB.OrmLite.Providers.Sqlite;
@@ -32,7 +30,6 @@ using System.Diagnostics.Tracing;
 using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Security;
 
 namespace SanteDB.OrmLite
 {
@@ -295,7 +292,7 @@ namespace SanteDB.OrmLite
                     if (!itm.IsSecret)
                     {
                         // Hack for SQLite - 
-                        if(itm.SourceProperty.PropertyType.StripNullable() == typeof(byte[]) && value is Guid gval)
+                        if (itm.SourceProperty.PropertyType.StripNullable() == typeof(byte[]) && value is Guid gval)
                         {
                             value = gval.ToByteArray();
                         }
@@ -1059,7 +1056,7 @@ namespace SanteDB.OrmLite
                     OrmAleMode aleMode = OrmAleMode.Off;
                     _ = this.m_encryptionProvider?.TryGetEncryptionMode(col.EncryptedColumnId, out aleMode) == true &&
                         this.m_encryptionProvider?.TryEncrypt(aleMode, val, out val) == true;
-                    
+
                     // Append value
                     values.Append("?", val);
 

@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,11 +16,10 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Providers;
-using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
@@ -145,7 +144,7 @@ namespace SanteDB.OrmLite
             {
                 return value;
             }
-            else if(this.m_statementFactory.Provider is IEncryptedDbProvider encProvider &&
+            else if (this.m_statementFactory.Provider is IEncryptedDbProvider encProvider &&
                 encProvider.GetEncryptionProvider()?.TryGetEncryptionMode(this.m_lastColumnMapping.EncryptedColumnId, out aleMode) == true)
             {
                 return encProvider.GetEncryptionProvider().CreateQueryValue(aleMode, value);
@@ -158,7 +157,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         protected override Expression VisitConstant(ConstantExpression node)
         {
-           
+
             this.m_sqlStatement.Append(" ? ", this.AleSafeValue(node.Value));
             return node;
         }

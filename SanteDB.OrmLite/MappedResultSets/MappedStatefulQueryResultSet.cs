@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
@@ -50,7 +50,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// Mapped stateful query result set
         /// </summary>
         /// <remarks>Any ordering is removed from <paramref name="resultSet"/> since it is expected the <paramref name="queryId"/> is sorted and restricted</remarks>
-        internal MappedStatefulQueryResultSet(MappedQueryResultSet<TData> copyFrom, IOrmResultSet resultSet, Guid queryId) : base(copyFrom, resultSet.WithoutOrdering().WithoutSkip(out _).WithoutTake(out _))
+        internal MappedStatefulQueryResultSet(MappedQueryResultSet<TData> copyFrom, IOrmResultSet resultSet, Guid queryId) : base(copyFrom, resultSet.WithoutSkip(out _).WithoutTake(out _))
         {
             this.m_queryId = queryId;
         }
@@ -99,7 +99,7 @@ namespace SanteDB.OrmLite.MappedResultSets
         protected override IOrmResultSet PrepareResultSet(IOrmResultSet resultSet)
         {
             // Fetch the keys according to the 
-            var retVal = resultSet.WithoutOrdering().WithoutSkip(out var offset).WithoutTake(out var limit);
+            var retVal = resultSet.WithoutOrdering(out var ordering).WithoutSkip(out var offset).WithoutTake(out var limit);
 
             // No limit query
             if (limit < 0)
@@ -110,34 +110,43 @@ namespace SanteDB.OrmLite.MappedResultSets
 
             // Fetch the result set
             var guids = this.Provider.QueryPersistence.GetQueryResults(this.m_queryId, offset, limit);
-
             retVal = retVal.HavingKeys(guids, this.StateKeyName);
+
+            // Reorder the 
             var currentVersionFilter = this.Provider.GetCurrentVersionFilter(retVal.Statement.Alias); // Multiple rows may have the same id
+
+            // Rewrite the ordering statement
+            var orderingMatch = Constants.ExtractOrderByRegex.Match(ordering?.Sql ?? String.Empty);
+            if (orderingMatch.Success)
+            {
+                // Get the prefix and strip
+                var prefix = orderingMatch.Groups[4].Value?.Split('.');
+                if (prefix.Length == 2)
+                {
+                    ordering = new SqlStatement(ordering.Sql.Replace($"{prefix[0]}.", ""), ordering.Arguments);
+                }
+            }
+
+            // Re-order the results as they appear in original list
             if (currentVersionFilter != null)
             {
-                return retVal.Clone(retVal.Statement.Append(" WHERE ").Append(currentVersionFilter));
+                return retVal.Clone(retVal.Statement.Append(" WHERE ").Append(currentVersionFilter).Append(ordering));
             }
             else
             {
-                return retVal;
+                return retVal.Clone(retVal.Statement.Append(ordering));
             }
         }
 
-
-        /// <inheritdoc/>
-        /// <exception cref="NotSupportedException">Ordering is not supported on stateful queries</exception>
         public override IOrderableQueryResultSet<TData> OrderBy<TKey>(Expression<Func<TData, TKey>> sortExpression)
         {
-            throw new NotSupportedException(ErrorMessages.NOT_SUPPORTED);
+            throw new NotSupportedException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderBy)));
         }
 
-        /// <inheritdoc/>
-        /// <exception cref="NotSupportedException">Ordering is not supported on stateful queries</exception>
-        public override IOrderableQueryResultSet<TData> OrderByDescending<TKey>(Expression<Func<TData, TKey>> sortExpression)
+        public override IOrderableQueryResultSet<TData> OrderByDescending<TKey>(Expression<Func<TData, TKey>> expression)
         {
-            throw new NotSupportedException(ErrorMessages.NOT_SUPPORTED);
+            throw new NotSupportedException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(OrderByDescending)));
         }
-
 
         /// <inheritdoc/>
         /// <exception cref="InvalidOperationException">Stateful result sets are already stateful</exception>

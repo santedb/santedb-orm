@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using SanteDB;
 using SanteDB.BI.Datamart;
@@ -348,7 +348,7 @@ namespace SanteDB.OrmLite
                             if (col.References?.Resolved is BiSchemaTableDefinition otherTable)
                             {
                                 var pkOther = this.GetPrimaryKey(otherTable);
-                                constraintList.AddLast(new SqlStatement($"CONSTRAINT FK_{table.Name}_{col.Name} FOREIGN KEY ({col.Name}) REFERENCES {otherTable.Name}({pkOther.Name})"));
+                                constraintList.AddLast(new SqlStatement($"CONSTRAINT FK_{table.Name}_{col.Name} FOREIGN KEY ({col.Name}) REFERENCES {otherTable.Name}({pkOther.Name}) {statementBuilder.DbProvider.Provider.StatementFactory.CreateSqlKeyword(SqlKeyword.DeferConstraints)}"));
                                 dependencies.Add(new OrmBiDatamartDependencyMetadata()
                                 {
                                     SchemaObjectName = table.Name,
@@ -828,7 +828,7 @@ namespace SanteDB.OrmLite
                 {
                     var pkColumn = this.GetPrimaryKey(expectedOutput);
                     var targetSchemaList = expectedOutput.Columns.ToDictionary(o => o.Name.ToLowerInvariant(), o => o.Type);
-                    if(!targetSchemaList.ContainsKey(pkColumn.Name.ToLowerInvariant())) // add the linking column
+                    if (!targetSchemaList.ContainsKey(pkColumn.Name.ToLowerInvariant())) // add the linking column
                     {
                         targetSchemaList.Add(pkColumn.Name.ToLowerInvariant(), pkColumn.Type);
                     }
