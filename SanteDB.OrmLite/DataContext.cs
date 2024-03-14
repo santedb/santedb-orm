@@ -219,30 +219,30 @@ namespace SanteDB.OrmLite
 
             _ = this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
 
-            if (!this.m_opened && wasOpened)
-            {
-                if (ex.InnerException is SocketException sockex)
-                {
-                    switch (sockex.SocketErrorCode)
-                    {
-                        case System.Net.Sockets.SocketError.ConnectionRefused:
-                        case System.Net.Sockets.SocketError.HostDown:
-                        case System.Net.Sockets.SocketError.HostNotFound:
-                        case System.Net.Sockets.SocketError.HostUnreachable:
-                            m_tracer.TraceError("DATABASE SERVER APPEARS TO BE DOWN. CHECK THE HOST AND SERVICE WHERE THE DATABASE IS LOCATED.");
-                            break;
-                        case System.Net.Sockets.SocketError.NetworkDown:
-                        case System.Net.Sockets.SocketError.NetworkUnreachable:
-                            m_tracer.TraceError("NETWORK APPEARS TO BE DOWN. CHECK YOUR NETWORK CONNECTION TO THE DATABASE SERVER.");
-                            break;
-                        case System.Net.Sockets.SocketError.TimedOut:
-                            m_tracer.TraceError("TIMEOUT ATTEMPTING TO CONNECT TO THE DATABASE SERVER. CHECK THE NETWORK CONNECTION AND THE DATABASE SERVER ARE ONLINE AND AVAILABLE.");
-                            break;
-                    }
-                }
+            //if (!this.m_opened && wasOpened)
+            //{
+            //    if (ex.InnerException is SocketException sockex)
+            //    {
+            //        switch (sockex.SocketErrorCode)
+            //        {
+            //            case System.Net.Sockets.SocketError.ConnectionRefused:
+            //            case System.Net.Sockets.SocketError.HostDown:
+            //            case System.Net.Sockets.SocketError.HostNotFound:
+            //            case System.Net.Sockets.SocketError.HostUnreachable:
+            //                m_tracer.TraceError("DATABASE SERVER APPEARS TO BE DOWN. CHECK THE HOST AND SERVICE WHERE THE DATABASE IS LOCATED.");
+            //                break;
+            //            case System.Net.Sockets.SocketError.NetworkDown:
+            //            case System.Net.Sockets.SocketError.NetworkUnreachable:
+            //                m_tracer.TraceError("NETWORK APPEARS TO BE DOWN. CHECK YOUR NETWORK CONNECTION TO THE DATABASE SERVER.");
+            //                break;
+            //            case System.Net.Sockets.SocketError.TimedOut:
+            //                m_tracer.TraceError("TIMEOUT ATTEMPTING TO CONNECT TO THE DATABASE SERVER. CHECK THE NETWORK CONNECTION AND THE DATABASE SERVER ARE ONLINE AND AVAILABLE.");
+            //                break;
+            //        }
+            //    }
 
-                throw;
-            }
+            //    throw;
+            //}
 
             // Attempt to get the encryptor
             if (this.m_provider is IEncryptedDbProvider e)
