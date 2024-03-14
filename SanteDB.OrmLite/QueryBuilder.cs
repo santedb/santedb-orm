@@ -62,7 +62,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Regex to extract property, guards and cast
         /// </summary>
-        public static readonly Regex ExtractionRegex = new Regex(@"^([\$\w]*?)(\[(.*?)\])?(\@(\w*))?(\.(.*))?$", RegexOptions.Compiled);
+        public static readonly Regex ExtractionRegex = new Regex(@"^([\$\w]*?)(\[([^\]]*?)\])?(\@(\w*))?(\.(.*))?$", RegexOptions.Compiled);
 
         private const int PropertyRegexGroup = 1;
         private const int GuardRegexGroup = 3;
@@ -104,7 +104,7 @@ namespace SanteDB.OrmLite
             {
                 Path = matches.Groups[PropertyRegexGroup].Value,
                 CastAs = matches.Groups[CastRegexGroup].Value,
-                Guard = matches.Groups[GuardRegexGroup].Value,
+                Guard = Uri.UnescapeDataString(matches.Groups[GuardRegexGroup].Value),
                 SubPath = matches.Groups[SubPropertyRegexGroup].Value
             };
         }
@@ -542,13 +542,19 @@ namespace SanteDB.OrmLite
                                 var subQuery = guardClause.Select(o => new KeyValuePair<String, String[]>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
 
                                 // TODO: GUARD CONDITION HERE!!!!
-                                if (!String.IsNullOrEmpty(guardClause.Key))
+                                // Does the guard clause indicate a complete sub-query?
+                                if(guardClause.Key.Contains("="))
+                                {
+                                    var nvc = guardClause.Key.ParseQueryString();
+                                    subQuery.AddRange(nvc.ToDictionary());
+                                }
+                                else if (!String.IsNullOrEmpty(guardClause.Key))
                                 {
                                     StringBuilder guardCondition = new StringBuilder();
                                     var clsModel = propertyType;
                                     while (clsModel.GetCustomAttribute<ClassifierAttribute>() != null)
                                     {
-                                        var clsProperty = clsModel.GetRuntimeProperty(clsModel.GetCustomAttribute<ClassifierAttribute>().ClassifierProperty);
+                                        var clsProperty = clsModel.GetClassifierProperty();// clsModel.GetRuntimeProperty(clsModel.GetCustomAttribute<ClassifierAttribute>().ClassifierProperty);
                                         clsModel = clsProperty.PropertyType.StripGeneric();
                                         var redirectProperty = clsProperty.GetCustomAttribute<SerializationReferenceAttribute>()?.RedirectProperty;
                                         if (redirectProperty != null)
@@ -588,7 +594,7 @@ namespace SanteDB.OrmLite
                                 {
                                     subQueryStatement.And($"NOT EXISTS (");
                                 }
-                                // Query Optimization - Sub-Path is specfified and the only object is a NOT value (other than classifier)
+                                // Query Optimization - Sub-Path is specified and the only object is a NOT value (other than classifier)
                                 else if (!String.IsNullOrEmpty(propertyPredicate.SubPath) &&
                                     subQuery.Count <= 2 &&
                                     subQuery.Count(p =>
