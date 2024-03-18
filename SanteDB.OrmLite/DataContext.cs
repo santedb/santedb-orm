@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,18 +16,18 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model.Map;
 using SanteDB.OrmLite.Diagnostics;
 using SanteDB.OrmLite.Providers;
-using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Net.Sockets;
 
 namespace SanteDB.OrmLite
 {
@@ -199,6 +199,7 @@ namespace SanteDB.OrmLite
         {
             var wasOpened = false;
             this.ThrowIfDisposed();
+
             if (this.m_connection.State == ConnectionState.Closed)
             {
                 this.m_connection.Open();
@@ -218,11 +219,30 @@ namespace SanteDB.OrmLite
 
             _ = this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
 
-            if (!this.m_opened && wasOpened)
-            {
-                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
-                this.m_opened = true;
-            }
+            //if (!this.m_opened && wasOpened)
+            //{
+            //    if (ex.InnerException is SocketException sockex)
+            //    {
+            //        switch (sockex.SocketErrorCode)
+            //        {
+            //            case System.Net.Sockets.SocketError.ConnectionRefused:
+            //            case System.Net.Sockets.SocketError.HostDown:
+            //            case System.Net.Sockets.SocketError.HostNotFound:
+            //            case System.Net.Sockets.SocketError.HostUnreachable:
+            //                m_tracer.TraceError("DATABASE SERVER APPEARS TO BE DOWN. CHECK THE HOST AND SERVICE WHERE THE DATABASE IS LOCATED.");
+            //                break;
+            //            case System.Net.Sockets.SocketError.NetworkDown:
+            //            case System.Net.Sockets.SocketError.NetworkUnreachable:
+            //                m_tracer.TraceError("NETWORK APPEARS TO BE DOWN. CHECK YOUR NETWORK CONNECTION TO THE DATABASE SERVER.");
+            //                break;
+            //            case System.Net.Sockets.SocketError.TimedOut:
+            //                m_tracer.TraceError("TIMEOUT ATTEMPTING TO CONNECT TO THE DATABASE SERVER. CHECK THE NETWORK CONNECTION AND THE DATABASE SERVER ARE ONLINE AND AVAILABLE.");
+            //                break;
+            //        }
+            //    }
+
+            //    throw;
+            //}
 
             // Attempt to get the encryptor
             if (this.m_provider is IEncryptedDbProvider e)
@@ -262,8 +282,9 @@ namespace SanteDB.OrmLite
                     }
                 }
                 catch { }
-                finally { 
-                    this.m_lastCommand?.Dispose(); 
+                finally
+                {
+                    this.m_lastCommand?.Dispose();
                     this.m_lastCommand = null;
                 }
             }

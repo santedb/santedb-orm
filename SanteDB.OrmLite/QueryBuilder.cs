@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model;
@@ -27,7 +27,6 @@ using SanteDB.Core.Model.Query;
 using SanteDB.OrmLite.Attributes;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Providers;
-using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -63,7 +62,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Regex to extract property, guards and cast
         /// </summary>
-        public static readonly Regex ExtractionRegex = new Regex(@"^([\$\w]*?)(\[(.*?)\])?(\@(\w*))?(\.(.*))?$", RegexOptions.Compiled);
+        public static readonly Regex ExtractionRegex = new Regex(@"^([\$\w]*?)(\[([^\]]*?)\])?(\@(\w*))?(\.(.*))?$", RegexOptions.Compiled);
 
         private const int PropertyRegexGroup = 1;
         private const int GuardRegexGroup = 3;
@@ -105,7 +104,7 @@ namespace SanteDB.OrmLite
             {
                 Path = matches.Groups[PropertyRegexGroup].Value,
                 CastAs = matches.Groups[CastRegexGroup].Value,
-                Guard = matches.Groups[GuardRegexGroup].Value,
+                Guard = Uri.UnescapeDataString(matches.Groups[GuardRegexGroup].Value),
                 SubPath = matches.Groups[SubPropertyRegexGroup].Value
             };
         }
@@ -543,13 +542,19 @@ namespace SanteDB.OrmLite
                                 var subQuery = guardClause.Select(o => new KeyValuePair<String, String[]>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
 
                                 // TODO: GUARD CONDITION HERE!!!!
-                                if (!String.IsNullOrEmpty(guardClause.Key))
+                                // Does the guard clause indicate a complete sub-query?
+                                if(guardClause.Key.Contains("="))
+                                {
+                                    var nvc = guardClause.Key.ParseQueryString();
+                                    subQuery.AddRange(nvc.ToDictionary());
+                                }
+                                else if (!String.IsNullOrEmpty(guardClause.Key))
                                 {
                                     StringBuilder guardCondition = new StringBuilder();
                                     var clsModel = propertyType;
                                     while (clsModel.GetCustomAttribute<ClassifierAttribute>() != null)
                                     {
-                                        var clsProperty = clsModel.GetRuntimeProperty(clsModel.GetCustomAttribute<ClassifierAttribute>().ClassifierProperty);
+                                        var clsProperty = clsModel.GetClassifierProperty();// clsModel.GetRuntimeProperty(clsModel.GetCustomAttribute<ClassifierAttribute>().ClassifierProperty);
                                         clsModel = clsProperty.PropertyType.StripGeneric();
                                         var redirectProperty = clsProperty.GetCustomAttribute<SerializationReferenceAttribute>()?.RedirectProperty;
                                         if (redirectProperty != null)
@@ -589,7 +594,7 @@ namespace SanteDB.OrmLite
                                 {
                                     subQueryStatement.And($"NOT EXISTS (");
                                 }
-                                // Query Optimization - Sub-Path is specfified and the only object is a NOT value (other than classifier)
+                                // Query Optimization - Sub-Path is specified and the only object is a NOT value (other than classifier)
                                 else if (!String.IsNullOrEmpty(propertyPredicate.SubPath) &&
                                     subQuery.Count <= 2 &&
                                     subQuery.Count(p =>
@@ -782,7 +787,7 @@ namespace SanteDB.OrmLite
             {
                 throw new ArgumentOutOfRangeException(propertyPath);
             }
-            
+
             PropertyInfo domainProperty = scopedTables.Select(o => { tableMapping = o; return m_mapper.MapModelProperty(tmodel, o.OrmType, propertyInfo); }).FirstOrDefault(o => o != null);
 
             // Now map the property path
@@ -845,7 +850,7 @@ namespace SanteDB.OrmLite
             {
                 var itm = values[i];
 
-                
+
                 if (noCase)
                 {
                     retVal.Append($"{this.m_factory.CreateSqlKeyword(SqlKeyword.Lower)}({tableAlias}.{columnMapping.Name})");
@@ -858,10 +863,10 @@ namespace SanteDB.OrmLite
                 var semantic = " OR ";
 
                 OrmAleMode aleMode = OrmAleMode.Off;
-                var isEncrypted = this.m_encryptionProvider?.TryGetEncryptionMode(columnMapping.EncryptedColumnId, out aleMode) == true && 
+                var isEncrypted = this.m_encryptionProvider?.TryGetEncryptionMode(columnMapping.EncryptedColumnId, out aleMode) == true &&
                     aleMode != OrmAleMode.Off;
                 object eValue = null;
-                if(isEncrypted)
+                if (isEncrypted)
                 {
                     eValue = this.m_encryptionProvider.CreateQueryValue(aleMode, itm);
                 }
@@ -871,7 +876,7 @@ namespace SanteDB.OrmLite
                     switch (sValue[0])
                     {
                         case ':': // function
-                            if(isEncrypted)
+                            if (isEncrypted)
                             {
                                 throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
                             }
@@ -888,7 +893,7 @@ namespace SanteDB.OrmLite
                                 while (parmExtract.Success)
                                 {
                                     var pv = parmExtract.Groups[1].Value;
-                                    if(pv.StartsWith("\"") && pv.EndsWith("\""))
+                                    if (pv.StartsWith("\"") && pv.EndsWith("\""))
                                     {
                                         pv = pv.Substring(1, pv.Length - 2);
                                     }
@@ -1050,8 +1055,8 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Create parameter value
         /// </summary>
-        public static object CreateParameterValue(object value, Type propertyType) 
-        { 
+        public static object CreateParameterValue(object value, Type propertyType)
+        {
             if (value is String str)
             {
                 if (str.Length > 1 && str.StartsWith("\"") && str.EndsWith(("\"")))

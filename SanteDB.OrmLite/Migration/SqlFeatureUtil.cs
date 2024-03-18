@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
@@ -30,11 +30,9 @@ using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Dynamic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite.Migration
@@ -116,7 +114,7 @@ namespace SanteDB.OrmLite.Migration
 
             // Some of the updates from V2 to V3 can take hours to complete - this timer allows us to report progress on the log
             int i = 0;
-            foreach (var itm in updates.Where(o=>o.EnvironmentType == null || o.EnvironmentType == ApplicationServiceContext.Current.HostType))
+            foreach (var itm in updates.Where(o => o.EnvironmentType == null || o.EnvironmentType.Contains(ApplicationServiceContext.Current.HostType)))
             {
                 try
                 {
@@ -276,7 +274,7 @@ namespace SanteDB.OrmLite.Migration
                 {
                     cmd.CommandText = preConditionSql;
                     cmd.CommandType = System.Data.CommandType.Text;
-                    if ((bool?)cmd.ExecuteScalar() != true ) // can't install
+                    if ((bool?)cmd.ExecuteScalar() != true) // can't install
                     {
                         if (migration.Required)
                         {

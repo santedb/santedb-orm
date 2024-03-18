@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using System.Text.RegularExpressions;
 
@@ -46,7 +46,7 @@ namespace SanteDB.OrmLite
         internal static readonly Regex ExtractFilterOperandRegex = new Regex(@"^([<>]?=?)(.*?)$", RegexOptions.Compiled);
         internal static readonly Regex ExtractOffsetRegex = new Regex(@"OFFSET (\d+)\s?(?:ROW)?", RegexOptions.Compiled);
         internal static readonly Regex ExtractLimitRegex = new Regex(@"(?:FETCH\sFIRST|LIMIT)\s(\d+)(?:\sROWS\sONLY)?", RegexOptions.Compiled);
-        internal static readonly Regex ExtractOrderByRegex = new Regex(@"^(.*?)(ORDER BY (?:.*? (?:ASC|DESC),?){0,})(.*)$", RegexOptions.Compiled);
+        internal static readonly Regex ExtractOrderByRegex = new Regex(@"^(.*?)(ORDER BY ((.*?) (ASC|DESC),?){0,})(.*)$", RegexOptions.Compiled);
         internal static readonly Regex ExtractCommentsRegex = new Regex(@"(.*?)--.*$", RegexOptions.Multiline | RegexOptions.Compiled);
     }
 }
