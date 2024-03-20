@@ -22,6 +22,7 @@ using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model.Map;
 using SanteDB.OrmLite.Diagnostics;
 using SanteDB.OrmLite.Providers;
+using SharpCompress;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -217,7 +218,7 @@ namespace SanteDB.OrmLite
                 wasOpened = true;
             }
 
-            _ = this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
+            this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().ForEach(o => o.Initialize(this.m_connection));
 
             //if (!this.m_opened && wasOpened)
             //{
