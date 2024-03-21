@@ -33,6 +33,15 @@ namespace SanteDB.OrmLite.Configuration
     /// </summary>
     public abstract class OrmConfigurationBase : IEncryptedConfigurationSection
     {
+
+        /// <summary>
+        /// ALE configuration initialization on the configuration base
+        /// </summary>
+        public OrmConfigurationBase()
+        {
+            this.AleConfiguration = new OrmAleConfiguration();
+        }
+
         // DB Provider
         private IDbProvider m_dbProvider;
 

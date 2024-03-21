@@ -768,12 +768,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             try
             {
                 // Grab a lock and prevent everyone from interacting with this database
-                this.m_lockoutEvent.Reset();
-
-                // Clear all poolsc
-                using (var writer = this.GetWriteConnection()) { }
-
+                this.ClearAllPools();
                 this.WalCheckpointInvoke();
+                this.m_lockoutEvent.Reset();
 
                 using (var rw = new ReaderWriterLockingDataContext(this, null))
                 {
@@ -821,11 +818,13 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
             try
             {
-                // Grab a lock and prevent everyone from interacting with this database
-                this.m_lockoutEvent.Reset();
 
                 // Clear all pools
+                this.ClearAllPools();
                 this.WalCheckpointInvoke();
+
+                // Grab a lock and prevent everyone from interacting with this database
+                this.m_lockoutEvent.Reset();
 
                 using (var rw = new ReaderWriterLockingDataContext(this, null))
                 {
