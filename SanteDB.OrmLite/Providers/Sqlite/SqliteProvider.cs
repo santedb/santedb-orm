@@ -18,6 +18,7 @@
  * User: fyfej
  * Date: 2023-6-21
  */
+using DocumentFormat.OpenXml.Bibliography;
 using SanteDB;
 using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
@@ -47,7 +48,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     /// <summary>
     /// SQL Lite provider
     /// </summary>
-    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged, IDbBackupProvider
+    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged, IDbBackupProvider, IDbMonitorProvider
     {
 
 
@@ -130,6 +131,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
             sqliteInitializeMethod.Invoke(null, new object[0]);
 
+            
         }
 
         /// <summary>
@@ -927,6 +929,20 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             this.WalCheckpointInvoke();
         }
 
+        /// <inheritdoc>
+        public void Optimize()
+        {
+            this.ClearAllPools();
+            using (var writer = this.GetWriteConnection())
+            {
+                writer.Open();
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
+                writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
+            }
+        }
+
         /// <summary>
         /// Invoke a WAL checkpoint
         /// </summary>
@@ -935,8 +951,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             using (var writer = this.GetWriteConnection())
             {
                 writer.Open();
-                writer.ExecuteNonQuery("VACUUM");
-                writer.ExecuteNonQuery("PRAGMA wal_checkpoint(full)");
+                writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
             }
             this.ClearAllPools();
         }
@@ -947,6 +962,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         private void ClearAllPools()
         {
             this.GetProviderFactory().CreateConnection().GetType().GetMethod("ClearAllPools").Invoke(null, new object[0]);
+        }
+
+        /// <summary>
+        /// Implement this later
+        /// </summary>
+        public IEnumerable<DbStatementReport> StatActivity()
+        {
+            yield break;
         }
     }
 }

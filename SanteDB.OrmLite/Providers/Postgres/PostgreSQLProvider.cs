@@ -620,5 +620,19 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 }
             }
         }
+
+        /// <summary>
+        /// Optimize the database
+        /// </summary>
+        public void Optimize()
+        {
+            using (var writer = this.GetWriteConnection())
+            {
+                writer.Open();
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
+            }
+        }
     }
 }

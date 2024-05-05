@@ -532,7 +532,6 @@ namespace SanteDB.OrmLite.MappedResultSets
             {
                 if (!this.m_keepContextOpen)
                 {
-
                     this.m_context.Close();
                 }
             }
@@ -557,8 +556,8 @@ namespace SanteDB.OrmLite.MappedResultSets
             {
                 if (!this.m_keepContextOpen)
                 {
-
-                    this.m_context.Close();
+  
+                  this.m_context.Close();
                 }
             }
         }

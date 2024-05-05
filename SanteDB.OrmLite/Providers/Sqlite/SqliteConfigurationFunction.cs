@@ -47,7 +47,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             throw new NotSupportedException("This function should not be called with a statement. It is called automatically during connection initialization.");
         }
 
-        bool IDbInitializedFilterFunction.Initialize(IDbConnection connection)
+        bool IDbInitializedFilterFunction.Initialize(IDbConnection connection, IDbTransaction transaction)
         {
             if (Interlocked.CompareExchange(ref s_CheckedCompatability, 1, 0) == 0)
             {
@@ -81,16 +81,21 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 if ("wal".Equals(connection.ExecuteScalar<string>("PRAGMA journal_mode=wal;"), StringComparison.OrdinalIgnoreCase))
                 {
-                    //connection.Execute("PRAGMA synchronous=NORMAL;");
+                    if (transaction == null)
+                    {
+                        connection.ExecuteScalar<Object>("PRAGMA synchronous=normal");
+                        connection.ExecuteScalar<Object>("PRAGMA locking_mode=normal");
+                    }
                 }
                 else
                 {
                     _Tracer.TraceWarning("Sqlite attempted to set journal_mode=wal but did not get this journal mode back from the provider.");
                 }
 
-
-
             }
+
+            connection.ExecuteScalar<object>("PRAGMA pragma_automatic_index=true");
+            connection.ExecuteScalar<Object>("PRAGMA temp_store = 2");
 
             return true;
         }

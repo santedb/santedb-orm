@@ -110,7 +110,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Initialize 
         /// </summary>
-        public bool Initialize(IDbConnection connection)
+        public bool Initialize(IDbConnection connection, IDbTransaction transaction)
         {
             if (!m_hasSpellFix.HasValue)
             {

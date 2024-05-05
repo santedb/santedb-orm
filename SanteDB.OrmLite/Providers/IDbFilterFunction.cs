@@ -64,6 +64,6 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         /// <param name="connection">The connection on which the DB filter function should be initialized</param>
         /// <returns>True if the initialization on the connection was successful</returns>
-        bool Initialize(IDbConnection connection);
+        bool Initialize(IDbConnection connection, IDbTransaction currentTransaction);
     }
 }
