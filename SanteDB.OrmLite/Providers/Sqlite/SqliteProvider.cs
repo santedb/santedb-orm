@@ -18,6 +18,7 @@
  * User: fyfej
  * Date: 2023-6-21
  */
+using DocumentFormat.OpenXml.Bibliography;
 using SanteDB;
 using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
@@ -29,6 +30,7 @@ using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Migration;
 using SanteDB.OrmLite.Providers.Encryptors;
+using SharpCompress;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -46,7 +48,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     /// <summary>
     /// SQL Lite provider
     /// </summary>
-    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged, IDbBackupProvider
+    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged, IDbBackupProvider, IDbMonitorProvider
     {
 
 
@@ -129,6 +131,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
             sqliteInitializeMethod.Invoke(null, new object[0]);
 
+            
         }
 
         /// <summary>
@@ -459,8 +462,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
             connectionString.SetComponent("Mode", "ReadWriteCreate");
             connectionString.SetComponent("Cache", "Private");
-            connectionString.SetComponent("Pooling", "True");
+            connectionString.SetComponent("Pooling", "False");
             conn.ConnectionString = connectionString.ToString();
+            
             return new ReaderWriterLockingDataContext(this, conn, false);
         }
 
@@ -766,27 +770,43 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             try
             {
                 // Grab a lock and prevent everyone from interacting with this database
+                this.ClearAllPools();
+                this.WalCheckpointInvoke();
                 this.m_lockoutEvent.Reset();
-                // Clear all pools
-                this.GetProviderFactory().CreateConnection().GetType().GetMethod("ClearAllPools").Invoke(null, new object[0]);
 
                 using (var rw = new ReaderWriterLockingDataContext(this, null))
                 {
                     rw.Lock();
 
                     var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
-                    using (var fs = File.OpenRead(cstr.GetComponent("Data Source")))
+                    // First bytes for the password or NIL for no password
+                    var pwd = Encoding.UTF8.GetBytes(cstr.GetComponent("password"));
+                    backupStream.WriteByte((byte)pwd.Length); // Pascal String
+                    backupStream.Write(pwd, 0, pwd.Length); // Pascal string contents
+
+                    var rootFileName = cstr.GetComponent("Data Source");
+                    var filesToBackup = Directory.GetFiles(Path.GetDirectoryName(rootFileName), Path.GetFileName(rootFileName) + "*");
+
+                    // Emit the backup stuff
+                    filesToBackup.ForEach(fileName =>
                     {
-
-                        // First bytes for the password or NIL for no password
-                        var pwd = Encoding.UTF8.GetBytes(cstr.GetComponent("password"));
-                        backupStream.WriteByte((byte)pwd.Length); // Pascal String
-                        backupStream.Write(pwd, 0, pwd.Length); // Pascal string contents
-
-                        // Next write the file contents
-                        fs.CopyTo(backupStream);
-                        return true;
-                    }
+                        try
+                        {
+                            var assetName = Encoding.UTF8.GetBytes(Path.GetFileName(fileName));
+                            using (var fs = File.OpenRead(fileName))
+                            {
+                                backupStream.WriteByte((byte)assetName.Length);
+                                backupStream.Write(assetName, 0, assetName.Length);
+                                backupStream.Write(BitConverter.GetBytes(fs.Length), 0, 8);
+                                fs.CopyTo(backupStream);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            this.m_tracer.TraceWarning("Could not backup {0} - {1}", fileName, e.ToHumanReadableString());
+                        }
+                    });
+                    return true;
                 } // lock is released
             }
             finally
@@ -800,8 +820,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
             try
             {
+
+                // Clear all pools
+                this.ClearAllPools();
+                this.WalCheckpointInvoke();
+
                 // Grab a lock and prevent everyone from interacting with this database
                 this.m_lockoutEvent.Reset();
+
                 using (var rw = new ReaderWriterLockingDataContext(this, null))
                 {
                     rw.Lock();
@@ -812,20 +838,52 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
                         var productionFile = cstr.GetComponent("Data Source");
                         var sourcePassword = String.Empty;
-                        using (var fs = File.OpenWrite(tempFile))
+                        // First bytes for the password or NIL for no password
+                        var pwdLen = restoreStream.ReadByte();
+                        var pwdBuf = new byte[pwdLen];
+                        restoreStream.Read(pwdBuf, 0, pwdLen);
+                        if (pwdLen > 0)
                         {
-                            // First bytes for the password or NIL for no password
-                            var pwdLen = restoreStream.ReadByte();
-                            var pwdBuf = new byte[pwdLen];
-                            restoreStream.Read(pwdBuf, 0, pwdLen);
-                            if (pwdLen > 0)
+                            sourcePassword = Encoding.UTF8.GetString(pwdBuf);
+                        }
+
+                        while (true)
+                        {
+                            var assetNameLength = restoreStream.ReadByte();
+                            if (assetNameLength == -1) break;
+
+                            var assetBuffer = new Byte[assetNameLength];
+                            restoreStream.Read(assetBuffer, 0, assetNameLength);
+                            var assetName = Encoding.UTF8.GetString(assetBuffer);
+                            assetBuffer = new byte[8];
+                            restoreStream.Read(assetBuffer, 0, 8);
+                            var assetSize = BitConverter.ToInt64(assetBuffer, 0);
+                            var bytesRead = 0;
+                            using (var fs = File.OpenWrite(tempFile))
                             {
-                                sourcePassword = Encoding.UTF8.GetString(pwdBuf);
+                                while (bytesRead < assetSize)
+                                {
+                                    assetBuffer = new byte[assetSize - bytesRead > 16_384 ? 16_384 : assetSize - bytesRead];
+                                    bytesRead += restoreStream.Read(assetBuffer, 0, assetBuffer.Length);
+                                    fs.Write(assetBuffer, 0, assetBuffer.Length);
+                                }
                             }
 
-                            restoreStream.CopyTo(fs);
-
+                            try
+                            {
+                                var destinationFile = Path.Combine(Path.GetDirectoryName(productionFile), Path.GetFileName(assetName));
+                                File.Copy(tempFile, destinationFile, true); // Move the file to replace the original
+                            }
+                            catch (Exception e)
+                            {
+                                this.m_tracer.TraceWarning("Cannot restore database file {0}", assetName);
+                            }
+                            finally
+                            {
+                                File.Delete(tempFile);
+                            }
                         }
+
 
                         // Does the database need to be re-keyed?
                         var myPassword = cstr.GetComponent("password");
@@ -848,11 +906,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                 }
                             }
                         }
-                        // Clear all pools
-                        this.GetProviderFactory().CreateConnection().GetType().GetMethod("ClearAllPools").Invoke(null, new object[0]);
-
-                        // Move the file
-                        File.Copy(tempFile, productionFile, true); // Move the file to replace the original
+                       
                         return true;
                     }
                     finally
@@ -865,6 +919,57 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 this.m_lockoutEvent.Set();
             }
+        }
+
+        /// <summary>
+        /// Dispose all waiting handles
+        /// </summary>
+        public void Dispose()
+        {
+            this.WalCheckpointInvoke();
+        }
+
+        /// <inheritdoc>
+        public void Optimize()
+        {
+            this.ClearAllPools();
+            using (var writer = this.GetWriteConnection())
+            {
+                writer.Open();
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
+                writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
+            }
+        }
+
+        /// <summary>
+        /// Invoke a WAL checkpoint
+        /// </summary>
+        private void WalCheckpointInvoke()
+        {
+            using (var writer = this.GetWriteConnection())
+            {
+                writer.Open();
+                writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
+            }
+            this.ClearAllPools();
+        }
+
+        /// <summary>
+        /// Clear all pools
+        /// </summary>
+        private void ClearAllPools()
+        {
+            this.GetProviderFactory().CreateConnection().GetType().GetMethod("ClearAllPools").Invoke(null, new object[0]);
+        }
+
+        /// <summary>
+        /// Implement this later
+        /// </summary>
+        public IEnumerable<DbStatementReport> StatActivity()
+        {
+            yield break;
         }
     }
 }

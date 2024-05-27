@@ -120,5 +120,10 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         DbType MapParameterType(Type type);
 
+        /// <summary>
+        /// Optimize the databases
+        /// </summary>
+        void Optimize();
+
     }
 }

@@ -106,7 +106,11 @@ namespace SanteDB.OrmLite
                 }
 
                 var retVal = cmd.ExecuteScalar();
-                if (retVal is TReturn tr)
+                if(retVal == DBNull.Value || retVal == null)
+                {
+                    return default(TReturn);
+                }
+                else if (retVal is TReturn tr)
                 {
                     return tr;
                 }

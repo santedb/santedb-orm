@@ -844,7 +844,6 @@ namespace SanteDB.OrmLite
             var retVal = new SqlStatementBuilder(this.m_factory);
 
             bool noCase = domainProperty.GetCustomAttribute<IgnoreCaseAttribute>() != null;
-            string parmValue = noCase ? $"{this.m_factory.CreateSqlKeyword(SqlKeyword.Lower)}(?)" : "?";
             retVal.Append("(");
             for (var i = 0; i < values.Count; i++)
             {
@@ -873,6 +872,7 @@ namespace SanteDB.OrmLite
 
                 if (itm is String sValue)
                 {
+                    sValue = noCase ? sValue.ToLowerInvariant() : sValue;
                     switch (sValue[0])
                     {
                         case ':': // function
@@ -913,7 +913,7 @@ namespace SanteDB.OrmLite
                             }
                             else
                             {
-                                retVal.Append($" = {parmValue} ", CreateParameterValue(sValue, domainProperty.PropertyType));
+                                retVal.Append($" = ? ", CreateParameterValue(sValue, domainProperty.PropertyType));
                             }
 
                             break;
@@ -927,11 +927,11 @@ namespace SanteDB.OrmLite
                             semantic = " AND ";
                             if (sValue[1] == '=')
                             {
-                                retVal.Append($" <= {parmValue}", CreateParameterValue(sValue.Substring(2), domainProperty.PropertyType));
+                                retVal.Append($" <= ?", CreateParameterValue(sValue.Substring(2), domainProperty.PropertyType));
                             }
                             else
                             {
-                                retVal.Append($" < {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                                retVal.Append($" < ?", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                             }
 
                             break;
@@ -966,18 +966,18 @@ namespace SanteDB.OrmLite
                                 }
 
                                 semantic = " OR ";
-                                retVal.Append($" BETWEEN {parmValue} AND {parmValue}", lower, upper);
+                                retVal.Append($" BETWEEN ? AND ?", lower, upper);
                             }
                             else
                             {
                                 semantic = " AND ";
                                 if (sValue[1] == '=')
                                 {
-                                    retVal.Append($" >= {parmValue}", CreateParameterValue(sValue.Substring(2), domainProperty.PropertyType));
+                                    retVal.Append($" >= ?", CreateParameterValue(sValue.Substring(2), domainProperty.PropertyType));
                                 }
                                 else
                                 {
-                                    retVal.Append($" > {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                                    retVal.Append($" > ?", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
                                 }
                             }
                             break;
@@ -990,7 +990,7 @@ namespace SanteDB.OrmLite
                             }
                             else
                             {
-                                retVal.Append($" <> {parmValue}", CreateParameterValue(isEncrypted ? eValue : sValue.Substring(1), domainProperty.PropertyType));
+                                retVal.Append($" <> ?", CreateParameterValue(isEncrypted ? eValue : sValue.Substring(1), domainProperty.PropertyType));
                             }
 
                             break;
@@ -1001,7 +1001,7 @@ namespace SanteDB.OrmLite
                                 throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
                             }
 
-                            retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                            retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} ? ", CreateParameterValue($"%{sValue.Substring(1)}%", domainProperty.PropertyType));
                             break;
 
                         case '^':
@@ -1010,7 +1010,7 @@ namespace SanteDB.OrmLite
                                 throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
                             }
 
-                            retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} {parmValue} || '%'", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                            retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} ? ", CreateParameterValue($"{sValue.Substring(1)}%", domainProperty.PropertyType));
                             break;
 
                         case '$':
@@ -1019,7 +1019,7 @@ namespace SanteDB.OrmLite
                                 throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
                             }
 
-                            retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} '%' || {parmValue}", CreateParameterValue(sValue.Substring(1), domainProperty.PropertyType));
+                            retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} ?", CreateParameterValue($"%{sValue.Substring(1)}", domainProperty.PropertyType));
                             break;
 
                         default:
@@ -1029,7 +1029,7 @@ namespace SanteDB.OrmLite
                             }
                             else
                             {
-                                retVal.Append($" = {parmValue} ", CreateParameterValue(isEncrypted ? eValue : sValue, domainProperty.PropertyType));
+                                retVal.Append($" = ? ", CreateParameterValue(isEncrypted ? eValue : sValue, domainProperty.PropertyType));
                             }
 
                             break;
@@ -1037,7 +1037,7 @@ namespace SanteDB.OrmLite
                 }
                 else
                 {
-                    retVal.Append($" = {parmValue} ", CreateParameterValue(itm, domainProperty.PropertyType));
+                    retVal.Append($" = ? ", CreateParameterValue(itm, domainProperty.PropertyType));
                 }
 
                 if (i < values.Count - 1)

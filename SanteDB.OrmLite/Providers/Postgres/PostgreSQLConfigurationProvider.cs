@@ -177,9 +177,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
                     String[] cmds =
                     {
-                        $"CREATE DATABASE {databaseName} WITH OWNER {databaseOwner};",
-                        $"REVOKE ALL ON DATABASE {databaseName} FROM public;",
-                        $"GRANT ALL ON DATABASE {databaseName} TO {databaseOwner};"
+                        $"CREATE DATABASE \"{databaseName}\" WITH OWNER \"{databaseOwner}\";",
+                        $"REVOKE ALL ON DATABASE \"{databaseName}\" FROM public;",
+                        $"GRANT ALL ON DATABASE \"{databaseName}\" TO \"{databaseOwner}\";"
                     };
 
                     foreach (var cmd in cmds)
@@ -220,7 +220,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     String[] cmds =
                     {
                         $"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{databaseName}';",
-                        $"DROP DATABASE {databaseName};"
+                        $"DROP DATABASE \"{databaseName}\";"
                     };
 
                     foreach (var cmd in cmds)

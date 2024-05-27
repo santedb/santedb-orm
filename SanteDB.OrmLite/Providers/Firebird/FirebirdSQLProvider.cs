@@ -543,5 +543,17 @@ namespace SanteDB.OrmLite.Providers.Firebird
             }
         }
 
+        /// <inheritdoc/>
+        public void Optimize()
+        {
+            using (var writer = this.GetWriteConnection())
+            {
+                writer.Open();
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
+            }
+        }
+
     }
 }

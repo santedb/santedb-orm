@@ -22,6 +22,7 @@ using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model.Map;
 using SanteDB.OrmLite.Diagnostics;
 using SanteDB.OrmLite.Providers;
+using SharpCompress;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -183,12 +184,14 @@ namespace SanteDB.OrmLite
                 this.m_transaction.Rollback();
                 this.m_transaction.Dispose();
             }
+           
+            this.m_connection.Close();
+
             if (this.m_opened)
             {
                 this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
                 this.m_opened = false;
             }
-            this.m_connection.Close();
         }
 
         /// <summary>
@@ -197,9 +200,8 @@ namespace SanteDB.OrmLite
         /// <returns>True if a new connection was opened (false if the connection was already open)</returns>
         public virtual bool Open()
         {
-            var wasOpened = false;
             this.ThrowIfDisposed();
-
+            var wasOpened = false;
             if (this.m_connection.State == ConnectionState.Closed)
             {
                 this.m_connection.Open();
@@ -217,7 +219,8 @@ namespace SanteDB.OrmLite
                 wasOpened = true;
             }
 
-            _ = this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
+
+            this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().ForEach(o => o.Initialize(this.m_connection, this.m_transaction));
 
             //if (!this.m_opened && wasOpened)
             //{
@@ -244,13 +247,19 @@ namespace SanteDB.OrmLite
             //    throw;
             //}
 
+            if(wasOpened)
+            {
+                this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
+                this.m_opened = true;
+            }
+
             // Attempt to get the encryptor
             if (this.m_provider is IEncryptedDbProvider e)
             {
                 this.m_encryptionProvider = e.GetEncryptionProvider(); // encryption is provided
             }
 
-            return wasOpened;
+            return this.m_opened;
         }
 
         /// <summary>
@@ -289,7 +298,7 @@ namespace SanteDB.OrmLite
                 }
             }
 
-            if (this.m_connection != null && this.m_opened)
+            if (this.m_opened)
             {
                 this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
                 this.m_opened = false;

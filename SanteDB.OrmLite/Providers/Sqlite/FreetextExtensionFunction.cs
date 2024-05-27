@@ -83,7 +83,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                 current.Append(" not ");
                                 break;
                             default:
-                                current.Append("(").Append("LOWER(term) LIKE '%?%'", QueryBuilder.CreateParameterValue(terms[0].ToLowerInvariant(), typeof(String)));
+                                current.Append("(").Append("LOWER(term) LIKE ?", QueryBuilder.CreateParameterValue($"%{terms[0].ToLowerInvariant()}%", typeof(String)));
                                 if (m_hasSpellFix.GetValueOrDefault())
                                 {
                                     current.Or("editdist3(LOWER(term), ?) < 2", QueryBuilder.CreateParameterValue(terms[0].ToLowerInvariant(), typeof(String)));
@@ -110,7 +110,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Initialize 
         /// </summary>
-        public bool Initialize(IDbConnection connection)
+        public bool Initialize(IDbConnection connection, IDbTransaction transaction)
         {
             if (!m_hasSpellFix.HasValue)
             {

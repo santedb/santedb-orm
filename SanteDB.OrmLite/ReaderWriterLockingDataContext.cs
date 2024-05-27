@@ -65,8 +65,6 @@ namespace SanteDB.OrmLite
             return lck;
         }
 
-        private ReaderWriterLockSlim _Lock;
-
         /// <summary>
         /// Creates a new data context.
         /// </summary>
@@ -109,10 +107,10 @@ namespace SanteDB.OrmLite
             try
             {
                 ormProbe?.Increment(OrmPerformanceMetric.AwaitingLock);
-                _Lock = GetLock(this.Provider);
+                var locker = GetLock(this.Provider);
                 if (this.IsReadonly)
                 {
-                    if (!this._Lock.TryEnterReadLock(30000))
+                    if (!locker.TryEnterReadLock(5000))
                     {
                         throw new InvalidOperationException(ErrorMessages.READ_LOCK_UNAVAILABLE);
                     }
@@ -120,35 +118,37 @@ namespace SanteDB.OrmLite
                 else
                 {
                     // Release our read lock and attempt to get a write lock
-                    if (this._Lock.IsReadLockHeld)
+                    while (locker.IsReadLockHeld)
                     {
-                        this._Lock.ExitReadLock();
+                        locker.ExitReadLock();
                     }
-                    if (!this._Lock.TryEnterWriteLock(5000))
+                    if (!locker.TryEnterWriteLock(5000))
                     {
                         throw new InvalidOperationException(ErrorMessages.WRITE_LOCK_UNAVAILABLE);
                     }
                 }
 
+
                 if (!base.Open())
                 {
-                    if (_Lock.IsReadLockHeld)
+                    if (locker.IsReadLockHeld)
                     {
-                        this._Lock.ExitReadLock();
+                        locker.ExitReadLock();
                     }
-                    if (_Lock.IsWriteLockHeld)
+                    if (locker.IsWriteLockHeld)
                     {
-                        this._Lock.ExitWriteLock();
+                        locker.ExitWriteLock();
                     }
                     return false;
                 }
+
+                
                 return true;
             }
             finally
             {
                 ormProbe?.Decrement(OrmPerformanceMetric.AwaitingLock);
             }
-
         }
 
         /// <summary>
@@ -156,8 +156,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         internal void Lock()
         {
-            this._Lock = GetLock(this.Provider);
-            this._Lock.EnterWriteLock(); // block here until we get a lock - this will prevent all other connection attempts
+            var locker = GetLock(this.Provider);
+            locker.EnterWriteLock(); // block here until we get a lock - this will prevent all other connection attempts
         }
 
         /// <inheritdoc/>
@@ -170,15 +170,20 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Ensure lock is released
         /// </summary>
-        private void EnsureLockRelease()
+        private void EnsureLockRelease(bool releaseAll = false)
         {
-            if (this.IsReadonly && _Lock?.IsReadLockHeld == true)
+            var locker = GetLock(this.Provider);
+            if (locker.IsReadLockHeld == true)
             {
-                _Lock.ExitReadLock();
+                locker.ExitReadLock();
             }
-            else if (!this.IsReadonly && _Lock?.IsWriteLockHeld == true)
+            if (locker.IsWriteLockHeld == true)
             {
-                _Lock.ExitWriteLock();
+                locker.ExitWriteLock();
+            }
+            if (releaseAll && (locker.IsReadLockHeld || locker.IsWriteLockHeld))
+            {
+                this.EnsureLockRelease(releaseAll);
             }
         }
 
@@ -191,7 +196,8 @@ namespace SanteDB.OrmLite
             }
             finally
             {
-                this.EnsureLockRelease();
+                
+                this.EnsureLockRelease(releaseAll: true);
             }
         }
 
