@@ -57,6 +57,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                 s_filterFunctions = new ConcurrentDictionary<string, IDbFilterFunction>(ApplicationServiceContext.Current.GetService<IServiceManager>()
                     .CreateInjectedOfAll<IDbFilterFunction>()
                     .Where(o => o.Provider == FirebirdSQLProvider.InvariantName)
+                    .OrderBy(o => (o is IDbInitializedFilterFunction idiff) ? idiff.Order : 0)
                     .ToDictionary(o => o.Name, o => o));
             }
             else

@@ -65,5 +65,10 @@ namespace SanteDB.OrmLite.Providers
         /// <param name="connection">The connection on which the DB filter function should be initialized</param>
         /// <returns>True if the initialization on the connection was successful</returns>
         bool Initialize(IDbConnection connection, IDbTransaction currentTransaction);
+
+        /// <summary>
+        /// Gets the order that this function should be initialized in when the connection is opened. The default is 0. Negative values are supported. This order does not affect the invocation order of <see cref="IDbFilterFunction.CreateSqlStatement(SqlStatementBuilder, string, string[], string, Type)"/>.
+        /// </summary>
+        int Order { get; }
     }
 }

@@ -37,6 +37,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
         readonly Tracer _Tracer = Tracer.GetTracer(typeof(SqliteConfigurationFunction));
 
+        /// <inheritdoc />
+        public int Order => -500;
 
         string IDbFilterFunction.Provider { get; } = SqliteProvider.InvariantName;
 
@@ -72,7 +74,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 {
                     _Tracer.TraceInfo("Sqlite version reported \"{0}\".", serverversion);
 
-                    s_CanuseWal = s_SqliteVersion >= new Version(3, 7, 0);
+                    Version walModeVersionMin = new Version(3, 7, 0);
+                    s_CanuseWal = s_SqliteVersion >= walModeVersionMin;
 
                 }
             }
@@ -94,6 +97,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
             }
 
+
+            connection.ExecuteScalar<object>("PRAGMA cipher = 'sqlcipher';");
             connection.ExecuteScalar<object>("PRAGMA pragma_automatic_index=true");
             connection.ExecuteScalar<Object>("PRAGMA temp_store = 2");
 

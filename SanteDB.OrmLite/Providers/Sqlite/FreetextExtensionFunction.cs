@@ -43,6 +43,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public string Name => SanteDB.Core.Model.Query.FilterExtension.FreetextQueryFilterExtension.FilterName;
 
+        /// <inheritdoc />
+        public int Order => -100;
+
         /// <summary>
         /// Create the SQL statement for the extension function
         /// </summary>
@@ -107,43 +110,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             }
         }
 
-        /// <summary>
-        /// Initialize 
-        /// </summary>
+        /// <inheritdoc />
         public bool Initialize(IDbConnection connection, IDbTransaction transaction)
         {
-            if (!m_hasSpellFix.HasValue)
-            {
-                try
-                {
-                    if (connection.ExecuteScalar<Int32>("SELECT sqlite_compileoption_used('SQLITE_ENABLE_LOAD_EXTENSION')") == 1)
-                    {
-                        try
-                        {
-                            try
-                            {
-                                m_hasSpellFix = connection.ExecuteScalar<Int32>("SELECT editdist3('test','test1');") > 0;
-                            }
-                            catch
-                            {
-                                connection.LoadExtension("spellfix");
-                                m_hasSpellFix = connection.ExecuteScalar<Int32>("SELECT editdist3('test','test1');") > 0;
-                            }
-                        }
-                        catch { m_hasSpellFix = false; }
-                    }
-                }
-                catch
-                {
-                    m_hasSpellFix = false;
-                }
-            }
-            else if (m_hasSpellFix.GetValueOrDefault())
-            {
-                connection.LoadExtension("spellfix");
-
-            }
-            return true;
+            return connection.CheckAndLoadSpellfix();
         }
     }
 }

@@ -220,7 +220,7 @@ namespace SanteDB.OrmLite
             }
 
 
-            this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().ForEach(o => o.Initialize(this.m_connection, this.m_transaction));
+            this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().ForEach(o => _ = o.Initialize(this.m_connection, this.m_transaction));
 
             //if (!this.m_opened && wasOpened)
             //{
