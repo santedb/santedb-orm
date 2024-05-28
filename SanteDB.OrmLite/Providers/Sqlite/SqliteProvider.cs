@@ -117,21 +117,75 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         static SqliteProvider()
         {
             // We use reflection because we don't compile SQLite as a hard dependency (like other providers)
+            if (!TryInitializeWithBatteries())
+            {
+                if (!TryInitializeDirectly())
+                {
+                    throw new InvalidOperationException(String.Format(ErrorMessages.METHOD_NOT_FOUND, "SetProvider"));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Try to initialize the sqlite provider directly using the well known package names for sqlite.
+        /// </summary>
+        /// <returns></returns>
+        private static bool TryInitializeDirectly()
+        {
+            //This solution should be replaced in the future with a more elegant initializer system which is
+            //capable of inspecting multiple providers and working for all .NET platforms.
+
+            var rawtype = Type.GetType("SQLitePCL.raw, SQLitePCLRaw.core");
+
+            if (null == rawtype)
+            {
+                return false;
+            }
+
+            var setprovidermethod = rawtype.GetMethod("SetProvider", BindingFlags.Static | BindingFlags.Public);
+
+            if (null == setprovidermethod)
+            {
+                return false;
+            }
+
+            var sqlite3mcprovidertype = Type.GetType("SQLitePCL.SQLite3Provider_e_sqlite3mc,SQLitePCLRaw.provider.e_sqlite3mc");
+
+            if (null == sqlite3mcprovidertype)
+            {
+                return false;
+            }
+
+            var provider = Activator.CreateInstance(sqlite3mcprovidertype);
+
+            setprovidermethod.Invoke(null, new[] { provider });
+
+            return true;
+        }
+
+        /// <summary>
+        /// Try to initialize the sqlite provider using a batteries initializer.
+        /// </summary>
+        /// <returns>True if initialize suceeded, false otherwise.</returns>
+        private static bool TryInitializeWithBatteries()
+        {
             var providerBatteries = Type.GetType("SQLitePCL.Batteries, SQLitePCLRaw.batteries_v2") ?? Type.GetType("SQLitePCL.Batteries, SQLitePCLRaw.batteries");
             if (providerBatteries == null)
             {
-                throw new InvalidOperationException(String.Format(ErrorMessages.TYPE_NOT_FOUND, "SQLitePCL.Batteries"));
+                return false;
+                //throw new InvalidOperationException(String.Format(ErrorMessages.TYPE_NOT_FOUND, "SQLitePCL.Batteries"));
             }
 
             var sqliteInitializeMethod = providerBatteries?.GetRuntimeMethod("Init", Type.EmptyTypes);
             if (sqliteInitializeMethod == null)
             {
-                throw new InvalidOperationException(String.Format(ErrorMessages.METHOD_NOT_FOUND, "SetProvider"));
+                return false;
+                //throw new InvalidOperationException(String.Format(ErrorMessages.METHOD_NOT_FOUND, "SetProvider"));
             }
 
             sqliteInitializeMethod.Invoke(null, new object[0]);
 
-            
+            return true;
         }
 
         /// <summary>
