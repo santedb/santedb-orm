@@ -558,8 +558,15 @@ namespace SanteDB.OrmLite
         /// <param name="newTableAlias">The new table alias</param>
         private string RebindColumnSelector(string columnSelector, string newTableAlias)
         {
-            var matchedColumns = Constants.ExtractColumnBindingRegex.Matches(columnSelector).OfType<Match>().Select(o => $"{newTableAlias}.{o.Groups[2].Value}").Distinct();
-            return String.Join(",", matchedColumns);
+            if (columnSelector.Trim().Equals("*"))
+            {
+                return "*";
+            }
+            else
+            {
+                var matchedColumns = Constants.ExtractColumnBindingRegex.Matches(columnSelector).OfType<Match>().Select(o => $"{newTableAlias}.{o.Groups[2].Value}").Distinct();
+                return String.Join(",", matchedColumns);
+            }
         }
 
         /// <summary>
