@@ -31,6 +31,7 @@ using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Migration;
 using SanteDB.OrmLite.Providers.Encryptors;
 using SharpCompress;
+using SQLitePCL;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -149,18 +150,37 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 return false;
             }
 
-            var sqlite3mcprovidertype = Type.GetType("SQLitePCL.SQLite3Provider_e_sqlite3mc,SQLitePCLRaw.provider.e_sqlite3mc");
 
-            if (null == sqlite3mcprovidertype)
+            var sqlite3mcprovidertype = Type.GetType("SQLitePCL.SQLite3Provider_e_sqlite3mc,SQLitePCLRaw.provider.e_sqlite3mc", throwOnError: false);
+
+            if (null != sqlite3mcprovidertype)
             {
-                return false;
+                var provider = Activator.CreateInstance(sqlite3mcprovidertype);
+
+                setprovidermethod.Invoke(null, new[] { provider });
+
+                return true;
             }
 
-            var provider = Activator.CreateInstance(sqlite3mcprovidertype);
 
-            setprovidermethod.Invoke(null, new[] { provider });
+            var cdeclprovidertype = Type.GetType("SQLitePCL.SQLite3Provider_dynamic_cdecl,SQLitePCLRaw.provider.dynamic_cdecl", throwOnError: false);
 
-            return true;
+            if (null != cdeclprovidertype)
+            {
+                var setupmethod = cdeclprovidertype.GetMethod("Setup", BindingFlags.Public | BindingFlags.Static, Type.DefaultBinder, new[] { typeof(string), typeof(IGetFunctionPointer) }, null);
+
+                var functionloader = new SqliteFunctionLoader();
+
+                setupmethod.Invoke(null, new object[] { "e_sqlite3mc", (IGetFunctionPointer)functionloader });
+
+                var provider = Activator.CreateInstance(cdeclprovidertype);
+
+                setprovidermethod.Invoke(null, new[] { provider });
+
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -518,7 +538,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             connectionString.SetComponent("Cache", "Private");
             connectionString.SetComponent("Pooling", "False");
             conn.ConnectionString = connectionString.ToString();
-            
+
             return new ReaderWriterLockingDataContext(this, conn, false);
         }
 
@@ -960,7 +980,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                 }
                             }
                         }
-                       
+
                         return true;
                     }
                     finally
