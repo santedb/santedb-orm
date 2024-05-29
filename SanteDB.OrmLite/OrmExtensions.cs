@@ -39,12 +39,14 @@ namespace SanteDB.OrmLite
         /// <param name="entryPoint">The entry point in the library to initialize the extension.</param>
         public static void LoadExtension(this IDbConnection me, string extensionName, string entryPoint = null)
         {
-            var loadExtensionMethod = me.GetType().GetMethod("LoadExtension", new Type[] { typeof(String), typeof(String) });
+            var loadextensionmethod = me.GetType().GetMethod("LoadExtension", new Type[] { typeof(string), typeof(string) });
 
-            if (loadExtensionMethod != null)
+            if (null == loadextensionmethod)
             {
-                loadExtensionMethod.Invoke(me, new object[] { extensionName, entryPoint });
+                throw new MissingMethodException(string.Format("Could not locate LoadExtension(string, string) on type '{0}'", me.GetType().FullName));
             }
+
+            loadextensionmethod.Invoke(me, new object[] { extensionName, entryPoint });
         }
 
         /// <summary>
@@ -108,7 +110,7 @@ namespace SanteDB.OrmLite
                 }
 
                 var retVal = cmd.ExecuteScalar();
-                if(retVal == DBNull.Value || retVal == null)
+                if (retVal == DBNull.Value || retVal == null)
                 {
                     return default(TReturn);
                 }

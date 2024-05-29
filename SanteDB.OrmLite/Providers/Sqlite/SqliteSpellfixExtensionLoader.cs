@@ -91,7 +91,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 {
                     try
                     {
-                        connection.LoadExtension("spellfix");
+                        connection.LoadExtension("e_sqlite3mc", "sqlite3_spellfix_init");
                     }
                     catch
                     {
