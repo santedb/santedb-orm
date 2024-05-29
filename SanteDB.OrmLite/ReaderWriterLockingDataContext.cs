@@ -35,6 +35,15 @@ namespace SanteDB.OrmLite
     {
 
         /// <summary>
+        /// READ lock timeout
+        /// </summary>
+        public const int READ_LOCK_TIMEOUT = 30000;
+        /// <summary>
+        /// Writer lock timeout
+        /// </summary>
+        public const int WRITE_LOCK_TIMEOUT = 30000;
+
+        /// <summary>
         /// The global lock object that is used to control access to the provider.
         /// </summary>
         private static readonly ConcurrentDictionary<String, ReaderWriterLockSlim> s_Locks = new ConcurrentDictionary<String, ReaderWriterLockSlim>();
@@ -110,7 +119,7 @@ namespace SanteDB.OrmLite
                 var locker = GetLock(this.Provider);
                 if (this.IsReadonly)
                 {
-                    if (!locker.TryEnterReadLock(5000))
+                    if (!locker.TryEnterReadLock(READ_LOCK_TIMEOUT))
                     {
                         throw new InvalidOperationException(ErrorMessages.READ_LOCK_UNAVAILABLE);
                     }
@@ -122,7 +131,7 @@ namespace SanteDB.OrmLite
                     {
                         locker.ExitReadLock();
                     }
-                    if (!locker.TryEnterWriteLock(5000))
+                    if (!locker.TryEnterWriteLock(WRITE_LOCK_TIMEOUT))
                     {
                         throw new InvalidOperationException(ErrorMessages.WRITE_LOCK_UNAVAILABLE);
                     }

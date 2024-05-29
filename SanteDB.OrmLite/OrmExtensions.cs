@@ -39,19 +39,11 @@ namespace SanteDB.OrmLite
         /// <param name="entryPoint">The entry point in the library to initialize the extension.</param>
         public static void LoadExtension(this IDbConnection me, string extensionName, string entryPoint = null)
         {
-            var types = entryPoint == null ? new Type[] { typeof(String) } : new Type[] { typeof(string), typeof(String) };
-            var loadExtensionMethod = me.GetType().GetMethod("LoadExtension", types);
+            var loadExtensionMethod = me.GetType().GetMethod("LoadExtension", new Type[] { typeof(String), typeof(String) });
 
             if (loadExtensionMethod != null)
             {
-                if (null != entryPoint)
-                {
-                    loadExtensionMethod.Invoke(me, new object[] { extensionName, entryPoint });
-                }
-                else
-                {
-                    loadExtensionMethod.Invoke(me, new object[] { extensionName });
-                }
+                loadExtensionMethod.Invoke(me, new object[] { extensionName, entryPoint });
             }
         }
 

@@ -25,6 +25,7 @@ using SanteDB.Core.Data.Backup;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Exceptions;
 using SanteDB.Core.i18n;
+using SanteDB.Core.Model.Roles;
 using SanteDB.OrmLite.Attributes;
 using SanteDB.OrmLite.Providers;
 using System;
@@ -110,27 +111,44 @@ namespace SanteDB.OrmLite.Migration
                 }
             }
 
-            var updates = GetFeatures(provider.Invariant).OfType<SqlFeature>().Where(o => o.Scope == scopeOfContext).OrderBy(o => o.Id).ToArray();
 
             // Some of the updates from V2 to V3 can take hours to complete - this timer allows us to report progress on the log
+            int i = 0;
+            using (var conn = provider.GetWriteConnection())
+            {
+                UpgradeSchema(conn, scopeOfContext, progressMonitor);
+            }
+
+            progressMonitor?.Invoke(nameof(UpgradeSchema), 1f, UserMessages.COMPLETE);
+        }
+
+        /// <summary>
+        /// Upgrade the context on the specified data context
+        /// </summary>
+        public static void UpgradeSchema(DataContext conn, string scopeOfContext) => UpgradeSchema(conn, scopeOfContext);
+
+        /// <summary>
+        /// Upgrade schema on the specified connection
+        /// </summary>
+        private static void UpgradeSchema(DataContext conn, string scopeOfContext, Action<string, float, string> progressMonitor = null)
+        {
+            var updates = GetFeatures(conn.Provider.Invariant).OfType<SqlFeature>().Where(o => o.Scope == scopeOfContext).OrderBy(o => o.Id).ToArray();
             int i = 0;
             foreach (var itm in updates.Where(o => o.EnvironmentType == null || o.EnvironmentType.Contains(ApplicationServiceContext.Current.HostType)))
             {
                 try
                 {
-                    using (var conn = provider.GetWriteConnection())
-                    {
-                        progressMonitor?.Invoke(nameof(UpgradeSchema), (((float)++i) / updates.Length), String.Format(UserMessages.UPDATE_DATABASE, itm.Description));
+                    conn.Open();
+                    progressMonitor?.Invoke(nameof(UpgradeSchema), (((float)++i) / updates.Length), String.Format(UserMessages.UPDATE_DATABASE, itm.Description));
 
-                        if (!conn.IsInstalled(itm))
-                        {
-                            m_traceSource.TraceInfo("Installing {0} ({1})...", itm.Id, itm.Description);
-                            conn.Install(itm);
-                        }
-                        else
-                        {
-                            m_traceSource.TraceInfo("Skipping {0}...", itm.Id);
-                        }
+                    if (!conn.IsInstalled(itm))
+                    {
+                        m_traceSource.TraceInfo("Installing {0} ({1})...", itm.Id, itm.Description);
+                        conn.Install(itm);
+                    }
+                    else
+                    {
+                        m_traceSource.TraceInfo("Skipping {0}...", itm.Id);
                     }
                 }
                 catch (Exception e)
@@ -138,10 +156,11 @@ namespace SanteDB.OrmLite.Migration
                     m_traceSource.TraceError("Could not install {0} - {1}", itm.Id, e);
                     throw new DataException($"Could not install {itm.Id}", e);
                 }
-
+                finally
+                {
+                    conn.Close();
+                }
             }
-
-            progressMonitor?.Invoke(nameof(UpgradeSchema), 1f, UserMessages.COMPLETE);
         }
 
         /// <summary>

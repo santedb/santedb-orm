@@ -96,7 +96,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     catch
                     {
                         s_Tracer?.TraceError("Failed to load spellfix library using default module name '{0}'.", "spellfix");
-                        throw;
+                        
                     }
                 }
 
