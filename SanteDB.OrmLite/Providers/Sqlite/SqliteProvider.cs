@@ -846,11 +846,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 // Grab a lock and prevent everyone from interacting with this database
                 this.ClearAllPools();
                 this.WalCheckpointInvoke();
-                this.m_lockoutEvent.Reset();
 
                 using (var rw = new ReaderWriterLockingDataContext(this, null))
                 {
                     rw.Lock();
+                    this.m_lockoutEvent.Reset();
 
                     var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
                     // First bytes for the password or NIL for no password
