@@ -43,6 +43,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public const int WRITE_LOCK_TIMEOUT = 30000;
 
+        private readonly string m_databaseName;
         /// <summary>
         /// The global lock object that is used to control access to the provider.
         /// </summary>
@@ -51,20 +52,20 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Gets a reference to the lock for a specific <paramref name="provider"/> or creates one if it does not exist.
         /// </summary>
-        /// <param name="provider">The provider to use as the key for checking the dictionary with.</param>
+        /// <param name="databaseName">The provider to use as the key for checking the dictionary with.</param>
         /// <returns>An instance of <see cref="ReaderWriterLockSlim"/> scoped to the <paramref name="provider"/>.</returns>
         /// <exception cref="InvalidOperationException">Thrown when <see cref="ConcurrentDictionary{TKey, TValue}.TryGetValue(TKey, out TValue)"/> and <see cref="ConcurrentDictionary{TKey, TValue}.TryAdd(TKey, TValue)"/> both return false indicating we cannot add to the dictionary but the key does not exist.</exception>
-        protected static ReaderWriterLockSlim GetLock(IDbProvider provider)
+        protected static ReaderWriterLockSlim GetLock(string databaseName)
         {
-            if (!s_Locks.TryGetValue(provider.GetDatabaseName(), out var lck))
+            if (!s_Locks.TryGetValue(databaseName, out var lck))
             {
                 //We support recursion for the case of cloning a write context. Not safe but need to be fixed by the caller, not us.
                 lck = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
 
-                if (!s_Locks.TryAdd(provider.GetDatabaseName(), lck))
+                if (!s_Locks.TryAdd(databaseName, lck))
                 {
                     lck.Dispose();
-                    if (!s_Locks.TryGetValue(provider.GetDatabaseName(), out lck))
+                    if (!s_Locks.TryGetValue(databaseName, out lck))
                     {
                         throw new InvalidOperationException("Failed to get lock after failing to add lock to dictionary. This usually indicates a serious thread synchronization problem.");
                     }
@@ -82,7 +83,7 @@ namespace SanteDB.OrmLite
         /// <remarks>This constructor will mark the data context as writable and lock the provider.</remarks>
         public ReaderWriterLockingDataContext(IDbProvider provider, IDbConnection connection) : base(provider, connection)
         {
-
+            this.m_databaseName = provider.GetDatabaseName();
         }
 
         /// <summary>
@@ -93,7 +94,7 @@ namespace SanteDB.OrmLite
         /// <param name="isReadonly">True to mark the connection as read-only. Multiple read-only contexts can execute simultaneously. False to mark the connection writable. Only one writable context can execute simultaneously.</param>
         public ReaderWriterLockingDataContext(IDbProvider provider, IDbConnection connection, bool isReadonly) : base(provider, connection, isReadonly)
         {
-
+            this.m_databaseName = provider.GetDatabaseName();
         }
 
         /// <summary>
@@ -105,8 +106,9 @@ namespace SanteDB.OrmLite
         /// <remarks>This constructor will mark the data context as writable and lock the provider.</remarks>
         public ReaderWriterLockingDataContext(IDbProvider provider, IDbConnection connection, IDbTransaction tx) : base(provider, connection, tx)
         {
-
+            this.m_databaseName = provider.GetDatabaseName();
         }
+
         /// <inheritdoc />
         public override bool Open()
         {
@@ -116,7 +118,7 @@ namespace SanteDB.OrmLite
             try
             {
                 ormProbe?.Increment(OrmPerformanceMetric.AwaitingLock);
-                var locker = GetLock(this.Provider);
+                var locker = GetLock(this.m_databaseName);
                 if (this.IsReadonly)
                 {
                     if (!locker.TryEnterReadLock(READ_LOCK_TIMEOUT))
@@ -165,7 +167,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         internal void Lock()
         {
-            var locker = GetLock(this.Provider);
+            var locker = GetLock(this.m_databaseName);
             locker.EnterWriteLock(); // block here until we get a lock - this will prevent all other connection attempts
         }
 
@@ -181,18 +183,16 @@ namespace SanteDB.OrmLite
         /// </summary>
         private void EnsureLockRelease(bool releaseAll = false)
         {
-            var locker = GetLock(this.Provider);
-            if (locker.IsReadLockHeld == true)
+            var locker = GetLock(this.m_databaseName);
+            while(locker.IsReadLockHeld)
             {
                 locker.ExitReadLock();
+                if (!releaseAll) break;
             }
-            if (locker.IsWriteLockHeld == true)
+            while(locker.IsWriteLockHeld)
             {
                 locker.ExitWriteLock();
-            }
-            if (releaseAll && (locker.IsReadLockHeld || locker.IsWriteLockHeld))
-            {
-                this.EnsureLockRelease(releaseAll);
+                if (!releaseAll) break;
             }
         }
 
