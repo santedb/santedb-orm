@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using SanteDB.Core;
 using SanteDB.Core.Configuration;
@@ -177,9 +177,9 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
                     String[] cmds =
                     {
-                        $"CREATE DATABASE {databaseName} WITH OWNER {databaseOwner};",
-                        $"REVOKE ALL ON DATABASE {databaseName} FROM public;",
-                        $"GRANT ALL ON DATABASE {databaseName} TO {databaseOwner};"
+                        $"CREATE DATABASE \"{databaseName}\" WITH OWNER \"{databaseOwner}\";",
+                        $"REVOKE ALL ON DATABASE \"{databaseName}\" FROM public;",
+                        $"GRANT ALL ON DATABASE \"{databaseName}\" TO \"{databaseOwner}\";"
                     };
 
                     foreach (var cmd in cmds)
@@ -220,7 +220,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     String[] cmds =
                     {
                         $"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{databaseName}';",
-                        $"DROP DATABASE {databaseName};"
+                        $"DROP DATABASE \"{databaseName}\";"
                     };
 
                     foreach (var cmd in cmds)

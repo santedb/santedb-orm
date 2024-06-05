@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Map;
@@ -36,13 +36,17 @@ namespace SanteDB.OrmLite
         /// </summary>
         /// <param name="me">The connection on which the extension should be loaded</param>
         /// <param name="extensionName">The name of the extensions</param>
-        public static void LoadExtension(this IDbConnection me, string extensionName)
+        /// <param name="entryPoint">The entry point in the library to initialize the extension.</param>
+        public static void LoadExtension(this IDbConnection me, string extensionName, string entryPoint = null)
         {
-            var loadExtensionMethod = me.GetType().GetMethod("LoadExtension");
-            if (loadExtensionMethod != null)
+            var loadextensionmethod = me.GetType().GetMethod("LoadExtension", new Type[] { typeof(string), typeof(string) });
+
+            if (null == loadextensionmethod)
             {
-                loadExtensionMethod.Invoke(me, new object[] { extensionName });
+                throw new MissingMethodException(string.Format("Could not locate LoadExtension(string, string) on type '{0}'", me.GetType().FullName));
             }
+
+            loadextensionmethod.Invoke(me, new object[] { extensionName, entryPoint });
         }
 
         /// <summary>
@@ -75,7 +79,7 @@ namespace SanteDB.OrmLite
                 }
 
                 var retVal = cmd.ExecuteNonQuery();
-                
+
             }
         }
 
@@ -106,7 +110,11 @@ namespace SanteDB.OrmLite
                 }
 
                 var retVal = cmd.ExecuteScalar();
-                if (retVal is TReturn tr)
+                if (retVal == DBNull.Value || retVal == null)
+                {
+                    return default(TReturn);
+                }
+                else if (retVal is TReturn tr)
                 {
                     return tr;
                 }

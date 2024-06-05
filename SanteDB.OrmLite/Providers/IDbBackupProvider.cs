@@ -16,36 +16,32 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-6-21
+ * Date: 2024-1-28
  */
-using System;
+using System.IO;
 
 namespace SanteDB.OrmLite.Providers
 {
     /// <summary>
-    /// A function which can translate codes to indexing 
+    /// Implementers claim to be a <see cref="IDbProvider"/> which can generate and restore the database contents 
+    /// to/from a data stream
     /// </summary>
-    public interface IDbIndexFunction
+    public interface IDbBackupProvider : IDbProvider
     {
+        /// <summary>
+        /// Backup the contents of the database this provider represents to <paramref name="backupStream"/>
+        /// </summary>
+        /// <param name="backupStream">The stream to write the backup to</param>
+        /// <returns>True if the stream was backed up</returns>
+        /// <remarks>Implementers should ensure that the no further connections are permitted to the database during the course of the backup operation</remarks>
+        bool BackupToStream(Stream backupStream);
 
         /// <summary>
-        /// Gets the name of the index
+        /// Restore the contents of the database from <paramref name="restoreStream"/> to the database this provider represents
         /// </summary>
-        String Name { get; }
-
-        /// <summary>
-        /// Gets the provider to which this index function applies
-        /// </summary>
-        String Provider { get; }
-
-        /// <summary>
-        /// Create the statement to define the index
-        /// </summary>
-        /// <param name="indexName">The index name</param>
-        /// <param name="column">The column to be indexed</param>
-        /// <param name="tableName">The table to be indexed</param>
-        SqlStatementBuilder CreateIndex(String indexName, String tableName, String column);
-
+        /// <param name="restoreStream">The stream which contains the backup information</param>
+        /// <returns>True if the stream was successfully processed</returns>
+        bool RestoreFromStream(Stream restoreStream);
 
     }
 }

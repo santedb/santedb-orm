@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,8 +16,9 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
+using DocumentFormat.OpenXml.Bibliography;
 using SanteDB;
 using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
@@ -29,6 +30,8 @@ using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Migration;
 using SanteDB.OrmLite.Providers.Encryptors;
+using SharpCompress;
+using SQLitePCL;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -37,16 +40,18 @@ using System.Diagnostics.Tracing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace SanteDB.OrmLite.Providers.Sqlite
 {
     /// <summary>
     /// SQL Lite provider
     /// </summary>
-    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged
+    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged, IDbBackupProvider, IDbMonitorProvider
     {
+
 
         /// <summary>
         /// Invariant name
@@ -65,6 +70,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         private static readonly Regex m_dateRegex = new Regex(@"(CURRENT_TIMESTAMP|CURRENT_DATE)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         // Provider
         private DbProviderFactory m_provider = null;
+
+        // Blocker for backup process
+        private readonly ManualResetEventSlim m_lockoutEvent = new ManualResetEventSlim(true);
 
         // Monitoring probe
         private IDiagnosticsProbe m_monitor;
@@ -110,20 +118,94 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         static SqliteProvider()
         {
             // We use reflection because we don't compile SQLite as a hard dependency (like other providers)
+            if (!TryInitializeWithBatteries())
+            {
+                if (!TryInitializeDirectly())
+                {
+                    throw new InvalidOperationException(String.Format(ErrorMessages.METHOD_NOT_FOUND, "SetProvider"));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Try to initialize the sqlite provider directly using the well known package names for sqlite.
+        /// </summary>
+        /// <returns></returns>
+        private static bool TryInitializeDirectly()
+        {
+            //This solution should be replaced in the future with a more elegant initializer system which is
+            //capable of inspecting multiple providers and working for all .NET platforms.
+
+            var rawtype = Type.GetType("SQLitePCL.raw, SQLitePCLRaw.core");
+
+            if (null == rawtype)
+            {
+                return false;
+            }
+
+            var setprovidermethod = rawtype.GetMethod("SetProvider", BindingFlags.Static | BindingFlags.Public);
+
+            if (null == setprovidermethod)
+            {
+                return false;
+            }
+
+
+            var sqlite3mcprovidertype = Type.GetType("SQLitePCL.SQLite3Provider_e_sqlite3mc,SQLitePCLRaw.provider.e_sqlite3mc", throwOnError: false);
+
+            if (null != sqlite3mcprovidertype)
+            {
+                var provider = Activator.CreateInstance(sqlite3mcprovidertype);
+
+                setprovidermethod.Invoke(null, new[] { provider });
+
+                return true;
+            }
+
+
+            var cdeclprovidertype = Type.GetType("SQLitePCL.SQLite3Provider_dynamic_cdecl,SQLitePCLRaw.provider.dynamic_cdecl", throwOnError: false);
+
+            if (null != cdeclprovidertype)
+            {
+                var setupmethod = cdeclprovidertype.GetMethod("Setup", BindingFlags.Public | BindingFlags.Static, Type.DefaultBinder, new[] { typeof(string), typeof(IGetFunctionPointer) }, null);
+
+                var functionloader = new SqliteFunctionLoader();
+
+                setupmethod.Invoke(null, new object[] { "e_sqlite3mc", (IGetFunctionPointer)functionloader });
+
+                var provider = Activator.CreateInstance(cdeclprovidertype);
+
+                setprovidermethod.Invoke(null, new[] { provider });
+
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Try to initialize the sqlite provider using a batteries initializer.
+        /// </summary>
+        /// <returns>True if initialize suceeded, false otherwise.</returns>
+        private static bool TryInitializeWithBatteries()
+        {
             var providerBatteries = Type.GetType("SQLitePCL.Batteries, SQLitePCLRaw.batteries_v2") ?? Type.GetType("SQLitePCL.Batteries, SQLitePCLRaw.batteries");
             if (providerBatteries == null)
             {
-                throw new InvalidOperationException(String.Format(ErrorMessages.TYPE_NOT_FOUND, "SQLitePCL.Batteries"));
+                return false;
+                //throw new InvalidOperationException(String.Format(ErrorMessages.TYPE_NOT_FOUND, "SQLitePCL.Batteries"));
             }
 
             var sqliteInitializeMethod = providerBatteries?.GetRuntimeMethod("Init", Type.EmptyTypes);
             if (sqliteInitializeMethod == null)
             {
-                throw new InvalidOperationException(String.Format(ErrorMessages.METHOD_NOT_FOUND, "SetProvider"));
+                return false;
+                //throw new InvalidOperationException(String.Format(ErrorMessages.METHOD_NOT_FOUND, "SetProvider"));
             }
 
             sqliteInitializeMethod.Invoke(null, new object[0]);
 
+            return true;
         }
 
         /// <summary>
@@ -131,7 +213,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public SqliteProvider()
         {
-            this.m_monitor = Diagnostics.OrmClientProbe.CreateProbe(this);
             this.StatementFactory = new SqliteStatementFactory(this);
 
         }
@@ -407,6 +488,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns>The SQLite provider</returns>
         private DbProviderFactory GetProviderFactory()
         {
+
             if (this.m_provider == null) // HACK for Mono - WHY IS THIS A HACK?
             {
                 var provType = ApplicationServiceContext.Current?.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>().AdoProvider.Find(o => o.Invariant.Equals(this.Invariant, StringComparison.OrdinalIgnoreCase))?.Type
@@ -432,10 +514,13 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public virtual DataContext GetReadonlyConnection()
         {
+            // If a backup is in progress do not call
+            this.m_lockoutEvent.Wait();
             var conn = this.GetProviderFactory().CreateConnection();
             var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
             connectionString.SetComponent("Mode", "ReadOnly");
-            connectionString.SetComponent("Cache", "Shared");
+            connectionString.SetComponent("Cache", "Private");
+            connectionString.SetComponent("Pooling", "True");
             conn.ConnectionString = connectionString.ToString();
             return new ReaderWriterLockingDataContext(this, conn, true);
         }
@@ -446,14 +531,16 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns></returns>
         public virtual DataContext GetWriteConnection()
         {
+            this.m_lockoutEvent.Wait();
             var conn = this.GetProviderFactory().CreateConnection();
             var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
             connectionString.SetComponent("Mode", "ReadWriteCreate");
             connectionString.SetComponent("Cache", "Private");
+            connectionString.SetComponent("Pooling", "False");
             conn.ConnectionString = connectionString.ToString();
+
             return new ReaderWriterLockingDataContext(this, conn, false);
         }
-
 
         ///// <summary>
         ///// Lock the specified connection
@@ -597,7 +684,15 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns></returns>
         public string GetDatabaseName()
         {
-            return new ConnectionString(this.Invariant, this.ConnectionString).GetComponent("Data Source");
+            var filePath = CorrectConnectionString(new ConnectionString(this.Invariant, this.ConnectionString)).GetComponent("Data Source");
+            if (Path.IsPathRooted(filePath))
+            {
+                return Path.GetFileName(filePath);
+            }
+            else
+            {
+                return filePath;
+            }
         }
 
 
@@ -742,5 +837,214 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 }
             }
         }
+
+        /// <inheritdoc/>
+        public bool BackupToStream(Stream backupStream)
+        {
+            try
+            {
+                // Grab a lock and prevent everyone from interacting with this database
+                this.ClearAllPools();
+                this.WalCheckpointInvoke();
+
+                using (var rw = new ReaderWriterLockingDataContext(this, null))
+                {
+                    rw.Lock();
+                    this.m_lockoutEvent.Reset();
+
+                    var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
+                    // First bytes for the password or NIL for no password
+                    var pwd = Encoding.UTF8.GetBytes(cstr.GetComponent("password"));
+                    backupStream.WriteByte((byte)pwd.Length); // Pascal String
+                    backupStream.Write(pwd, 0, pwd.Length); // Pascal string contents
+
+                    var rootFileName = cstr.GetComponent("Data Source");
+                    var filesToBackup = Directory.GetFiles(Path.GetDirectoryName(rootFileName), Path.GetFileName(rootFileName) + "*");
+
+                    // Emit the backup stuff
+                    filesToBackup.ForEach(fileName =>
+                    {
+                        try
+                        {
+                            var assetName = Encoding.UTF8.GetBytes(Path.GetFileName(fileName));
+                            using (var fs = File.OpenRead(fileName))
+                            {
+                                backupStream.WriteByte((byte)assetName.Length);
+                                backupStream.Write(assetName, 0, assetName.Length);
+                                backupStream.Write(BitConverter.GetBytes(fs.Length), 0, 8);
+                                fs.CopyTo(backupStream);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            this.m_tracer.TraceWarning("Could not backup {0} - {1}", fileName, e.ToHumanReadableString());
+                        }
+                    });
+                    return true;
+                } // lock is released
+            }
+            finally
+            {
+                this.m_lockoutEvent.Set();
+            }
+        }
+
+        /// <inheritdoc/>
+        public bool RestoreFromStream(Stream restoreStream)
+        {
+            try
+            {
+
+                // Clear all pools
+                this.ClearAllPools();
+                this.WalCheckpointInvoke();
+
+                // Grab a lock and prevent everyone from interacting with this database
+                this.m_lockoutEvent.Reset();
+
+                using (var rw = new ReaderWriterLockingDataContext(this, null))
+                {
+                    rw.Lock();
+
+                    var tempFile = Path.GetTempFileName();
+                    try
+                    {
+                        var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
+                        var productionFile = cstr.GetComponent("Data Source");
+                        var sourcePassword = String.Empty;
+                        // First bytes for the password or NIL for no password
+                        var pwdLen = restoreStream.ReadByte();
+                        var pwdBuf = new byte[pwdLen];
+                        restoreStream.Read(pwdBuf, 0, pwdLen);
+                        if (pwdLen > 0)
+                        {
+                            sourcePassword = Encoding.UTF8.GetString(pwdBuf);
+                        }
+
+                        while (true)
+                        {
+                            var assetNameLength = restoreStream.ReadByte();
+                            if (assetNameLength == -1) break;
+
+                            var assetBuffer = new Byte[assetNameLength];
+                            restoreStream.Read(assetBuffer, 0, assetNameLength);
+                            var assetName = Encoding.UTF8.GetString(assetBuffer);
+                            assetBuffer = new byte[8];
+                            restoreStream.Read(assetBuffer, 0, 8);
+                            var assetSize = BitConverter.ToInt64(assetBuffer, 0);
+                            var bytesRead = 0;
+                            using (var fs = File.OpenWrite(tempFile))
+                            {
+                                while (bytesRead < assetSize)
+                                {
+                                    assetBuffer = new byte[assetSize - bytesRead > 16_384 ? 16_384 : assetSize - bytesRead];
+                                    bytesRead += restoreStream.Read(assetBuffer, 0, assetBuffer.Length);
+                                    fs.Write(assetBuffer, 0, assetBuffer.Length);
+                                }
+                            }
+
+                            try
+                            {
+                                var destinationFile = Path.Combine(Path.GetDirectoryName(productionFile), Path.GetFileName(assetName));
+                                File.Copy(tempFile, destinationFile, true); // Move the file to replace the original
+                            }
+                            catch (Exception e)
+                            {
+                                this.m_tracer.TraceWarning("Cannot restore database file {0}", assetName);
+                            }
+                            finally
+                            {
+                                File.Delete(tempFile);
+                            }
+                        }
+
+
+                        // Does the database need to be re-keyed?
+                        var myPassword = cstr.GetComponent("password");
+                        if (!String.IsNullOrEmpty(sourcePassword) && !sourcePassword.Equals(myPassword))
+                        {
+                            using (var conn = this.GetProviderFactory().CreateConnection())
+                            {
+                                conn.ConnectionString = $"Data Source={tempFile}; Password={sourcePassword}";
+                                conn.Open();
+                                using (var c = conn.CreateCommand())
+                                {
+                                    c.CommandText = "SELECT quote($password)";
+                                    var passwordParm = c.CreateParameter();
+                                    passwordParm.ParameterName = "$password";
+                                    passwordParm.Value = myPassword;
+                                    c.Parameters.Add(passwordParm);
+                                    c.CommandText = $"PRAGMA cipher = 'sqlcipher'; PRAGMA rekey = {c.ExecuteScalar()}";
+                                    c.Parameters.Clear();
+                                    c.ExecuteNonQuery();
+                                }
+                            }
+                        }
+
+                        return true;
+                    }
+                    finally
+                    {
+                        File.Delete(tempFile);
+                    }
+                }
+            }
+            finally
+            {
+                this.m_lockoutEvent.Set();
+            }
+        }
+
+        /// <summary>
+        /// Dispose all waiting handles
+        /// </summary>
+        public void Dispose()
+        {
+            this.WalCheckpointInvoke();
+        }
+
+        /// <inheritdoc>
+        public void Optimize()
+        {
+            this.ClearAllPools();
+            using (var writer = this.GetWriteConnection())
+            {
+                writer.Open();
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
+                writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
+            }
+        }
+
+        /// <summary>
+        /// Invoke a WAL checkpoint
+        /// </summary>
+        private void WalCheckpointInvoke()
+        {
+            using (var writer = this.GetWriteConnection())
+            {
+                writer.Open();
+                writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
+            }
+            this.ClearAllPools();
+        }
+
+        /// <summary>
+        /// Clear all pools
+        /// </summary>
+        private void ClearAllPools()
+        {
+            this.GetProviderFactory().CreateConnection().GetType().GetMethod("ClearAllPools").Invoke(null, new object[0]);
+        }
+
+        /// <summary>
+        /// Implement this later
+        /// </summary>
+        public IEnumerable<DbStatementReport> StatActivity()
+        {
+            yield break;
+        }
+
     }
 }

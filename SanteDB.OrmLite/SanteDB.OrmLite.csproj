@@ -47,15 +47,20 @@
     <DebugType>portable</DebugType>
   </PropertyGroup>
   <Choose>
-    <When Condition="$(SolutionName.Contains('-ext'))">
+    <When Condition="$(SolutionName.Contains('-nuget'))">
       <ItemGroup>
-        <ProjectReference Include="..\..\santedb-model\SanteDB.Core.Model\SanteDB.Core.Model.csproj">
-        </ProjectReference>
+        <PackageReference Include="SanteDB.Core.Model" Version="$(VersionNumber)" />
+        <PackageReference Include="SanteDB.Core.Api" Version="$(VersionNumber)" />
+        <PackageReference Include="SanteDB.BI" Version="$(VersionNumber)" />
+        <PackageReference Include="SanteDB.Core.i18n" Version="$(VersionNumber)" />
       </ItemGroup>
     </When>
     <Otherwise>
       <ItemGroup>
-        <PackageReference Include="SanteDB.Core.Model" Version="$(VersionNumber)" />
+        <ProjectReference Include="..\..\santedb-model\SanteDB.Core.Model\SanteDB.Core.Model.csproj" />
+        <ProjectReference Include="..\..\santedb-api\SanteDB.Core.Api\SanteDB.Core.Api.csproj" />
+        <ProjectReference Include="..\..\santedb-bis\SanteDB.BI\SanteDB.BI.csproj" />
+        <ProjectReference Include="..\..\santedb-i18n\SanteDB.Core.i18n\SanteDB.Core.i18n.csproj" />
       </ItemGroup>
     </Otherwise>
   </Choose>
@@ -67,6 +72,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="SQLitePCLRaw.core" Version="2.1.8" />
     <PackageReference Include="System.Data.Common" Version="4.3.0" />
     <PackageReference Include="System.Threading.Tasks" Version="4.3.0" />
    
@@ -122,25 +128,6 @@
     </None>
     <None Include="app.config" />
   </ItemGroup>
-  <Choose>
-    <When Condition="$(SolutionName.Contains('-ext'))">
-      <ItemGroup>
-        <ProjectReference Include="..\..\santedb-api\SanteDB.Core.Api\SanteDB.Core.Api.csproj">
-        </ProjectReference>
-        <ProjectReference Include="..\..\santedb-bis\SanteDB.BI\SanteDB.BI.csproj">
-        </ProjectReference>
-        <ProjectReference Include="..\..\santedb-i18n\SanteDB.Core.i18n\SanteDB.Core.i18n.csproj" />
-        
-      </ItemGroup>
-    </When>
-    <Otherwise>
-      <ItemGroup>
-        <PackageReference Include="SanteDB.Core.Api" Version="$(VersionNumber)" />
-        <PackageReference Include="SanteDB.BI" Version="$(VersionNumber)" />
-        <PackageReference Include="SanteDB.Core.i18n" Version="$(VersionNumber)" />
-      </ItemGroup>
-    </Otherwise>
-  </Choose>
   <ItemGroup>
     <Folder Include="Properties\" />
   </ItemGroup>

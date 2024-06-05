@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,18 +16,19 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Model.Map;
 using SanteDB.OrmLite.Diagnostics;
 using SanteDB.OrmLite.Providers;
-using SanteDB.OrmLite.Providers.Postgres;
+using SharpCompress;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Net.Sockets;
 
 namespace SanteDB.OrmLite
 {
@@ -56,11 +57,16 @@ namespace SanteDB.OrmLite
         private IDbEncryptor m_encryptionProvider;
 
         /// <summary>
+        /// Fired when the connection is disposed
+        /// </summary>
+        public event EventHandler Disposed;
+
+        /// <summary>
         /// Increment the value
         /// </summary>
         private void IncrementProbe(OrmPerformanceMetric metric)
         {
-            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            if (this.m_provider.MonitorProbe is OrmClientProbe ocp)
             {
                 ocp.Increment(metric);
             }
@@ -71,7 +77,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         private void DecrementProbe(OrmPerformanceMetric metric)
         {
-            if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
+            if (this.m_provider.MonitorProbe is OrmClientProbe ocp)
             {
                 ocp.Decrement(metric);
             }
@@ -178,12 +184,14 @@ namespace SanteDB.OrmLite
                 this.m_transaction.Rollback();
                 this.m_transaction.Dispose();
             }
+           
+            this.m_connection.Close();
+
             if (this.m_opened)
             {
                 this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
                 this.m_opened = false;
             }
-            this.m_connection.Close();
         }
 
         /// <summary>
@@ -192,8 +200,8 @@ namespace SanteDB.OrmLite
         /// <returns>True if a new connection was opened (false if the connection was already open)</returns>
         public virtual bool Open()
         {
-            var wasOpened = false;
             this.ThrowIfDisposed();
+            var wasOpened = false;
             if (this.m_connection.State == ConnectionState.Closed)
             {
                 this.m_connection.Open();
@@ -211,9 +219,35 @@ namespace SanteDB.OrmLite
                 wasOpened = true;
             }
 
-            _ = this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().All(o => o.Initialize(this.m_connection));
 
-            if (!this.m_opened && wasOpened)
+            this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().ForEach(o => _ = o.Initialize(this.m_connection, this.m_transaction));
+
+            //if (!this.m_opened && wasOpened)
+            //{
+            //    if (ex.InnerException is SocketException sockex)
+            //    {
+            //        switch (sockex.SocketErrorCode)
+            //        {
+            //            case System.Net.Sockets.SocketError.ConnectionRefused:
+            //            case System.Net.Sockets.SocketError.HostDown:
+            //            case System.Net.Sockets.SocketError.HostNotFound:
+            //            case System.Net.Sockets.SocketError.HostUnreachable:
+            //                m_tracer.TraceError("DATABASE SERVER APPEARS TO BE DOWN. CHECK THE HOST AND SERVICE WHERE THE DATABASE IS LOCATED.");
+            //                break;
+            //            case System.Net.Sockets.SocketError.NetworkDown:
+            //            case System.Net.Sockets.SocketError.NetworkUnreachable:
+            //                m_tracer.TraceError("NETWORK APPEARS TO BE DOWN. CHECK YOUR NETWORK CONNECTION TO THE DATABASE SERVER.");
+            //                break;
+            //            case System.Net.Sockets.SocketError.TimedOut:
+            //                m_tracer.TraceError("TIMEOUT ATTEMPTING TO CONNECT TO THE DATABASE SERVER. CHECK THE NETWORK CONNECTION AND THE DATABASE SERVER ARE ONLINE AND AVAILABLE.");
+            //                break;
+            //        }
+            //    }
+
+            //    throw;
+            //}
+
+            if(wasOpened)
             {
                 this.IncrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
                 this.m_opened = true;
@@ -225,7 +259,7 @@ namespace SanteDB.OrmLite
                 this.m_encryptionProvider = e.GetEncryptionProvider(); // encryption is provided
             }
 
-            return wasOpened;
+            return this.m_opened;
         }
 
         /// <summary>
@@ -257,10 +291,14 @@ namespace SanteDB.OrmLite
                     }
                 }
                 catch { }
-                finally { this.m_lastCommand?.Dispose(); this.m_lastCommand = null; }
+                finally
+                {
+                    this.m_lastCommand?.Dispose();
+                    this.m_lastCommand = null;
+                }
             }
 
-            if (this.m_connection != null && this.m_opened)
+            if (this.m_opened)
             {
                 this.DecrementProbe(this.IsReadonly ? OrmPerformanceMetric.ReadonlyConnections : OrmPerformanceMetric.ReadWriteConnections);
                 this.m_opened = false;
@@ -273,6 +311,8 @@ namespace SanteDB.OrmLite
             this.m_connection = null;
             this.m_dataDictionary?.Clear();
             this.m_dataDictionary = null;
+            this.Disposed?.Invoke(this, EventArgs.Empty);
+
 
         }
 

@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-8-29
  */
 using System;
 using System.Data;
@@ -42,6 +42,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// Gets the name of the function
         /// </summary>
         public string Name => SanteDB.Core.Model.Query.FilterExtension.FreetextQueryFilterExtension.FilterName;
+
+        /// <inheritdoc />
+        public int Order => -100;
 
         /// <summary>
         /// Create the SQL statement for the extension function
@@ -83,7 +86,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                 current.Append(" not ");
                                 break;
                             default:
-                                current.Append("(").Append("LOWER(term) LIKE '%?%'", QueryBuilder.CreateParameterValue(terms[0].ToLowerInvariant(), typeof(String)));
+                                current.Append("(").Append("LOWER(term) LIKE ?", QueryBuilder.CreateParameterValue($"%{terms[0].ToLowerInvariant()}%", typeof(String)));
                                 if (m_hasSpellFix.GetValueOrDefault())
                                 {
                                     current.Or("editdist3(LOWER(term), ?) < 2", QueryBuilder.CreateParameterValue(terms[0].ToLowerInvariant(), typeof(String)));
@@ -107,43 +110,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             }
         }
 
-        /// <summary>
-        /// Initialize 
-        /// </summary>
-        public bool Initialize(IDbConnection connection)
+        /// <inheritdoc />
+        public bool Initialize(IDbConnection connection, IDbTransaction transaction)
         {
-            if (!m_hasSpellFix.HasValue)
-            {
-                try
-                {
-                    if (connection.ExecuteScalar<Int32>("SELECT sqlite_compileoption_used('SQLITE_ENABLE_LOAD_EXTENSION')") == 1)
-                    {
-                        try
-                        {
-                            try
-                            {
-                                m_hasSpellFix = connection.ExecuteScalar<Int32>("SELECT editdist3('test','test1');") > 0;
-                            }
-                            catch
-                            {
-                                connection.LoadExtension("spellfix");
-                                m_hasSpellFix = connection.ExecuteScalar<Int32>("SELECT editdist3('test','test1');") > 0;
-                            }
-                        }
-                        catch { m_hasSpellFix = false; }
-                    }
-                }
-                catch
-                {
-                    m_hasSpellFix = false;
-                }
-            }
-            else if (m_hasSpellFix.GetValueOrDefault())
-            {
-                connection.LoadExtension("spellfix");
-
-            }
-            return true;
+            return connection.CheckAndLoadSpellfix();
         }
     }
 }

@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,11 +16,9 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
-using DocumentFormat.OpenXml.Vml;
 using SanteDB.Core.Diagnostics.Performance;
-using SanteDB.Core.i18n;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Providers;
 using SanteDB.OrmLite.Providers.Sqlite;
@@ -32,7 +30,6 @@ using System.Diagnostics.Tracing;
 using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Security;
 
 namespace SanteDB.OrmLite
 {
@@ -294,6 +291,11 @@ namespace SanteDB.OrmLite
                     object value = this.m_provider.ConvertValue(dbValue, itm.SourceProperty.PropertyType);
                     if (!itm.IsSecret)
                     {
+                        // Hack for SQLite - 
+                        if (itm.SourceProperty.PropertyType.StripNullable() == typeof(byte[]) && value is Guid gval)
+                        {
+                            value = gval.ToByteArray();
+                        }
                         itm.SourceProperty.SetValue(result, value);
                     }
                 }
@@ -872,6 +874,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public OrmResultSet<TModel> Query<TModel>(Expression<Func<TModel, bool>> querySpec)
         {
+            this.ThrowIfDisposed();
             var stmt = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel)).Where(querySpec).Statement;
             return new OrmResultSet<TModel>(this, stmt);
         }
@@ -881,6 +884,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public OrmResultSet<TModel> Query<TModel>(SqlStatement query)
         {
+            this.ThrowIfDisposed();
             return new OrmResultSet<TModel>(this, query);
         }
 
@@ -889,6 +893,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IOrmResultSet Query(Type modelType, SqlStatement query)
         {
+            this.ThrowIfDisposed();
             var ormType = typeof(OrmResultSet<>).MakeGenericType(modelType);
             var ctor = ormType.GetConstructors(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).First();
             return ctor.Invoke(new object[] { this, query }) as IOrmResultSet;
@@ -899,6 +904,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IEnumerable<TModel> ExecQuery<TModel>(SqlStatement query)
         {
+            this.ThrowIfDisposed();
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
@@ -989,6 +995,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TModel Insert<TModel>(TModel value)
         {
+            this.ThrowIfDisposed();
+
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
@@ -1048,7 +1056,7 @@ namespace SanteDB.OrmLite
                     OrmAleMode aleMode = OrmAleMode.Off;
                     _ = this.m_encryptionProvider?.TryGetEncryptionMode(col.EncryptedColumnId, out aleMode) == true &&
                         this.m_encryptionProvider?.TryEncrypt(aleMode, val, out val) == true;
-                    
+
                     // Append value
                     values.Append("?", val);
 
@@ -1218,6 +1226,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void DeleteAll(Type tmodel, SqlStatement whereClause)
         {
+            this.ThrowIfDisposed();
+
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
@@ -1264,6 +1274,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void Delete<TModel>(TModel obj)
         {
+            this.ThrowIfDisposed();
+
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
@@ -1319,6 +1331,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         public TModel Update<TModel>(TModel value)
         {
+            this.ThrowIfDisposed();
+
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
@@ -1436,6 +1450,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void UpdateAll(Type tmodel, LambdaExpression whereExpression, params LambdaExpression[] updateStatements)
         {
+
             // Convert where clause
             var tableMap = TableMapping.Get(tmodel);
             var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
@@ -1449,6 +1464,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void UpdateAll<TModel>(SqlStatement whereExpression, params Expression<Func<TModel, dynamic>>[] updateStatements)
         {
+
             if (whereExpression.Contains("SELECT"))
             {
                 whereExpression = whereExpression.Prepare();
@@ -1464,6 +1480,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void UpdateAll(Type tmodel, SqlStatement whereClause, params LambdaExpression[] updateStatements)
         {
+            this.ThrowIfDisposed();
+
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
@@ -1552,6 +1570,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void ExecuteNonQuery(SqlStatement stmt)
         {
+            this.ThrowIfDisposed();
+
 #if DEBUG
             var sw = new Stopwatch();
             sw.Start();
@@ -1597,6 +1617,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void CreateTable<TTable>()
         {
+            this.ThrowIfDisposed();
 
             var statement = this.CreateSqlStatementBuilder();
             var tableMap = TableMapping.Get(typeof(TTable));
@@ -1649,6 +1670,7 @@ namespace SanteDB.OrmLite
         /// </summary>
         public void DropTable<TTable>()
         {
+            this.ThrowIfDisposed();
 
             var statement = this.CreateSqlStatementBuilder();
             var tableMap = TableMapping.Get(typeof(TTable));

@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,7 +16,7 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 
 /*
@@ -35,7 +35,6 @@ using System.Data.Common;
 using System.Diagnostics.Tracing;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -541,6 +540,18 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     default:
                         throw new NotSupportedException($"Schema type {type} not supported by FirebirdSQL provider");
                 }
+            }
+        }
+
+        /// <inheritdoc/>
+        public void Optimize()
+        {
+            using (var writer = this.GetWriteConnection())
+            {
+                writer.Open();
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
             }
         }
 

@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,17 +16,14 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using SanteDB.Core;
 using SanteDB.Core.Configuration;
-using SanteDB.Core.Security.Configuration;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Providers;
-using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Xml.Serialization;
 
 namespace SanteDB.OrmLite.Configuration
@@ -36,6 +33,15 @@ namespace SanteDB.OrmLite.Configuration
     /// </summary>
     public abstract class OrmConfigurationBase : IEncryptedConfigurationSection
     {
+
+        /// <summary>
+        /// ALE configuration initialization on the configuration base
+        /// </summary>
+        public OrmConfigurationBase()
+        {
+            this.AleConfiguration = new OrmAleConfiguration();
+        }
+
         // DB Provider
         private IDbProvider m_dbProvider;
 

@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2023, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -16,22 +16,24 @@
  * the License.
  * 
  * User: fyfej
- * Date: 2023-5-19
+ * Date: 2023-6-21
  */
 using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
+using SanteDB.Core.Data;
+using SanteDB.Core.Data.Backup;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Exceptions;
 using SanteDB.Core.i18n;
+using SanteDB.Core.Model.Roles;
 using SanteDB.OrmLite.Attributes;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Dynamic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite.Migration
@@ -109,27 +111,44 @@ namespace SanteDB.OrmLite.Migration
                 }
             }
 
-            var updates = GetFeatures(provider.Invariant).OfType<SqlFeature>().Where(o => o.Scope == scopeOfContext).OrderBy(o => o.Id).ToArray();
 
             // Some of the updates from V2 to V3 can take hours to complete - this timer allows us to report progress on the log
             int i = 0;
-            foreach (var itm in updates)
+            using (var conn = provider.GetWriteConnection())
+            {
+                UpgradeSchema(conn, scopeOfContext, progressMonitor);
+            }
+
+            progressMonitor?.Invoke(nameof(UpgradeSchema), 1f, UserMessages.COMPLETE);
+        }
+
+        /// <summary>
+        /// Upgrade the context on the specified data context
+        /// </summary>
+        public static void UpgradeSchema(DataContext conn, string scopeOfContext) => UpgradeSchema(conn, scopeOfContext);
+
+        /// <summary>
+        /// Upgrade schema on the specified connection
+        /// </summary>
+        private static void UpgradeSchema(DataContext conn, string scopeOfContext, Action<string, float, string> progressMonitor = null)
+        {
+            var updates = GetFeatures(conn.Provider.Invariant).OfType<SqlFeature>().Where(o => o.Scope == scopeOfContext).OrderBy(o => o.Id).ToArray();
+            int i = 0;
+            foreach (var itm in updates.Where(o => o.EnvironmentType == null || o.EnvironmentType.Contains(ApplicationServiceContext.Current.HostType)))
             {
                 try
                 {
-                    using (var conn = provider.GetWriteConnection())
-                    {
-                        progressMonitor?.Invoke(nameof(UpgradeSchema), (((float)++i) / updates.Length), String.Format(UserMessages.UPDATE_DATABASE, itm.Description));
+                    conn.Open();
+                    progressMonitor?.Invoke(nameof(UpgradeSchema), (((float)++i) / updates.Length), String.Format(UserMessages.UPDATE_DATABASE, itm.Description));
 
-                        if (!conn.IsInstalled(itm))
-                        {
-                            m_traceSource.TraceInfo("Installing {0} ({1})...", itm.Id, itm.Description);
-                            conn.Install(itm);
-                        }
-                        else
-                        {
-                            m_traceSource.TraceInfo("Skipping {0}...", itm.Id);
-                        }
+                    if (!conn.IsInstalled(itm))
+                    {
+                        m_traceSource.TraceInfo("Installing {0} ({1})...", itm.Id, itm.Description);
+                        conn.Install(itm);
+                    }
+                    else
+                    {
+                        m_traceSource.TraceInfo("Skipping {0}...", itm.Id);
                     }
                 }
                 catch (Exception e)
@@ -137,10 +156,11 @@ namespace SanteDB.OrmLite.Migration
                     m_traceSource.TraceError("Could not install {0} - {1}", itm.Id, e);
                     throw new DataException($"Could not install {itm.Id}", e);
                 }
-
+                finally
+                {
+                    conn.Close();
+                }
             }
-
-            progressMonitor?.Invoke(nameof(UpgradeSchema), 1f, UserMessages.COMPLETE);
         }
 
         /// <summary>
@@ -273,7 +293,7 @@ namespace SanteDB.OrmLite.Migration
                 {
                     cmd.CommandText = preConditionSql;
                     cmd.CommandType = System.Data.CommandType.Text;
-                    if ((bool?)cmd.ExecuteScalar() != true ) // can't install
+                    if ((bool?)cmd.ExecuteScalar() != true) // can't install
                     {
                         if (migration.Required)
                         {
@@ -326,6 +346,52 @@ namespace SanteDB.OrmLite.Migration
             }
 
             return m_features.Where(o => o.InvariantName == invariantName);
+        }
+
+        /// <summary>
+        /// Create a backup asset for a provider
+        /// </summary>
+        public static IBackupAsset CreateBackupAsset(this IDbProvider me, Guid assetId)
+        {
+            if (me is IDbBackupProvider dbb)
+            {
+                var tfs = new TemporaryFileStream();
+                dbb.BackupToStream(tfs);
+                tfs.Seek(0, SeekOrigin.Begin);
+                return new StreamBackupAsset(assetId, $"{dbb.GetDatabaseName()}#{dbb.Invariant}", () => tfs);
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Restore a backup asset
+        /// </summary>
+        public static bool RestoreBackupAsset(this IDbProvider me, IBackupAsset backupAsset)
+        {
+            if (backupAsset == null)
+            {
+                throw new ArgumentNullException(nameof(backupAsset));
+            }
+
+            var assetFname = backupAsset.Name.Split('#');
+            if (assetFname.Length != 2 || !me.Invariant.Equals(assetFname[1]))
+            {
+                throw new InvalidOperationException();
+            }
+            if (me is IDbBackupProvider dbb)
+            {
+                using (var str = backupAsset.Open())
+                {
+                    return dbb.RestoreFromStream(str);
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException();
+            }
         }
     }
 }
