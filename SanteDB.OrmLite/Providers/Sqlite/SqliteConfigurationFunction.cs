@@ -98,7 +98,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             }
 
 
-            connection.ExecuteScalar<object>("PRAGMA cipher = 'sqlcipher';");
             connection.ExecuteScalar<object>("PRAGMA pragma_automatic_index=true");
             connection.ExecuteScalar<Object>("PRAGMA temp_store = 2");
 
