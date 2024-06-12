@@ -40,16 +40,17 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns>True if the library has been loaded, false if it could not be loaded.</returns>
         public static bool CheckAndLoadSpellfix(this IDbConnection connection)
         {
-            if (s_SpellfixLoaded != null)
-            {
-                return s_SpellfixLoaded.Value;
-            }
+            //if (s_SpellfixLoaded != null)
+            //{
+            //    return s_SpellfixLoaded.Value;
+            //}
 
             try
             {
                 //Check if spellfix is loaded by executing a function.
                 s_SpellfixLoaded = connection.ExecuteScalar<int>("SELECT editdist3('test', 'test1');") > 0;
                 s_Tracer?.TraceVerbose("Test succeeded for loading spellfix library for sqlite. Result: {0}", s_SpellfixLoaded);
+                return true;
             }
             catch //An exception is thrown if the function is not found.
             {
