@@ -33,6 +33,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         // Has spellfix?
         private static bool? m_hasSpellFix;
 
+        // Has soundex?
+        private static bool? m_hasSoundex; 
+
         /// <summary>
         /// Gets the provider
         /// </summary>
@@ -63,35 +66,56 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         case "ent_id": // entity search
                         case "src_ent_id":
                         case "trg_ent_id":
-                            current.Append($"SELECT ent_id FROM FT_ENT_SYSVW WHERE ");
                             break;
                         default:
                             throw new InvalidOperationException("SQLite does not understand freetext search on this type of data");
                     }
 
-                    foreach (var t in terms[0].Split(' '))
+                    bool needsJoiner = false;
+                    foreach (var t in terms)
                     {
                         switch (t.ToLowerInvariant())
                         {
                             case "and":
                             case "&":
-                                current.Append(" and ");
+                                current.Append(" intersect ");
+                                needsJoiner = false;
                                 break;
                             case "or":
                             case "|":
-                                current.Append(" or ");
+                                current.Append(" union ");
+                                needsJoiner = false;
                                 break;
                             case "not":
                             case "!":
-                                current.Append(" not ");
+                                current.Append(" except ");
+                                needsJoiner = false;
                                 break;
                             default:
-                                current.Append("(").Append("LOWER(term) LIKE ?", QueryBuilder.CreateParameterValue($"%{terms[0].ToLowerInvariant()}%", typeof(String)));
-                                if (m_hasSpellFix.GetValueOrDefault())
+                                if(needsJoiner)
                                 {
-                                    current.Or("editdist3(LOWER(term), ?) < 2", QueryBuilder.CreateParameterValue(terms[0].ToLowerInvariant(), typeof(String)));
+                                    current.Append(" intersect ");
+                                    needsJoiner = false;
+                                }
+
+                                current.Append($"SELECT ent_id FROM FT_ENT_SYSVW WHERE ");
+
+                                bool useApprox = t.StartsWith("~");
+                                var term = t;
+                                if(useApprox) { term = term.Substring(1); }
+
+                                current.Append("(").Append("LOWER(term) LIKE ?", QueryBuilder.CreateParameterValue($"%{term.ToLowerInvariant()}%", typeof(String)));
+
+                                if (useApprox && m_hasSpellFix.GetValueOrDefault())
+                                {
+                                    current.Or("editdist3(LOWER(term), ?) < 2", QueryBuilder.CreateParameterValue(term.ToLowerInvariant(), typeof(String)));
+                                }
+                                if(useApprox && m_hasSoundex.GetValueOrDefault())
+                                {
+                                    current.Or("soundex(term) = soundex(?)", QueryBuilder.CreateParameterValue(term.ToLowerInvariant(), typeof(String)));
                                 }
                                 current.Append(")");
+                                needsJoiner = true;
                                 break;
                         }
                     }
@@ -113,7 +137,16 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc />
         public bool Initialize(IDbConnection connection, IDbTransaction transaction)
         {
-            return connection.CheckAndLoadSpellfix();
+            try
+            {
+                m_hasSoundex = connection.ExecuteScalar<string>("SELECT soundex('test');") == "T230";
+                m_hasSpellFix = connection.ExecuteScalar<int>("SELECT editdist3('test', 'test1');") > 0;
+            }
+            catch
+            {
+            }
+            return true;
+
         }
     }
 }
