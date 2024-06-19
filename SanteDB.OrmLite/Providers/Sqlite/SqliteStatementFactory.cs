@@ -178,7 +178,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public SqlStatement GetNextSequenceValue(string sequenceName)
         {
-            return new SqlStatement($"SELECT MAX(ROWID) + 1 FROM {sequenceName.Sanitize()}");
+            return new SqlStatement($"SELECT COALESCE(MAX(ROWID), 0) + 1 FROM {sequenceName.Sanitize()}");
         }
 
         /// <inheritdoc/>
