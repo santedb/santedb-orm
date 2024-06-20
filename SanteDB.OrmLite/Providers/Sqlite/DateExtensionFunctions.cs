@@ -87,11 +87,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         qtyParse *= 1;
                         break;
                 }
-                return current.Append($"ABS({filterColumn} - ?) {op} {qtyParse}", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(parms[0], operandType));
+                return current.Append($"ABS({filterColumn} - ?) {op} {qtyParse}", QueryBuilder.CreateParameterValue(parms[0], operandType));
             }
             else if (TimeSpan.TryParse(value, out TimeSpan timespan))
             {
-                return current.Append($"ABS({filterColumn} - ?) {op} {timespan.Ticks}", QueryBuilder.CreateParameterValue(parms[0], operandType), QueryBuilder.CreateParameterValue(parms[0], operandType));
+                return current.Append($"ABS({filterColumn} - ?) {op} {timespan.Ticks}", QueryBuilder.CreateParameterValue(parms[0], operandType));
             }
             else
             {
