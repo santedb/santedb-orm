@@ -974,7 +974,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                     passwordParm.ParameterName = "$password";
                                     passwordParm.Value = myPassword;
                                     c.Parameters.Add(passwordParm);
-                                    c.CommandText = $"PRAGMA cipher = 'sqlcipher'; PRAGMA rekey = {c.ExecuteScalar()}";
+                                    c.CommandText = $"PRAGMA rekey = {c.ExecuteScalar()}";
                                     c.Parameters.Clear();
                                     c.ExecuteNonQuery();
                                 }

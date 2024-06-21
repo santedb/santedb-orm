@@ -37,11 +37,11 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// READ lock timeout
         /// </summary>
-        public const int READ_LOCK_TIMEOUT = 30000;
+        public const int READ_LOCK_TIMEOUT = 5000;
         /// <summary>
         /// Writer lock timeout
         /// </summary>
-        public const int WRITE_LOCK_TIMEOUT = 30000;
+        public const int WRITE_LOCK_TIMEOUT = 5000;
 
         private readonly string m_databaseName;
         /// <summary>

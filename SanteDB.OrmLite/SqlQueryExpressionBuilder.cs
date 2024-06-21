@@ -414,7 +414,9 @@ namespace SanteDB.OrmLite
                     this.Visit(node.Object);
                     this.m_sqlStatement.Append(" IS NOT NULL ");
                     break;
-
+                case "ToString":
+                    this.m_sqlStatement.Append(" ? ", node.Object.ToString());
+                    break;
                 default:
                     throw new NotSupportedException(node.Method.Name);
             }
