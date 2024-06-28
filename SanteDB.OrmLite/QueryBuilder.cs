@@ -897,7 +897,11 @@ namespace SanteDB.OrmLite
                                     {
                                         pv = pv.Substring(1, pv.Length - 2);
                                     }
-                                    extendedParms.Add(pv);
+
+                                    if (!String.IsNullOrEmpty(pv))
+                                    {
+                                        extendedParms.Add(pv);
+                                    }
                                     parmExtract = QueryFilterExtensions.ParameterExtractRegex.Match(parmExtract.Groups[2].Value);
                                 }
                                 // Now find the function
