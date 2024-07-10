@@ -25,6 +25,38 @@ using System.Text;
 namespace SanteDB.OrmLite.Providers.Sqlite
 {
     /// <summary>
+    /// TRIM() function
+    /// </summary>
+    public class FirebirdTrimFunction : IDbFilterFunction
+    {
+
+        /// <summary>
+        /// Get the name for the function
+        /// </summary>
+        public string Name => "trim";
+
+        /// <summary>
+        /// Provider 
+        /// </summary>
+        public string Provider => SqliteProvider.InvariantName;
+
+        /// <summary>
+        /// Create the SQL for first
+        /// </summary>
+        public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type type)
+        {
+            var match = Constants.ExtractFilterOperandRegex.Match(operand);
+            String op = match.Groups[1].Value, value = match.Groups[2].Value;
+            if (String.IsNullOrEmpty(op))
+            {
+                op = "=";
+            }
+
+            return current.Append($"TRIM({filterColumn}) {op} TRIM(?)", QueryBuilder.CreateParameterValue(value, type));
+        }
+    }
+
+    /// <summary>
     /// PostgreSQL LEFT() function
     /// </summary>
     [ExcludeFromCodeCoverage]
