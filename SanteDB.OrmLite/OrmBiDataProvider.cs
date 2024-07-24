@@ -300,8 +300,14 @@ namespace SanteDB.OrmLite
                     colGroupings = agg.Groupings.Select(g => $"{g.ColumnSelector} AS {g.Name}").ToArray();
                 // Aggregate
                 stmt = $"SELECT {String.Join(",", colGroupings.Concat(selector))} " +
-                        $" FROM ({stmt})  AS _inner " +
-                    $" GROUP BY {String.Join(",", groupings)}";
+                        $" FROM ({stmt})  AS _inner ";
+
+
+                stmt += $" GROUP BY {String.Join(",", groupings)}";
+                if (agg.Sorting != null)
+                {
+                    stmt += $" ORDER BY {String.Join(",", agg.Sorting.Select(o => o.Name ?? o.ColumnSelector))}";
+                }
             }
 
             // Get a readonly context
