@@ -49,8 +49,10 @@ namespace SanteDB.OrmLite
         Guard = 0x2,
         Cast = 0x4,
         SubPath = 0x8,
+        UnionWith = 0x10,
         PropertyAndGuard = Path | Guard,
-        PropertyAndCast = Path | Cast
+        PropertyAndCast = Path | Cast,
+        AllExceptUnion = Path | Guard | Cast | SubPath
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
     }
 
@@ -62,12 +64,13 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Regex to extract property, guards and cast
         /// </summary>
-        public static readonly Regex ExtractionRegex = new Regex(@"^([\$\w]*?)(\[([^\]]*?)\])?(\@(\w*))?(\.(.*))?$", RegexOptions.Compiled);
+        public static readonly Regex ExtractionRegex = new Regex(@"^([\$\w]+?)(?:\[([^\]]*?)\])?(?:\@(\w*))?(?:\?)?(?:\.(.*?))?(?:\|\|(.*))?$", RegexOptions.Compiled);
 
         private const int PropertyRegexGroup = 1;
-        private const int GuardRegexGroup = 3;
-        private const int CastRegexGroup = 5;
-        private const int SubPropertyRegexGroup = 7;
+        private const int GuardRegexGroup = 2;
+        private const int CastRegexGroup = 3;
+        private const int SubPropertyRegexGroup = 4;
+        private const int UnionRegexPropertyGroup = 5;
 
         /// <summary>
         /// Gets or sets the path
@@ -90,6 +93,11 @@ namespace SanteDB.OrmLite
         public String Guard { get; private set; }
 
         /// <summary>
+        /// Union with the other property
+        /// </summary>
+        public QueryPredicate Union { get; private set; }
+
+        /// <summary>
         /// Parse a condition
         /// </summary>
         public static QueryPredicate Parse(String condition)
@@ -100,12 +108,15 @@ namespace SanteDB.OrmLite
                 return null;
             }
 
+
+
             return new QueryPredicate()
             {
                 Path = matches.Groups[PropertyRegexGroup].Value,
                 CastAs = matches.Groups[CastRegexGroup].Value,
                 Guard = Uri.UnescapeDataString(matches.Groups[GuardRegexGroup].Value),
-                SubPath = matches.Groups[SubPropertyRegexGroup].Value
+                SubPath = matches.Groups[SubPropertyRegexGroup].Value,
+                Union = Parse(matches.Groups[UnionRegexPropertyGroup].Value)
             };
         }
 
@@ -136,6 +147,10 @@ namespace SanteDB.OrmLite
                 sb.AppendFormat("{0}{1}", sb.Length > 0 ? "." : "", this.SubPath);
             }
 
+            if(this.Union != null && parts.HasFlag(QueryPredicatePart.UnionWith))
+            {
+                sb.AppendFormat("|{0}", this.Union.ToString());
+            }
             return sb.ToString();
         }
     }
@@ -471,235 +486,257 @@ namespace SanteDB.OrmLite
                     throw new ArgumentOutOfRangeException(parm.Key);
                 }
 
-                // Next, we want to construct the other parms
-                var otherParms = workingParameters.Where(o => QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.PropertyAndCast) == propertyPredicate.ToString(QueryPredicatePart.PropertyAndCast)).ToArray();
-
-                // Remove the working parameters if the column is FK then all parameters
-                if (otherParms.Any() || !String.IsNullOrEmpty(propertyPredicate.Guard) || !String.IsNullOrEmpty(propertyPredicate.SubPath))
+                // If this is a union with?
+                bool shouldUnion = propertyPredicate.Union != null;
+                if(shouldUnion)
                 {
-                    foreach (var o in otherParms)
-                    {
-                        workingParameters.Remove(o);
-                    }
+                    whereClause.And($"( {this.m_factory.CreateSqlKeyword(SqlKeyword.True)} "); // HACK: We add TRUE as our query needs something to AND with
+                }
 
-                    // We need to do a sub query
-                    var subQueryParms = new List<KeyValuePair<String, String[]>>() { parm }.Union(otherParms);
+                while (propertyPredicate != null)
+                {
 
-                    // Grab the appropriate builder
-                    var subProp = tmodel.GetQueryProperty(propertyPredicate.Path, true);
-                    if (subProp == null)
-                    {
-                        throw new MissingMemberException(propertyPredicate.Path);
-                    }
+                    // Next, we want to construct the other parms
+                    var otherParms = workingParameters.Where(o => QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.PropertyAndCast) == propertyPredicate.ToString(QueryPredicatePart.PropertyAndCast)).ToArray();
 
-                    // Link to this table in the other?
-                    // Allow hacking of the query before we get to the auto-generated stuff
-                    if (!m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, tmodel, subProp, tablePrefix, propertyPredicate, parm.Value, scopedTables, subQueryParms.ToDictionary(q => q.Key, q => q.Value))))
+                    // Remove the working parameters if the column is FK then all parameters
+                    if (otherParms.Any() || !String.IsNullOrEmpty(propertyPredicate.Guard) || !String.IsNullOrEmpty(propertyPredicate.SubPath))
                     {
-                        // Is this a collection?
-                        if (typeof(IList).IsAssignableFrom(subProp.PropertyType) ||
-                            typeof(IEnumerable).IsAssignableFrom(subProp.PropertyType) && subProp.PropertyType.IsGenericType) // Other table points at this on
+                        foreach (var o in otherParms)
                         {
-                            var propertyType = subProp.PropertyType.StripGeneric();
-                            // map and get ORM def'n
-                            var subTableType = m_mapper.MapModelType(propertyType);
-                            var subTableMap = TableMapping.Get(subTableType);
-                            var linkColumns = subTableMap.Columns.Where(o => scopedTables.Any(s => s.OrmType == o.ForeignKey?.Table));
+                            workingParameters.Remove(o);
+                        }
 
-                            //var linkColumn = linkColumns.Count() > 1 ? linkColumns.FirstOrDefault(o=>o.SourceProperty.Name == "SourceKey") : linkColumns.FirstOrDefault();
-                            var linkColumn = linkColumns.Count() > 1 ? linkColumns.FirstOrDefault(o => propertyPredicate.SubPath.StartsWith("source") ? o.SourceProperty.Name != "SourceKey" : o.SourceProperty.Name == "SourceKey") : linkColumns.FirstOrDefault();
+                        // We need to do a sub query
+                        var subQueryParms = new List<KeyValuePair<String, String[]>>() { new KeyValuePair<string, string[]>(propertyPredicate.ToString(QueryPredicatePart.AllExceptUnion), parm.Value) }.Union(otherParms);
 
-                            // Link column is null, is there an assoc attrib?
-                            SqlStatementBuilder subQueryStatement = new SqlStatementBuilder(this.m_factory);
+                        // Grab the appropriate builder
+                        var subProp = tmodel.GetQueryProperty(propertyPredicate.Path, true);
+                        if (subProp == null)
+                        {
+                            throw new MissingMemberException(propertyPredicate.Path);
+                        }
 
-                            var subTableColumn = linkColumn;
-                            string existsClause = String.Empty;
-                            var lnkPfx = IncrementSubQueryAlias(tablePrefix);
-
-                            if (linkColumn == null || scopedTables.Any(o => o.AssociationWith(subTableMap) != null)) // Or there is a better linker
+                        // Link to this table in the other?
+                        // Allow hacking of the query before we get to the auto-generated stuff
+                        if (!m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, tmodel, subProp, tablePrefix, propertyPredicate, parm.Value, scopedTables, subQueryParms.ToDictionary(q => q.Key, q => q.Value))))
+                        {
+                            // Is this a collection?
+                            if (typeof(IList).IsAssignableFrom(subProp.PropertyType) ||
+                                typeof(IEnumerable).IsAssignableFrom(subProp.PropertyType) && subProp.PropertyType.IsGenericType) // Other table points at this on
                             {
-                                var tableWithJoin = scopedTables.Select(o => o.AssociationWith(subTableMap)).FirstOrDefault(o => o != null);
-                                linkColumn = tableWithJoin.Columns.SingleOrDefault(o => scopedTables.Any(s => s.OrmType == o.ForeignKey?.Table));
-                                var targetColumn = tableWithJoin.Columns.SingleOrDefault(o => o.ForeignKey?.CanQueryFrom(subTableMap.OrmType) == true);
-                                subTableColumn = subTableMap.GetColumn(targetColumn.ForeignKey.Column);
-                                // The sub-query statement needs to be joined as well
-                                subQueryStatement.Append($"SELECT 1 FROM {tableWithJoin.TableName} AS {lnkPfx}{tableWithJoin.TableName} WHERE ");
-                                existsClause = $"{lnkPfx}{tableWithJoin.TableName}.{targetColumn.Name}";
-                                //throw new InvalidOperationException($"Cannot find foreign key reference to table {tableMap.TableName} in {subTableMap.TableName}");
-                            }
+                                var propertyType = subProp.PropertyType.StripGeneric();
+                                // map and get ORM def'n
+                                var subTableType = m_mapper.MapModelType(propertyType);
+                                var subTableMap = TableMapping.Get(subTableType);
+                                var linkColumns = subTableMap.Columns.Where(o => scopedTables.Any(s => s.OrmType == o.ForeignKey?.Table));
 
-                            var localTable = scopedTables.Where(o => o.GetColumn(linkColumn.ForeignKey.Column) != null).FirstOrDefault();
+                                //var linkColumn = linkColumns.Count() > 1 ? linkColumns.FirstOrDefault(o=>o.SourceProperty.Name == "SourceKey") : linkColumns.FirstOrDefault();
+                                var linkColumn = linkColumns.Count() > 1 ? linkColumns.FirstOrDefault(o => propertyPredicate.SubPath.StartsWith("source") ? o.SourceProperty.Name != "SourceKey" : o.SourceProperty.Name == "SourceKey") : linkColumns.FirstOrDefault();
 
-                            if (String.IsNullOrEmpty(existsClause))
-                            {
-                                existsClause = $"{tablePrefix}{localTable.TableName}.{localTable.GetColumn(linkColumn.ForeignKey.Column).Name}";
-                            }
+                                // Link column is null, is there an assoc attrib?
+                                SqlStatementBuilder subQueryStatement = new SqlStatementBuilder(this.m_factory);
 
-                            var guardConditions = subQueryParms.GroupBy(o => QueryPredicate.Parse(o.Key).Guard);
+                                var subTableColumn = linkColumn;
+                                string existsClause = String.Empty;
+                                var lnkPfx = IncrementSubQueryAlias(tablePrefix);
 
-                            foreach (var guardClause in guardConditions)
-                            {
-                                var subQuery = guardClause.Select(o => new KeyValuePair<String, String[]>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
-
-                                // TODO: GUARD CONDITION HERE!!!!
-                                // Does the guard clause indicate a complete sub-query?
-                                if(guardClause.Key.Contains("="))
+                                if (linkColumn == null || scopedTables.Any(o => o.AssociationWith(subTableMap) != null)) // Or there is a better linker
                                 {
-                                    var nvc = guardClause.Key.ParseQueryString();
-                                    subQuery.AddRange(nvc.ToDictionary());
+                                    var tableWithJoin = scopedTables.Select(o => o.AssociationWith(subTableMap)).FirstOrDefault(o => o != null);
+                                    linkColumn = tableWithJoin.Columns.SingleOrDefault(o => scopedTables.Any(s => s.OrmType == o.ForeignKey?.Table));
+                                    var targetColumn = tableWithJoin.Columns.SingleOrDefault(o => o.ForeignKey?.CanQueryFrom(subTableMap.OrmType) == true);
+                                    subTableColumn = subTableMap.GetColumn(targetColumn.ForeignKey.Column);
+                                    // The sub-query statement needs to be joined as well
+                                    subQueryStatement.Append($"SELECT 1 FROM {tableWithJoin.TableName} AS {lnkPfx}{tableWithJoin.TableName} WHERE ");
+                                    existsClause = $"{lnkPfx}{tableWithJoin.TableName}.{targetColumn.Name}";
+                                    //throw new InvalidOperationException($"Cannot find foreign key reference to table {tableMap.TableName} in {subTableMap.TableName}");
                                 }
-                                else if (!String.IsNullOrEmpty(guardClause.Key))
-                                {
-                                    StringBuilder guardCondition = new StringBuilder();
-                                    var clsModel = propertyType;
-                                    while (clsModel.GetCustomAttribute<ClassifierAttribute>() != null)
-                                    {
-                                        var clsProperty = clsModel.GetClassifierProperty();// clsModel.GetRuntimeProperty(clsModel.GetCustomAttribute<ClassifierAttribute>().ClassifierProperty);
-                                        clsModel = clsProperty.PropertyType.StripGeneric();
-                                        var redirectProperty = clsProperty.GetCustomAttribute<SerializationReferenceAttribute>()?.RedirectProperty;
-                                        if (redirectProperty != null)
-                                        {
-                                            clsProperty = clsProperty.DeclaringType.GetRuntimeProperty(redirectProperty);
-                                        }
 
-                                        // Is this a uuid?
-                                        guardCondition.Append(clsProperty.GetSerializationName());
-                                        if (guardClause.Key.Split('|').All(o => Guid.TryParse(o, out Guid _)))
+                                var localTable = scopedTables.Where(o => o.GetColumn(linkColumn.ForeignKey.Column) != null).FirstOrDefault();
+
+                                if (String.IsNullOrEmpty(existsClause))
+                                {
+                                    existsClause = $"{tablePrefix}{localTable.TableName}.{localTable.GetColumn(linkColumn.ForeignKey.Column).Name}";
+                                }
+
+                                var guardConditions = subQueryParms.GroupBy(o => QueryPredicate.Parse(o.Key).Guard);
+
+                                foreach (var guardClause in guardConditions)
+                                {
+                                    var subQuery = guardClause.Select(o => new KeyValuePair<String, String[]>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
+
+                                    // TODO: GUARD CONDITION HERE!!!!
+                                    // Does the guard clause indicate a complete sub-query?
+                                    if (guardClause.Key.Contains("="))
+                                    {
+                                        var nvc = guardClause.Key.ParseQueryString();
+                                        subQuery.AddRange(nvc.ToDictionary());
+                                    }
+                                    else if (!String.IsNullOrEmpty(guardClause.Key))
+                                    {
+                                        StringBuilder guardCondition = new StringBuilder();
+                                        var clsModel = propertyType;
+                                        while (clsModel.GetCustomAttribute<ClassifierAttribute>() != null)
                                         {
-                                            break;
-                                        }
-                                        else
-                                        {
-                                            if (typeof(IdentifiedData).IsAssignableFrom(clsModel))
+                                            var clsProperty = clsModel.GetClassifierProperty();// clsModel.GetRuntimeProperty(clsModel.GetCustomAttribute<ClassifierAttribute>().ClassifierProperty);
+                                            clsModel = clsProperty.PropertyType.StripGeneric();
+                                            var redirectProperty = clsProperty.GetCustomAttribute<SerializationReferenceAttribute>()?.RedirectProperty;
+                                            if (redirectProperty != null)
                                             {
-                                                guardCondition.Append(".");
+                                                clsProperty = clsProperty.DeclaringType.GetRuntimeProperty(redirectProperty);
+                                            }
+
+                                            // Is this a uuid?
+                                            guardCondition.Append(clsProperty.GetSerializationName());
+                                            if (guardClause.Key.Split('|').All(o => Guid.TryParse(o, out Guid _)))
+                                            {
+                                                break;
+                                            }
+                                            else
+                                            {
+                                                if (typeof(IdentifiedData).IsAssignableFrom(clsModel))
+                                                {
+                                                    guardCondition.Append(".");
+                                                }
                                             }
                                         }
-                                    }
-                                    subQuery.Add(new KeyValuePair<string, string[]>(guardCondition.ToString(), guardClause.Key.Split('|')));
+                                        subQuery.Add(new KeyValuePair<string, string[]>(guardCondition.ToString(), guardClause.Key.Split('|')));
 
-                                    // Filter by effective version
-                                    if (typeof(IVersionedAssociation).IsAssignableFrom(clsModel))
-                                    {
-                                        subQuery.Add(new KeyValuePair<string, string[]>("obsoleteVersionSequence", new string[] { "null" }));
+                                        // Filter by effective version
+                                        if (typeof(IVersionedAssociation).IsAssignableFrom(clsModel))
+                                        {
+                                            subQuery.Add(new KeyValuePair<string, string[]>("obsoleteVersionSequence", new string[] { "null" }));
+                                        }
                                     }
+
+                                    // Generate method
+                                    subQuery.RemoveAll(o => String.IsNullOrEmpty(o.Key));
+                                    var prefix = IncrementSubQueryAlias(tablePrefix);
+
+                                    // Sub path is specified
+                                    if (String.IsNullOrEmpty(propertyPredicate.SubPath) && "null".Equals(parm.Value))
+                                    {
+                                        subQueryStatement.And($"NOT EXISTS (");
+                                    }
+                                    // Query Optimization - Sub-Path is specified and the only object is a NOT value (other than classifier)
+                                    else if (!String.IsNullOrEmpty(propertyPredicate.SubPath) &&
+                                        subQuery.Count <= 2 &&
+                                        subQuery.Count(p =>
+                                            !p.Key.Contains(".") && (
+                                            p.Value.All(v => v.StartsWith("!")) == true)) == 1)
+                                    {
+                                        subQueryStatement.And($"NOT EXISTS (");
+                                        subQuery = subQuery.Select(a => new KeyValuePair<string, string[]>(a.Key, a.Value.Select(v => v.StartsWith("!") ? v.Substring(1) : v).ToArray())).ToList();
+                                    }
+                                    else
+                                    {
+                                        subQueryStatement.And($"EXISTS (");
+                                    }
+
+                                    // Does this query object have obsolete version sequence?
+                                    if (typeof(IVersionedAssociation).IsAssignableFrom(propertyType)) // Add obslt guard
+                                    {
+                                        subQuery.Add(new KeyValuePair<string, string[]>(propertyType.GetRuntimeProperty(nameof(IVersionedAssociation.ObsoleteVersionSequenceId)).GetSerializationName(), NULL_CLAUSE));
+                                    }
+
+                                    var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { propertyType }, new Type[] { subQuery.GetType(), typeof(String), typeof(bool), typeof(List<TableMapping>), typeof(ModelSort<>).MakeGenericType(propertyType).MakeArrayType(), typeof(ColumnMapping[]) });
+
+                                    if (subQuery.Count(p => !p.Key.Contains(".")) == 0)
+                                    {
+                                        subQueryStatement.Append(this.CreateQuery(propertyType, subQuery.ToParameterDictionary(), prefix, true, scopedTables, new ColumnMapping[] { ColumnMapping.One }));
+                                    }
+                                    else
+                                    {
+                                        subQueryStatement.Append(this.CreateQuery(propertyType, subQuery.ToParameterDictionary(), prefix, false, scopedTables, new ColumnMapping[] { ColumnMapping.One }));
+                                    }
+
+                                    subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{subTableColumn.Name}");
+                                    //existsClause = $"{prefix}{subTableColumn.Table.TableName}.{subTableColumn.Name}";
+
+                                    subQueryStatement.Append(")");
                                 }
 
-                                // Generate method
-                                subQuery.RemoveAll(o => String.IsNullOrEmpty(o.Key));
+                                if (subTableColumn != linkColumn)
+                                {
+                                    whereClause.And($"EXISTS (").Append(subQueryStatement).And($"{tablePrefix}{localTable.TableName}.{localTable.GetColumn(linkColumn.ForeignKey.Column).Name} = {lnkPfx}{linkColumn.Table.TableName}.{linkColumn.Name}").Append(")");
+                                }
+                                else
+                                {
+                                    whereClause.And(subQueryStatement.Statement);
+                                }
+                            }
+                            else  // this table points at other
+                            {
+                                var subQuery = subQueryParms.Select(o => new KeyValuePair<String, String[]>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
+
+                                if (!subQuery.Any(o => o.Key == "obsoletionTime") && typeof(IBaseData).IsAssignableFrom(subProp.PropertyType))
+                                {
+                                    subQuery.Add(new KeyValuePair<string, string[]>("obsoletionTime", NULL_CLAUSE));
+                                }
+
+                                TableMapping tableMapping = null;
+                                var subPropKey = tmodel.GetQueryProperty(propertyPredicate.Path);
+
+                                // Get column info
+                                PropertyInfo domainProperty = scopedTables.Select(o => { tableMapping = o; return m_mapper.MapModelProperty(tmodel, o.OrmType, subPropKey); })?.FirstOrDefault(o => o != null);
+                                ColumnMapping linkColumn = null;
+                                // If the domain property is not set, we may have to infer the link
+                                if (domainProperty == null)
+                                {
+                                    var subPropType = m_mapper.MapModelType(subProp.PropertyType.StripGeneric());
+                                    // We find the first column with a foreign key that points to the other !!!
+                                    linkColumn = scopedTables.SelectMany(o => o.Columns).FirstOrDefault(o => o.ForeignKey?.Table == subPropType);
+
+                                }
+                                else
+                                {
+                                    linkColumn = tableMapping.GetColumn(domainProperty);
+                                }
+
+                                var fkTableDef = parentScopedTables?.FirstOrDefault(o => o.OrmType == linkColumn.ForeignKey.Table) ?? TableMapping.Get(linkColumn.ForeignKey.Table);
+                                var fkColumnDef = fkTableDef.GetColumn(linkColumn.ForeignKey.Column);
                                 var prefix = IncrementSubQueryAlias(tablePrefix);
 
-                                // Sub path is specified
-                                if (String.IsNullOrEmpty(propertyPredicate.SubPath) && "null".Equals(parm.Value))
+                                // Create the sub-query
+                                //var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { subProp.PropertyType }, new Type[] { subQuery.GetType(), typeof(ColumnMapping[]) });
+                                //SqlStatement subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, new ColumnMapping[] { fkColumnDef } }) as SqlStatement;
+                                SqlStatementBuilder subQueryStatement = null;
+                                var subSkipJoins = subQuery.Count(o => !o.Key.Contains(".") && o.Key != "obsoletionTime") == 0;
+                                if (String.IsNullOrEmpty(propertyPredicate.CastAs))
                                 {
-                                    subQueryStatement.And($"NOT EXISTS (");
+                                    subQueryStatement = this.CreateQuery(subProp.PropertyType, subQuery.ToParameterDictionary(), prefix, subSkipJoins, scopedTables, new ColumnMapping[] { fkColumnDef });
                                 }
-                                // Query Optimization - Sub-Path is specified and the only object is a NOT value (other than classifier)
-                                else if (!String.IsNullOrEmpty(propertyPredicate.SubPath) &&
-                                    subQuery.Count <= 2 &&
-                                    subQuery.Count(p =>
-                                        !p.Key.Contains(".") && (
-                                        p.Value.All(v => v.StartsWith("!")) == true)) == 1)
+                                else // we need to cast!
                                 {
-                                    subQueryStatement.And($"NOT EXISTS (");
-                                    subQuery = subQuery.Select(a => new KeyValuePair<string, string[]>(a.Key, a.Value.Select(v => v.StartsWith("!") ? v.Substring(1) : v).ToArray())).ToList();
-                                }
-                                else
-                                {
-                                    subQueryStatement.And($"EXISTS (");
+                                    var castAsType = new SanteDB.Core.Model.Serialization.ModelSerializationBinder().BindToType("SanteDB.Core.Model", propertyPredicate.CastAs);
+                                    subQueryStatement = this.CreateQuery(castAsType, subQuery.ToParameterDictionary(), prefix, false, scopedTables, new ColumnMapping[] { fkColumnDef });
                                 }
 
-                                // Does this query object have obsolete version sequence?
-                                if (typeof(IVersionedAssociation).IsAssignableFrom(propertyType)) // Add obslt guard
-                                {
-                                    subQuery.Add(new KeyValuePair<string, string[]>(propertyType.GetRuntimeProperty(nameof(IVersionedAssociation.ObsoleteVersionSequenceId)).GetSerializationName(), NULL_CLAUSE));
-                                }
+                                //cteStatements.Add(new SqlStatement(this.m_provider, $"{tablePrefix}cte{cteStatements.Count} AS (").Append(subQueryStatement).Append(")"));
+                                //subQueryStatement.And($"{tablePrefix}{tableMapping.TableName}.{linkColumn.Name} = {sqName}{fkTableDef.TableName}.{fkColumnDef.Name} ");
 
-                                var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { propertyType }, new Type[] { subQuery.GetType(), typeof(String), typeof(bool), typeof(List<TableMapping>), typeof(ModelSort<>).MakeGenericType(propertyType).MakeArrayType(), typeof(ColumnMapping[]) });
+                                // Join up to the parent table
 
-                                if (subQuery.Count(p => !p.Key.Contains(".")) == 0)
-                                {
-                                    subQueryStatement.Append(this.CreateQuery(propertyType, subQuery.ToParameterDictionary(), prefix, true, scopedTables, new ColumnMapping[] { ColumnMapping.One }));
-                                }
-                                else
-                                {
-                                    subQueryStatement.Append(this.CreateQuery(propertyType, subQuery.ToParameterDictionary(), prefix, false, scopedTables, new ColumnMapping[] { ColumnMapping.One }));
-                                }
-
-                                subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{subTableColumn.Name}");
-                                //existsClause = $"{prefix}{subTableColumn.Table.TableName}.{subTableColumn.Name}";
-
-                                subQueryStatement.Append(")");
+                                whereClause.And($" {tablePrefix}{tableMapping.TableName}.{linkColumn.Name} IN (").Append(subQueryStatement).Append(")");
                             }
-
-                            if (subTableColumn != linkColumn)
-                            {
-                                whereClause.And($"EXISTS (").Append(subQueryStatement).And($"{tablePrefix}{localTable.TableName}.{localTable.GetColumn(linkColumn.ForeignKey.Column).Name} = {lnkPfx}{linkColumn.Table.TableName}.{linkColumn.Name}").Append(")");
-                            }
-                            else
-                            {
-                                whereClause.And(subQueryStatement.Statement);
-                            }
-                        }
-                        else  // this table points at other
-                        {
-                            var subQuery = subQueryParms.Select(o => new KeyValuePair<String, String[]>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
-
-                            if (!subQuery.Any(o => o.Key == "obsoletionTime") && typeof(IBaseData).IsAssignableFrom(subProp.PropertyType))
-                            {
-                                subQuery.Add(new KeyValuePair<string, string[]>("obsoletionTime", NULL_CLAUSE));
-                            }
-
-                            TableMapping tableMapping = null;
-                            var subPropKey = tmodel.GetQueryProperty(propertyPredicate.Path);
-
-                            // Get column info
-                            PropertyInfo domainProperty = scopedTables.Select(o => { tableMapping = o; return m_mapper.MapModelProperty(tmodel, o.OrmType, subPropKey); })?.FirstOrDefault(o => o != null);
-                            ColumnMapping linkColumn = null;
-                            // If the domain property is not set, we may have to infer the link
-                            if (domainProperty == null)
-                            {
-                                var subPropType = m_mapper.MapModelType(subProp.PropertyType.StripGeneric());
-                                // We find the first column with a foreign key that points to the other !!!
-                                linkColumn = scopedTables.SelectMany(o => o.Columns).FirstOrDefault(o => o.ForeignKey?.Table == subPropType);
-
-                            }
-                            else
-                            {
-                                linkColumn = tableMapping.GetColumn(domainProperty);
-                            }
-
-                            var fkTableDef = parentScopedTables?.FirstOrDefault(o => o.OrmType == linkColumn.ForeignKey.Table) ?? TableMapping.Get(linkColumn.ForeignKey.Table);
-                            var fkColumnDef = fkTableDef.GetColumn(linkColumn.ForeignKey.Column);
-                            var prefix = IncrementSubQueryAlias(tablePrefix);
-
-                            // Create the sub-query
-                            //var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { subProp.PropertyType }, new Type[] { subQuery.GetType(), typeof(ColumnMapping[]) });
-                            //SqlStatement subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, new ColumnMapping[] { fkColumnDef } }) as SqlStatement;
-                            SqlStatementBuilder subQueryStatement = null;
-                            var subSkipJoins = subQuery.Count(o => !o.Key.Contains(".") && o.Key != "obsoletionTime") == 0;
-                            if (String.IsNullOrEmpty(propertyPredicate.CastAs))
-                            {
-                                subQueryStatement = this.CreateQuery(subProp.PropertyType, subQuery.ToParameterDictionary(), prefix, subSkipJoins, scopedTables, new ColumnMapping[] { fkColumnDef });
-                            }
-                            else // we need to cast!
-                            {
-                                var castAsType = new SanteDB.Core.Model.Serialization.ModelSerializationBinder().BindToType("SanteDB.Core.Model", propertyPredicate.CastAs);
-                                subQueryStatement = this.CreateQuery(castAsType, subQuery.ToParameterDictionary(), prefix, false, scopedTables, new ColumnMapping[] { fkColumnDef });
-                            }
-
-                            //cteStatements.Add(new SqlStatement(this.m_provider, $"{tablePrefix}cte{cteStatements.Count} AS (").Append(subQueryStatement).Append(")"));
-                            //subQueryStatement.And($"{tablePrefix}{tableMapping.TableName}.{linkColumn.Name} = {sqName}{fkTableDef.TableName}.{fkColumnDef.Name} ");
-
-                            // Join up to the parent table
-
-                            whereClause.And($" {tablePrefix}{tableMapping.TableName}.{linkColumn.Name} IN (").Append(subQueryStatement).Append(")");
                         }
                     }
+                    else if (!m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, tmodel, tmodel.GetQueryProperty(propertyPredicate.Path), tablePrefix, propertyPredicate, parm.Value, scopedTables, query)))
+                    {
+                        whereClause.And(CreateWhereCondition(tmodel, propertyPredicate.Path, parm.Value, tablePrefix, scopedTables));
+                    }
+
+                    if(shouldUnion)
+                    {
+                        whereClause.Append(" OR ");
+                    }
+                    propertyPredicate = propertyPredicate.Union;
                 }
-                else if (!m_hacks.Any(o => o.HackQuery(this, selectStatement, whereClause, tmodel, tmodel.GetQueryProperty(propertyPredicate.Path), tablePrefix, propertyPredicate, parm.Value, scopedTables, query)))
+
+                if(shouldUnion)
                 {
-                    whereClause.And(CreateWhereCondition(tmodel, propertyPredicate.Path, parm.Value, tablePrefix, scopedTables));
+                    whereClause.RemoveLast(out _).Append(")");
                 }
             }
 
