@@ -125,7 +125,7 @@ namespace SanteDB.OrmLite.Migration
         /// <summary>
         /// Upgrade the context on the specified data context
         /// </summary>
-        public static void UpgradeSchema(DataContext conn, string scopeOfContext) => UpgradeSchema(conn, scopeOfContext);
+        public static void UpgradeSchema(DataContext conn, string scopeOfContext) => UpgradeSchema(conn, scopeOfContext, null);
 
         /// <summary>
         /// Upgrade schema on the specified connection
