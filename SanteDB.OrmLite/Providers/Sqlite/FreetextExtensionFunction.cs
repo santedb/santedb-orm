@@ -139,11 +139,19 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
             try
             {
-                m_hasSoundex = connection.ExecuteScalar<string>("SELECT soundex('test');") == "T230";
-                m_hasSpellFix = connection.ExecuteScalar<int>("SELECT editdist3('test', 'test1');") > 0;
+                if (!m_hasSoundex.HasValue)
+                {
+                    m_hasSoundex = connection.ExecuteScalar<string>("SELECT soundex('test');") == "T230";
+                }
+                if (!m_hasSpellFix.HasValue)
+                {
+                    m_hasSpellFix = connection.ExecuteScalar<int>("SELECT editdist3('test', 'test1');") > 0;
+                }
             }
             catch
             {
+                m_hasSoundex = m_hasSoundex ?? false;
+                m_hasSpellFix = m_hasSpellFix ?? false;
             }
             return true;
 

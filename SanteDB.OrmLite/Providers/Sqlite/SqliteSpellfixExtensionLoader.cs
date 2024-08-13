@@ -40,10 +40,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns>True if the library has been loaded, false if it could not be loaded.</returns>
         public static bool CheckAndLoadSpellfix(this IDbConnection connection)
         {
-            //if (s_SpellfixLoaded != null)
-            //{
-            //    return s_SpellfixLoaded.Value;
-            //}
+            if (s_SpellfixLoaded != null)
+            {
+                return s_SpellfixLoaded.Value;
+            }
 
             try
             {
