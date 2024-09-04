@@ -40,56 +40,52 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns>True if the library has been loaded, false if it could not be loaded.</returns>
         public static bool CheckAndLoadSpellfix(this IDbConnection connection)
         {
-            if (s_SpellfixLoaded != null)
-            {
-                return s_SpellfixLoaded.Value;
-            }
-
-            try
-            {
-                //Check if spellfix is loaded by executing a function.
-                s_SpellfixLoaded = connection.ExecuteScalar<int>("SELECT editdist3('test', 'test1');") > 0;
-                s_Tracer?.TraceVerbose("Test succeeded for loading spellfix library for sqlite. Result: {0}", s_SpellfixLoaded);
-                return true;
-            }
-            catch //An exception is thrown if the function is not found.
-            {
+            
+            //try
+            //{
+            //    //Check if spellfix is loaded by executing a function.
+            //    s_SpellfixLoaded = connection.ExecuteScalar<int>("SELECT editdist3('test', 'test1');") > 0;
+            //    s_Tracer?.TraceVerbose("Test succeeded for loading spellfix library for sqlite. Result: {0}", s_SpellfixLoaded);
+            //    return true;
+            //}
+            //catch //An exception is thrown if the function is not found.
+            //{
                 
-                if (null != s_LibraryName) //If we've been provided with a specific library to load, use that.
-                {
-                    s_Tracer.TraceVerbose("Attempting to load spellfix library using '{0}', entry point '{1}'.", s_LibraryName, s_EntryPoint ?? "(default)");
+            //    if (null != s_LibraryName) //If we've been provided with a specific library to load, use that.
+            //    {
+            //        s_Tracer.TraceVerbose("Attempting to load spellfix library using '{0}', entry point '{1}'.", s_LibraryName, s_EntryPoint ?? "(default)");
 
-                    try
-                    {
-                        connection.LoadExtension(s_LibraryName, s_EntryPoint);
-                    }
-                    catch(Exception ex)
-                    {
-                        if (ex.Message?.IndexOf("sqlite error 1", StringComparison.OrdinalIgnoreCase) > -1)
-                        {
-                            string errormessage = null;
+            //        try
+            //        {
+            //            connection.LoadExtension(s_LibraryName, s_EntryPoint);
+            //        }
+            //        catch(Exception ex)
+            //        {
+            //            if (ex.Message?.IndexOf("sqlite error 1", StringComparison.OrdinalIgnoreCase) > -1)
+            //            {
+            //                string errormessage = null;
 
-                            if (ex.Message?.IndexOf("procedure", StringComparison.OrdinalIgnoreCase) > -1)
-                            {
-                                errormessage = "Entry point not found when attempting to load spellfix library using '{0}', entry point '{1}'.";
-                            }
-                            else if (ex.Message?.IndexOf("module", StringComparison.OrdinalIgnoreCase) > -1)
-                            {
-                                errormessage = "Library not found when attempting to load spellfix library using '{0}', entry point '{1}'.";
-                            }
-                            else
-                            {
-                                errormessage = "Unspecified error when attempting to load spellfix library using '{0}', entry point '{1}'.";
-                            }
+            //                if (ex.Message?.IndexOf("procedure", StringComparison.OrdinalIgnoreCase) > -1)
+            //                {
+            //                    errormessage = "Entry point not found when attempting to load spellfix library using '{0}', entry point '{1}'.";
+            //                }
+            //                else if (ex.Message?.IndexOf("module", StringComparison.OrdinalIgnoreCase) > -1)
+            //                {
+            //                    errormessage = "Library not found when attempting to load spellfix library using '{0}', entry point '{1}'.";
+            //                }
+            //                else
+            //                {
+            //                    errormessage = "Unspecified error when attempting to load spellfix library using '{0}', entry point '{1}'.";
+            //                }
 
-                            if (null != errormessage) 
-                                s_Tracer.TraceError(errormessage, s_LibraryName, s_EntryPoint ?? "(default)");
-                        }
-                        throw;
-                    }
-                }
-                else //Otherwise use the default name for the extension library.
-                {
+            //                if (null != errormessage) 
+            //                    s_Tracer.TraceError(errormessage, s_LibraryName, s_EntryPoint ?? "(default)");
+            //            }
+            //            throw;
+            //        }
+            //    }
+            //    else //Otherwise use the default name for the extension library.
+            //    {
                     try
                     {
                         connection.LoadExtension("e_sqlite3mc", "sqlite3_spellfix_init");
@@ -99,7 +95,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         s_Tracer?.TraceError("Failed to load spellfix library using default module name '{0}'.", "spellfix");
                         
                     }
-                }
+                //}
 
                 try
                 {
@@ -109,7 +105,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 {
                     s_SpellfixLoaded = false;
                 }
-            }
+            //}
 
             return s_SpellfixLoaded == true;
         }

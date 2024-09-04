@@ -135,26 +135,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         }
 
         /// <inheritdoc />
-        public bool Initialize(IDbConnection connection, IDbTransaction transaction)
-        {
-            try
-            {
-                if (!m_hasSoundex.HasValue)
-                {
-                    m_hasSoundex = connection.ExecuteScalar<string>("SELECT soundex('test');") == "T230";
-                }
-                if (!m_hasSpellFix.HasValue)
-                {
-                    m_hasSpellFix = connection.ExecuteScalar<int>("SELECT editdist3('test', 'test1');") > 0;
-                }
-            }
-            catch
-            {
-                m_hasSoundex = m_hasSoundex ?? false;
-                m_hasSpellFix = m_hasSpellFix ?? false;
-            }
-            return true;
-
-        }
+        public bool Initialize(IDbConnection connection, IDbTransaction transaction) => connection.CheckAndLoadSpellfix();
     }
 }
