@@ -23,7 +23,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             }
             catch
             {
-                throw new DllNotFoundException("Unable to locate sqlite database. Ensure the correct package is included in your project.");
+                try // fallback to sqlciper
+                {
+                    _dll = SqliteNativeMethods.Load("e_sqlcipher", assy, SqliteNativeMethods.WHERE_RUNTIME_RID | SqliteNativeMethods.WHERE_ADJACENT);
+                }
+                catch
+                {
+                    throw new DllNotFoundException("Unable to locate sqlite database. Ensure the correct package is included in your project.");
+                }
             }
         }
 
