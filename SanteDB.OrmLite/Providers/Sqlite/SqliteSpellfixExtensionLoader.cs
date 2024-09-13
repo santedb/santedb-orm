@@ -40,7 +40,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns>True if the library has been loaded, false if it could not be loaded.</returns>
         public static bool CheckAndLoadSpellfix(this IDbConnection connection)
         {
-            
+
             //try
             //{
             //    //Check if spellfix is loaded by executing a function.
@@ -50,7 +50,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             //}
             //catch //An exception is thrown if the function is not found.
             //{
-                
+
             //    if (null != s_LibraryName) //If we've been provided with a specific library to load, use that.
             //    {
             //        s_Tracer.TraceVerbose("Attempting to load spellfix library using '{0}', entry point '{1}'.", s_LibraryName, s_EntryPoint ?? "(default)");
@@ -86,25 +86,33 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             //    }
             //    else //Otherwise use the default name for the extension library.
             //    {
-                    try
-                    {
-                        connection.LoadExtension("e_sqlite3mc", "sqlite3_spellfix_init");
-                    }
-                    catch
-                    {
-                        s_Tracer?.TraceError("Failed to load spellfix library using default module name '{0}'.", "spellfix");
-                        
-                    }
-                //}
+            try
+            {
+                if (s_LibraryName == null)
+                {
+                    connection.LoadExtension("e_sqlite3mc", "sqlite3_spellfix_init");
+                }
+                else
+                {
+                    connection.LoadExtension(s_LibraryName, s_EntryPoint ?? "sqlite3_spellfix_init");
 
-                try
-                {
-                    s_SpellfixLoaded = connection.ExecuteScalar<int>("SELECT editdist3('test', 'test1');") > 0;
                 }
-                catch
-                {
-                    s_SpellfixLoaded = false;
-                }
+            }
+            catch
+            {
+                s_Tracer?.TraceError("Failed to load spellfix library using default module name '{0}'.", "spellfix");
+            }
+
+            //}
+
+            try
+            {
+                s_SpellfixLoaded = connection.ExecuteScalar<int>("SELECT editdist3('test', 'test1');") > 0;
+            }
+            catch
+            {
+                s_SpellfixLoaded = false;
+            }
             //}
 
             return s_SpellfixLoaded == true;
