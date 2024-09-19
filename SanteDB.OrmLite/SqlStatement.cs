@@ -15,8 +15,6 @@
  * License for the specific language governing permissions and limitations under 
  * the License.
  * 
- * User: fyfej
- * Date: 2023-6-21
  */
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Map;
@@ -631,7 +629,8 @@ namespace SanteDB.OrmLite
         public SqlStatementBuilder And(SqlStatement clause)
         {
             if (this.m_sqlStatement.IsEmpty() || this.m_sqlStatement.EndsWith("where", StringComparison.CurrentCultureIgnoreCase)
-                || this.m_sqlStatement.ToString().TrimEnd().EndsWith("and", StringComparison.CurrentCultureIgnoreCase))// || clause.AnyEndsWith("where", StringComparison.OrdinalIgnoreCase))
+                || this.m_sqlStatement.ToString().TrimEnd().EndsWith("and", StringComparison.CurrentCultureIgnoreCase) ||
+                this.m_sqlStatement.Last().ToString().TrimEnd().EndsWith("or", StringComparison.CurrentCultureIgnoreCase))// || clause.AnyEndsWith("where", StringComparison.OrdinalIgnoreCase))
             {
                 this.m_sqlStatement += clause;
             }
@@ -656,7 +655,8 @@ namespace SanteDB.OrmLite
         public SqlStatementBuilder Or(SqlStatement clause)
         {
             if (this.m_sqlStatement.IsEmpty() || this.m_sqlStatement.EndsWith("where", StringComparison.CurrentCultureIgnoreCase)
-               || this.m_sqlStatement.ToString().TrimEnd().EndsWith("or", StringComparison.CurrentCultureIgnoreCase))// || clause.AnyEndsWith("where", StringComparison.OrdinalIgnoreCase))
+               || this.m_sqlStatement.ToString().TrimEnd().EndsWith("or", StringComparison.CurrentCultureIgnoreCase) ||
+               this.m_sqlStatement.Last().ToString().TrimEnd().EndsWith("and", StringComparison.CurrentCultureIgnoreCase))// || clause.AnyEndsWith("where", StringComparison.OrdinalIgnoreCase))
             {
                 this.m_sqlStatement += clause;
             }

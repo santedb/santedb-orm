@@ -15,8 +15,6 @@
  * License for the specific language governing permissions and limitations under 
  * the License.
  * 
- * User: fyfej
- * Date: 2023-6-21
  */
 using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
@@ -125,7 +123,7 @@ namespace SanteDB.OrmLite.Migration
         /// <summary>
         /// Upgrade the context on the specified data context
         /// </summary>
-        public static void UpgradeSchema(DataContext conn, string scopeOfContext) => UpgradeSchema(conn, scopeOfContext);
+        public static void UpgradeSchema(DataContext conn, string scopeOfContext) => UpgradeSchema(conn, scopeOfContext, null);
 
         /// <summary>
         /// Upgrade schema on the specified connection

@@ -15,8 +15,6 @@
  * License for the specific language governing permissions and limitations under 
  * the License.
  * 
- * User: fyfej
- * Date: 2023-11-30
  */
 using SanteDB.Core.Diagnostics;
 using System;
@@ -98,7 +96,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             }
 
 
-            connection.ExecuteScalar<object>("PRAGMA cipher = 'sqlcipher';");
             connection.ExecuteScalar<object>("PRAGMA pragma_automatic_index=true");
             connection.ExecuteScalar<Object>("PRAGMA temp_store = 2");
 

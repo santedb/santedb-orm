@@ -15,8 +15,6 @@
  * License for the specific language governing permissions and limitations under 
  * the License.
  * 
- * User: fyfej
- * Date: 2023-8-29
  */
 using System;
 using System.Data;
@@ -135,18 +133,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         }
 
         /// <inheritdoc />
-        public bool Initialize(IDbConnection connection, IDbTransaction transaction)
-        {
-            try
-            {
-                m_hasSoundex = connection.ExecuteScalar<string>("SELECT soundex('test');") == "T230";
-                m_hasSpellFix = connection.ExecuteScalar<int>("SELECT editdist3('test', 'test1');") > 0;
-            }
-            catch
-            {
-            }
-            return true;
-
-        }
+        public bool Initialize(IDbConnection connection, IDbTransaction transaction) => connection.CheckAndLoadSpellfix();
     }
 }
