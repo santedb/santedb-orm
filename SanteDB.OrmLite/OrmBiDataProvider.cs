@@ -302,7 +302,7 @@ namespace SanteDB.OrmLite
 
 
                 stmt += $" GROUP BY {String.Join(",", groupings)}";
-                if (agg.Sorting != null)
+                if (agg.Sorting?.Any() == true)
                 {
                     stmt += $" ORDER BY {String.Join(",", agg.Sorting.Select(o => o.Name ?? o.ColumnSelector))}";
                 }
