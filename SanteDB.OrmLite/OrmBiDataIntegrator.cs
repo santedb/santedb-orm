@@ -785,6 +785,7 @@ namespace SanteDB.OrmLite
             this.ThrowIfOpen(nameof(OpenRead));
             this.m_pepService.Demand(PermissionPolicyIdentifiers.QueryWarehouseData);
             this.m_currentContext = this.m_provider.GetReadonlyConnection();
+            this.m_currentContext.CommandTimeout = 3600;
             this.m_currentContext.Open();
         }
 
