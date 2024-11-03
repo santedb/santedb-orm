@@ -633,9 +633,12 @@ namespace SanteDB.OrmLite
         /// <inheritdoc/>
         public void Dispose()
         {
-            this.ThrowIfDisposed();
-            this.m_currentContext?.Dispose();
-            this.m_currentContext = null;
+            if (this.m_currentContext != null)
+            {
+                this.ThrowIfDisposed();
+                this.m_currentContext?.Dispose();
+                this.m_currentContext = null;
+            }
             this.m_disposed = true;
         }
 
@@ -833,7 +836,7 @@ namespace SanteDB.OrmLite
             });
 
             // Execute the SQL
-            foreach (IDictionary<String, Object> tuple in new OrmResultSet<ExpandoObject>(this.m_currentContext, new SqlStatement(sqlDef.Sql, arguments)))
+            foreach (IDictionary<String, Object> tuple in new OrmResultSet<ExpandoObject>(this.m_currentContext, new SqlStatement(sqlDef.Sql, arguments.ToArray())))
             {
                 if (expectedOutput != null)
                 {
