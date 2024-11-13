@@ -415,6 +415,11 @@ namespace SanteDB.OrmLite
                 case "ToString":
                     this.m_sqlStatement.Append(" ? ", node.Object.ToString());
                     break;
+                case "Trim":
+                    this.m_sqlStatement.Append("TRIM(");
+                    this.Visit(node.Object);
+                    this.m_sqlStatement.Append(")");
+                    break;
                 default:
                     throw new NotSupportedException(node.Method.Name);
             }
