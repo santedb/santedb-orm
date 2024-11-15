@@ -16,6 +16,7 @@
  * the License.
  * 
  */
+using DocumentFormat.OpenXml.Spreadsheet;
 using SanteDB;
 using SanteDB.BI.Datamart;
 using SanteDB.BI.Datamart.DataFlow;
@@ -47,6 +48,8 @@ namespace SanteDB.OrmLite
     /// </summary>
     public class OrmBiDataIntegrator : IDataIntegrator
     {
+
+        private static readonly Regex m_parmRegex = new Regex(@"\$\{([\w_][\-\d\w\._]*?)\}", RegexOptions.Compiled);
 
         private readonly Tracer m_tracer = Tracer.GetTracer(typeof(OrmBiDataIntegrator));
         private readonly IDataFlowExecutionContext m_executionContext;
@@ -630,9 +633,12 @@ namespace SanteDB.OrmLite
         /// <inheritdoc/>
         public void Dispose()
         {
-            this.ThrowIfDisposed();
-            this.m_currentContext?.Dispose();
-            this.m_currentContext = null;
+            if (this.m_currentContext != null)
+            {
+                this.ThrowIfDisposed();
+                this.m_currentContext?.Dispose();
+                this.m_currentContext = null;
+            }
             this.m_disposed = true;
         }
 
@@ -785,6 +791,7 @@ namespace SanteDB.OrmLite
             this.ThrowIfOpen(nameof(OpenRead));
             this.m_pepService.Demand(PermissionPolicyIdentifiers.QueryWarehouseData);
             this.m_currentContext = this.m_provider.GetReadonlyConnection();
+            this.m_currentContext.CommandTimeout = 3600;
             this.m_currentContext.Open();
         }
 
@@ -802,7 +809,7 @@ namespace SanteDB.OrmLite
 
 
         /// <inheritdoc/>
-        public IEnumerable<dynamic> Query(IEnumerable<BiSqlDefinition> queryToExecute, BiSchemaTableDefinition expectedOutput = null)
+        public IEnumerable<dynamic> Query(IEnumerable<BiSqlDefinition> queryToExecute, IDataIntegratorVariableProvider variableProvider, BiSchemaTableDefinition expectedOutput = null)
         {
             if (queryToExecute == null)
             {
@@ -819,8 +826,17 @@ namespace SanteDB.OrmLite
                 throw new InvalidOperationException(String.Format(ErrorMessages.DIALECT_NOT_FOUND, this.m_provider.Invariant));
             }
 
+            var arguments = new List<Object>();
+            var stmt = m_parmRegex.Replace(sqlDef.Sql, (m) =>
+            {
+                object pValue = null;
+                variableProvider.TryGetVariable(m.Groups[1].Value, out pValue);
+                arguments.Add(pValue);
+                return "?";
+            });
+
             // Execute the SQL
-            foreach (IDictionary<String, Object> tuple in new OrmResultSet<ExpandoObject>(this.m_currentContext, new SqlStatement(sqlDef.Sql)))
+            foreach (IDictionary<String, Object> tuple in new OrmResultSet<ExpandoObject>(this.m_currentContext, new SqlStatement(sqlDef.Sql, arguments.ToArray())))
             {
                 if (expectedOutput != null)
                 {

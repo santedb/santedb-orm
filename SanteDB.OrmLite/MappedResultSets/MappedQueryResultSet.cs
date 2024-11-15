@@ -414,9 +414,13 @@ namespace SanteDB.OrmLite.MappedResultSets
                     throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Union)));
                 }
             }
-            else
+            else if(other.Any())
             {
                 throw new ArgumentOutOfRangeException(String.Format(ErrorMessages.ARGUMENT_INVALID_TYPE, typeof(MappedQueryResultSet<>), other.GetType()));
+            }
+            else // no results in the other result set
+            {
+                return this;
             }
         }
 
@@ -565,7 +569,21 @@ namespace SanteDB.OrmLite.MappedResultSets
         /// </summary>
         public virtual IQueryResultSet<TElement> Intersect(IQueryResultSet<TElement> other)
         {
-            throw new NotImplementedException();
+            if (other is MappedQueryResultSet<TElement> otherStrong)
+            {
+                if (this.m_resultSet != null && otherStrong.m_resultSet != null)
+                {
+                    return this.CloneWith(this.m_resultSet.Intersect(otherStrong.m_resultSet));
+                }
+                else
+                {
+                    throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, nameof(Intersect)));
+                }
+            }
+            else 
+            {
+                throw new ArgumentOutOfRangeException(String.Format(ErrorMessages.ARGUMENT_INVALID_TYPE, typeof(MappedQueryResultSet<>), other.GetType()));
+            }
         }
 
         /// <summary>

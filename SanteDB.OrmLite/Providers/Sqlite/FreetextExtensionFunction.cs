@@ -32,7 +32,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         private static bool? m_hasSpellFix;
 
         // Has soundex?
-        private static bool? m_hasSoundex; 
+        private static bool? m_hasSoundex;
 
         /// <summary>
         /// Gets the provider
@@ -90,7 +90,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                 needsJoiner = false;
                                 break;
                             default:
-                                if(needsJoiner)
+                                if (needsJoiner)
                                 {
                                     current.Append(" intersect ");
                                     needsJoiner = false;
@@ -100,7 +100,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                                 bool useApprox = t.StartsWith("~");
                                 var term = t;
-                                if(useApprox) { term = term.Substring(1); }
+                                if (useApprox) { term = term.Substring(1); }
 
                                 current.Append("(").Append("LOWER(term) LIKE ?", QueryBuilder.CreateParameterValue($"%{term.ToLowerInvariant()}%", typeof(String)));
 
@@ -108,7 +108,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                 {
                                     current.Or("editdist3(LOWER(term), ?) < 2", QueryBuilder.CreateParameterValue(term.ToLowerInvariant(), typeof(String)));
                                 }
-                                if(useApprox && m_hasSoundex.GetValueOrDefault())
+                                if (useApprox && m_hasSoundex.GetValueOrDefault())
                                 {
                                     current.Or("soundex(term) = soundex(?)", QueryBuilder.CreateParameterValue(term.ToLowerInvariant(), typeof(String)));
                                 }
@@ -133,6 +133,34 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         }
 
         /// <inheritdoc />
-        public bool Initialize(IDbConnection connection, IDbTransaction transaction) => connection.CheckAndLoadSpellfix();
+        public bool Initialize(IDbConnection connection, IDbTransaction transaction)
+        {
+            connection.CheckAndLoadSpellfix();
+
+            if (!m_hasSpellFix.HasValue)
+            {
+                try
+                {
+                    m_hasSpellFix = connection.ExecuteScalar<int>("SELECT editdist3('test', 'test1');") > 0;
+                }
+                catch
+                {
+                    m_hasSpellFix = false;
+                }
+            }
+
+            if (!m_hasSoundex.HasValue)
+            {
+                try
+                {
+                    m_hasSoundex = connection.ExecuteScalar<bool>("SELECT soundex('FOO') = 'F000'");
+                }
+                catch
+                {
+                    m_hasSoundex = false;
+                }
+            }
+            return true;
+        }
     }
 }
