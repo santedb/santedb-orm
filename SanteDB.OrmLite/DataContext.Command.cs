@@ -1678,5 +1678,27 @@ namespace SanteDB.OrmLite
 
         }
 
+        /// <summary>
+        /// Instructs the provider to disable constraints (such as foreign keys, check constraints, etc.)
+        /// </summary>
+        /// <remarks>This is used during synchronization to allow objects to be inserted without checking for constraints</remarks>
+        public void DisableConstraints()
+        {
+            if(this.Provider is IDisableConstraintProvider idcp)
+            {
+                idcp.DisableAllConstraints(this);
+            }
+        }
+
+        /// <summary>
+        /// Instructs the provider to enable constraints (such as foreign keys, check constraints, etc.)
+        /// </summary>
+        public void RestoreConstraints()
+        {
+            if (this.Provider is IDisableConstraintProvider idcp)
+            {
+                idcp.EnableAllConstraints(this);
+            }
+        }
     }
 }

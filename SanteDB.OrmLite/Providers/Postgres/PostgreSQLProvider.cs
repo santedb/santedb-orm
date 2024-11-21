@@ -40,7 +40,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
     /// Represents a IDbProvider for PostgreSQL
     /// </summary>
     [ExcludeFromCodeCoverage] // PostgreSQL is not used in unit testing
-    public class PostgreSQLProvider : IDbMonitorProvider, IEncryptedDbProvider, IReportProgressChanged
+    public class PostgreSQLProvider : IDbMonitorProvider, IEncryptedDbProvider, IReportProgressChanged, IDisableConstraintProvider
     {
         // Last rr host used
 #pragma warning disable CS0414 // The field 'PostgreSQLProvider.m_lastRrHost' is assigned but its value is never used
@@ -630,6 +630,39 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
+            }
+        }
+
+        /// <inheritdoc/>
+        public void DisableAllConstraints(DataContext context)
+        {
+            // Only the dCDR gateway is allowed to do this
+            if (ApplicationServiceContext.Current.HostType != SanteDBHostType.Gateway)
+            {
+                return;
+            }
+
+            // Get all tables
+            foreach (var tbl in context.ExecQuery<String>(new SqlStatement("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type <> 'VIEW'")).ToArray())
+            {
+                context.ExecuteNonQuery($"ALTER TABLE {tbl} DISABLE TRIGGER ALL");
+            }
+        }
+
+        /// <inheritdoc/>
+        public void EnableAllConstraints(DataContext context)
+        {
+            // Only the dCDR gateway is allowed to do this
+            if (ApplicationServiceContext.Current.HostType != SanteDBHostType.Gateway)
+            {
+                return;
+            }
+
+
+            // Get all tables
+            foreach (var tbl in context.ExecQuery<String>(new SqlStatement("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type <> 'VIEW'")).ToArray())
+            {
+                context.ExecuteNonQuery($"ALTER TABLE {tbl} ENABLE TRIGGER ALL");
             }
         }
     }
