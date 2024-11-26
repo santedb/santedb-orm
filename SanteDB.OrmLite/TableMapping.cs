@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace SanteDB.OrmLite
 {
@@ -89,6 +90,13 @@ namespace SanteDB.OrmLite
             }
         }
 
+        /// <summary>
+        /// Get table information by the name of the table
+        /// </summary>
+        public static TableMapping Get(String tableName)
+        {
+            return m_tableMappings.FirstOrDefault(o => o.Value.TableName == tableName).Value;
+        }
         /// <summary>
         /// Get table information
         /// </summary>
