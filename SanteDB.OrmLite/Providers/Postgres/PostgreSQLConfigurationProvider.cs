@@ -65,7 +65,10 @@ namespace SanteDB.OrmLite.Providers.Postgres
             { "Maximum Pool Size", ConfigurationOptionType.Numeric },
             { "Load Balance Hosts", ConfigurationOptionType.Boolean },
             { "Target Session Attributes", ConfigurationOptionType.String },
-            { "Max Auto Prepare", ConfigurationOptionType.Numeric }
+            { "Connection Idle Lifetime", ConfigurationOptionType.Numeric },
+            { "Max Auto Prepare", ConfigurationOptionType.Numeric },
+            { "SSL Mode", ConfigurationOptionType.String },
+            { "Trust Server Certificate", ConfigurationOptionType.Boolean }
         };
 
         /// <summary>
@@ -75,7 +78,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
         {
             { "Connection", new string[]{ "host","port","user id","password","database"} },
             { "Pooling", new string[] { "pooling", "Minimum Pool Size", "Maximum Pool Size" } },
-            { "Performance", new string[] { "Load Balance Hosts", "Target Session Attributes", "Max Auto Prepare" } }
+            { "Performance", new string[] { "Load Balance Hosts", "Target Session Attributes", "Max Auto Prepare", "Connection Idle Lifetime" } },
+            { "Security", new string[] { "SSL Mode", "Trust Server Certificate"} }
         };
 
         /// <summary>
