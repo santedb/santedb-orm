@@ -50,6 +50,7 @@ namespace SanteDB.OrmLite
         UnionWith = 0x10,
         PropertyAndGuard = Path | Guard,
         PropertyAndCast = Path | Cast,
+        PropertyAndGuardAndCast = Path | Guard | Cast,
         AllExceptUnion = Path | Guard | Cast | SubPath
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
     }
@@ -495,7 +496,7 @@ namespace SanteDB.OrmLite
                 {
 
                     // Next, we want to construct the other parms
-                    var otherParms = workingParameters.Where(o => QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.PropertyAndCast) == propertyPredicate.ToString(QueryPredicatePart.PropertyAndCast)).ToArray();
+                    var otherParms = workingParameters.Where(o => QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.PropertyAndGuardAndCast) == propertyPredicate.ToString(QueryPredicatePart.PropertyAndGuardAndCast)).ToArray();
 
                     // Remove the working parameters if the column is FK then all parameters
                     if (otherParms.Any() || !String.IsNullOrEmpty(propertyPredicate.Guard) || !String.IsNullOrEmpty(propertyPredicate.SubPath))
