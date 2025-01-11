@@ -16,6 +16,7 @@
  * the License.
  * 
  */
+using DocumentFormat.OpenXml.Drawing;
 using SanteDB.BI;
 using SanteDB.BI.Model;
 using SanteDB.BI.Services;
@@ -23,6 +24,8 @@ using SanteDB.BI.Services.Impl;
 using SanteDB.BI.Util;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Exceptions;
+using SanteDB.Core.i18n;
+using SanteDB.Core.Model.Roles;
 using SanteDB.Core.Security.Services;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
@@ -31,6 +34,7 @@ using System;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace SanteDB.OrmLite
@@ -120,9 +124,12 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Executes the query
+        /// Prepare the query statement
         /// </summary>
-        public BisResultContext ExecuteQuery(BiQueryDefinition queryDefinition, IDictionary<string, object> parameters, BiAggregationDefinition[] aggregation, int? offset = null, int? count = null)
+        /// <param name="queryDefinition">The SQL query definition to prepare</param>
+        /// <param name="parameters">The parameters to pass to the query</param>
+        /// <returns>The constructed SqlStatement</returns>
+        private SqlStatement PrepareQueryStatement(BiQueryDefinition queryDefinition, IDictionary<String, object> parameters)
         {
             if (queryDefinition == null)
             {
@@ -246,6 +253,19 @@ namespace SanteDB.OrmLite
                 return "?";
             });
 
+            return new SqlStatement(stmt, values);
+        }
+
+        /// <summary>
+        /// Executes the query
+        /// </summary>
+        public BisResultContext ExecuteQuery(BiQueryDefinition queryDefinition, IDictionary<string, object> parameters, BiAggregationDefinition[] aggregation, int? offset = null, int? count = null)
+        {
+            var sqlStmt = this.PrepareQueryStatement(queryDefinition, parameters);
+
+            // We want to open the specified connection
+            var provider = this.GetProvider(queryDefinition);
+
             // Aggregation definitions
             if (aggregation?.Length > 0)
             {
@@ -259,52 +279,17 @@ namespace SanteDB.OrmLite
                     throw new InvalidOperationException($"No provided aggregation can be found for {provider.Invariant}");
                 }
 
-                var selector = agg.Columns?.Select(c =>
-                {
-                    switch (c.Aggregation)
-                    {
-                        case BiAggregateFunction.Average:
-                            return $"AVG({c.ColumnSelector}) AS {c.Name}";
-
-                        case BiAggregateFunction.Count:
-                            return $"COUNT({c.ColumnSelector}) AS {c.Name}";
-
-                        case BiAggregateFunction.CountDistinct:
-                            return $"COUNT(DISTINCT {c.ColumnSelector}) AS {c.Name}";
-
-                        case BiAggregateFunction.First:
-                            return $"FIRST({c.ColumnSelector}) AS {c.Name}";
-
-                        case BiAggregateFunction.Last:
-                            return $"LAST({c.ColumnSelector}) AS {c.Name}";
-
-                        case BiAggregateFunction.Max:
-                            return $"MAX({c.ColumnSelector}) AS {c.Name}";
-
-                        case BiAggregateFunction.Min:
-                            return $"MIN({c.ColumnSelector}) AS {c.Name}";
-
-                        case BiAggregateFunction.Sum:
-                            return $"SUM({c.ColumnSelector}) AS {c.Name}";
-
-                        case BiAggregateFunction.Value:
-                            return $"{c.ColumnSelector} AS {c.Name}";
-
-                        default:
-                            throw new InvalidOperationException("Cannot apply aggregation function");
-                    }
-                }).ToArray() ?? new string[] { "*" };
+                var selector = agg.Columns?.Select(this.PrepareAggregateFunction).ToArray() ?? new string[] { "*" };
                 String[] groupings = agg.Groupings.Select(g => g.ColumnSelector).ToArray(),
                     colGroupings = agg.Groupings.Select(g => $"{g.ColumnSelector} AS {g.Name}").ToArray();
                 // Aggregate
-                stmt = $"SELECT {String.Join(",", colGroupings.Concat(selector))} " +
-                        $" FROM ({stmt})  AS _inner ";
 
+                sqlStmt = new SqlStatement($"SELECT {String.Join(",", colGroupings.Concat(selector))} FROM (").Append(sqlStmt).Append(" AS _inner ")
+                    .Append($" GROUP BY {String.Join(",", groupings)}");
 
-                stmt += $" GROUP BY {String.Join(",", groupings)}";
                 if (agg.Sorting?.Any() == true)
                 {
-                    stmt += $" ORDER BY {String.Join(",", agg.Sorting.Select(o => o.Name ?? o.ColumnSelector))}";
+                    sqlStmt = sqlStmt.Append($" ORDER BY {String.Join(",", agg.Sorting.Select(o => o.Name ?? o.ColumnSelector))}");
                 }
             }
 
@@ -312,7 +297,6 @@ namespace SanteDB.OrmLite
             try
             {
                 DateTime startTime = DateTime.Now;
-                var sqlStmt = new SqlStatement(stmt, values.ToArray());
                 this.m_tracer.TraceInfo("Executing BI Query: {0}", sqlStmt.ToString());
                 var results = new OrmResultSet<ExpandoObject>(provider.GetReadonlyConnection(), sqlStmt);
                 if (offset.HasValue)
@@ -332,9 +316,48 @@ namespace SanteDB.OrmLite
             }
             catch (Exception e)
             {
-                this.m_tracer.TraceError("Error executing BIS data query {1} \r\n SQL: {2}\r\n Error: {0}", e, queryDefinition.Id, stmt);
+                this.m_tracer.TraceError("Error executing BIS data query {1} \r\n SQL: {2}\r\n Error: {0}", e, queryDefinition.Id, sqlStmt);
                 throw new DataPersistenceException($"Error executing BIS data query", e);
             }
+        }
+
+        /// <summary>
+        /// Prepare the aggregate function
+        /// </summary>
+        private object PrepareAggregateFunction(BiAggregateSqlColumnReference columnRef)
+        {
+            switch (columnRef.Aggregation)
+            {
+                case BiAggregateFunction.Average:
+                    return $"AVG({columnRef.ColumnSelector}) AS {columnRef.Name}";
+
+                case BiAggregateFunction.Count:
+                    return $"COUNT({columnRef.ColumnSelector}) AS {columnRef.Name}";
+
+                case BiAggregateFunction.CountDistinct:
+                    return $"COUNT(DISTINCT {columnRef.ColumnSelector}) AS {columnRef.Name}";
+
+                case BiAggregateFunction.First:
+                    return $"FIRST({columnRef.ColumnSelector}) AS {columnRef.Name}";
+
+                case BiAggregateFunction.Last:
+                    return $"LAST({columnRef.ColumnSelector}) AS {columnRef.Name}";
+
+                case BiAggregateFunction.Max:
+                    return $"MAX({columnRef.ColumnSelector}) AS {columnRef.Name}";
+
+                case BiAggregateFunction.Min:
+                    return $"MIN({columnRef.ColumnSelector}) AS {columnRef.Name}";
+
+                case BiAggregateFunction.Sum:
+                    return $"SUM({columnRef.ColumnSelector}) AS {columnRef.Name}";
+
+                case BiAggregateFunction.Value:
+                    return $"{columnRef.ColumnSelector} AS {columnRef.Name}";
+
+                default:
+                    throw new InvalidOperationException("Cannot apply aggregation function");
+            };
         }
 
         /// <summary>
@@ -472,5 +495,66 @@ namespace SanteDB.OrmLite
             }
         }
 
+        /// <inheritdoc/>
+        public IEnumerable<BisIndicatorMeasureResultContext> ExecuteIndicator(BiIndicatorDefinition indicatorDef, DateTimeOffset periodStarting, DateTimeOffset periodEnding)
+        {
+            if (indicatorDef == null)
+            {
+                throw new ArgumentNullException(nameof(indicatorDef));
+            }
+            else if (periodStarting > periodEnding)
+            {
+                throw new ArgumentOutOfRangeException(String.Format(ErrorMessages.ARGUMENT_OUT_OF_RANGE, $"greater than {periodStarting}", periodEnding));
+            }
+
+            indicatorDef = BiUtils.ResolveRefs(indicatorDef);
+
+            // Prepare statement
+            foreach (var measure in indicatorDef.Measures)
+            {
+
+                var provider = this.GetProvider(indicatorDef.Query);
+                var parameters = new Dictionary<String, object>(2) {
+                        { measure.Period.PeriodStartParameter, periodStarting },
+                        { measure.Period.PeriodEndParameter, periodEnding }
+                    };
+
+                var sourceStatement = new SqlStatement("WITH source AS (").Append(this.PrepareQueryStatement(indicatorDef.Query, parameters)).Append(")");
+
+                LinkedList<KeyValuePair<String, List<BiSqlColumnReference>>> queriesToExecute = new LinkedList<KeyValuePair<String, List<BiSqlColumnReference>>>();
+                queriesToExecute.AddLast(new KeyValuePair<String, List<BiSqlColumnReference>>(String.Empty, new List<BiSqlColumnReference>() { measure.Subject }));
+                foreach (var stratifier in measure.Stratifications)
+                {
+                    var workingStrat = stratifier;
+                    List<BiSqlColumnReference> columnsToSelectAndGroup = new List<BiSqlColumnReference>() { measure.Subject };
+                    while (workingStrat != null)
+                    {
+                        columnsToSelectAndGroup.Add(stratifier.ColumnReference);
+                        queriesToExecute.AddLast(new KeyValuePair<string, List<BiSqlColumnReference>>(workingStrat.Name, new List<BiSqlColumnReference>(columnsToSelectAndGroup)));
+                        workingStrat = workingStrat.ThenBy;
+                    }
+                }
+
+                // Return the plain result set
+                // Get a readonly context
+                foreach (var query in queriesToExecute)
+                {
+                    var sqlStmt = new SqlStatement(sourceStatement).Append($"SELECT {String.Join(", ", query.Value.Select(c=>$"{c.ColumnSelector} AS {c.Name ?? c.ColumnSelector}"))}")
+                        .Append($", {this.PrepareAggregateFunction(measure.Numerator)} AS numerator")
+                        .Append($", {this.PrepareAggregateFunction(measure.Denominator)} AS denominator")
+                        .Append($" FROM source GROUP BY {String.Join(", ", query.Value.Select(o=>o.ColumnSelector))} ORDER BY {String.Join(", ", query.Value.Select(o => o.ColumnSelector))}");
+
+                    yield return new BisIndicatorMeasureResultContext(
+                        indicatorDef,
+                        query.Key,
+                        parameters,
+                        this,
+                        new OrmQueryResultSet<ExpandoObject>(
+                            new OrmResultSet<ExpandoObject>(provider.GetReadonlyConnection(), sqlStmt)
+                        ),
+                        DateTime.Now);
+                }
+            }
+        }
     }
 }
