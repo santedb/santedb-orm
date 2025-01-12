@@ -30,10 +30,12 @@ using SanteDB.Core.Security.Services;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Providers;
+using SharpCompress;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -253,7 +255,20 @@ namespace SanteDB.OrmLite
                 return "?";
             });
 
-            return new SqlStatement(stmt, values);
+            var sqlStatement = new SqlStatement(stmt, values.ToArray()).Prepare();
+
+            if(queryDefinition.WithQuery?.Any() == true)
+            {
+                var withStatements = queryDefinition.WithQuery.ToDictionary(o => o.Name, o => this.PrepareQueryStatement(o, parameters));
+                var withStmt = new SqlStatement("WITH ");
+                foreach(var kv in withStatements)
+                {
+                    withStmt = withStmt.Append($" {kv.Key} AS (").Append(kv.Value).Append(") ").Append(",");
+                }
+                withStmt.RemoveLast(out _);
+                sqlStatement = withStmt.Append(sqlStatement);
+            }
+            return sqlStatement;
         }
 
         /// <summary>
@@ -284,7 +299,7 @@ namespace SanteDB.OrmLite
                     colGroupings = agg.Groupings.Select(g => $"{g.ColumnSelector} AS {g.Name}").ToArray();
                 // Aggregate
 
-                sqlStmt = new SqlStatement($"SELECT {String.Join(",", colGroupings.Concat(selector))} FROM (").Append(sqlStmt).Append(" AS _inner ")
+                sqlStmt = new SqlStatement($"SELECT {String.Join(",", colGroupings.Concat(selector))} FROM (").Append(sqlStmt).Append(") AS _inner ")
                     .Append($" GROUP BY {String.Join(",", groupings)}");
 
                 if (agg.Sorting?.Any() == true)
