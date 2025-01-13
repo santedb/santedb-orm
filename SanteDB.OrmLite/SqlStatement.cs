@@ -120,7 +120,7 @@ namespace SanteDB.OrmLite
             }
             else if (hasNewline)
             {
-                this.m_sql = sql?.Replace("\r", "").Replace("\n", "");
+                this.m_sql = sql?.Replace("\r", " ").Replace("\n", " ");
             }
             else
             {
