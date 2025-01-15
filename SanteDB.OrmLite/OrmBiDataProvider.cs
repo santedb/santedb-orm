@@ -572,8 +572,7 @@ namespace SanteDB.OrmLite
                 foreach (var query in queriesToExecute)
                 {
                     var sqlStmt = new SqlStatement(sourceStatement).Append($"SELECT {String.Join(", ", query.Value.Select(c=>$"{c.ColumnSelector} AS {c.Name ?? c.ColumnSelector}"))}")
-                        .Append($", {this.PrepareAggregateFunction(measure.Numerator, "numerator")}")
-                        .Append($", {this.PrepareAggregateFunction(measure.Denominator, "denominator")}")
+                        .Append($", {String.Join(", ", measure.Computation.Select(o=>this.PrepareAggregateFunction(o, o.GetColumnName())))}")
                         .Append($" FROM source GROUP BY {String.Join(", ", query.Value.Select(o=>o.ColumnSelector))} ORDER BY {String.Join(", ", query.Value.Select(o => o.ColumnSelector))}");
 
                     yield return new BisIndicatorMeasureResultContext(
