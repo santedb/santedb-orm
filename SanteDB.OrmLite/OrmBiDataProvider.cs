@@ -304,7 +304,7 @@ namespace SanteDB.OrmLite
 
                 if (agg.Sorting?.Any() == true)
                 {
-                    sqlStmt = sqlStmt.Append($" ORDER BY {String.Join(",", agg.Sorting.Select(o => o.Name ?? o.ColumnSelector))}");
+                    sqlStmt = sqlStmt.Append($" ORDER BY {String.Join(",", agg.Sorting.Select(o => $"{(o.Name ?? o.ColumnSelector)} {(o.Direction == BiOrderColumnDirection.Ascending ? "asc" : "desc")}"))}");
                 }
             }
 
