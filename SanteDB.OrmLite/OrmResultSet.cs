@@ -71,13 +71,13 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Instructs the reader to skip n records
         /// </summary>
-        public OrmResultSet<TData> Skip(int n) => this.ModifyStatement((s) => s.Offset(n));
+        public OrmResultSet<TData> Skip(int n, bool removeExisting = true) => this.ModifyStatement((s) => s.Offset(n, removeExisting));
 
         /// <summary>
         /// Instructs the reader to take <paramref name="n"/> records
         /// </summary>
         /// <param name="n">The number of records to take</param>
-        public OrmResultSet<TData> Take(int n) => this.ModifyStatement((s) => s.Limit(n));
+        public OrmResultSet<TData> Take(int n, bool removeExisting = true) => this.ModifyStatement((s) => s.Limit(n, removeExisting));
 
         /// <summary>
         /// Instructs the reader to count the number of records

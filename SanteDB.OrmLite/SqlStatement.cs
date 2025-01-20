@@ -769,9 +769,13 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Append an offset statement
         /// </summary>
-        public SqlStatementBuilder Offset(int offset)
+        public SqlStatementBuilder Offset(int offset, bool removeExisting = true)
         {
-            this.RemoveOffset(out _);
+            if (removeExisting)
+            {
+                this.RemoveOffset(out _);
+            }
+
             if (this.m_statementFactory.Features.HasFlag(SqlEngineFeatures.LimitOffset))
             {
                 // Need a limit before this statement
@@ -808,9 +812,12 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Limit of the
         /// </summary>
-        public SqlStatementBuilder Limit(int limit)
+        public SqlStatementBuilder Limit(int limit, bool removeExisting = true)
         {
-            this.RemoveLimit(out _);
+            if (removeExisting)
+            {
+                this.RemoveLimit(out _);
+            }
 
             if (this.m_statementFactory.Features.HasFlag(SqlEngineFeatures.LimitOffset))
             {
