@@ -239,7 +239,7 @@ namespace SanteDB.OrmLite
                 var value = rdr[i];
                 var type = rdr.GetFieldType(i);
                 var name = rdr.GetName(i).ToLowerInvariant();
-                if (name.EndsWith("_utc") || name.EndsWith("_time")) // HACK: For sqlite
+                if (name.EndsWith("_utc") || name.EndsWith("_time") || name.EndsWith("_date")) // HACK: For sqlite
                 {
                     type = typeof(DateTime);
                 }

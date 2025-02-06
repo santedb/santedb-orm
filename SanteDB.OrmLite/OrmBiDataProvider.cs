@@ -22,10 +22,13 @@ using SanteDB.BI.Model;
 using SanteDB.BI.Services;
 using SanteDB.BI.Services.Impl;
 using SanteDB.BI.Util;
+using SanteDB.Core;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.Exceptions;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Roles;
+using SanteDB.Core.Security.Claims;
+using SanteDB.Core.Security;
 using SanteDB.Core.Security.Services;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
@@ -34,6 +37,7 @@ using SharpCompress;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http.Headers;
 using System.Text;
@@ -46,6 +50,30 @@ namespace SanteDB.OrmLite
     /// </summary>
     public class OrmBiDataProvider : IBiDataSource
     {
+
+        /// <summary>
+        /// Default context parameters to be sent to all reports
+        /// </summary>
+        protected readonly Dictionary<String, Func<Object>> m_contextParams = new Dictionary<string, Func<object>>()
+        {
+            { "Context.UserName", () => AuthenticationContext.Current.Principal.Identity.Name },
+            { "Context.UserId", () => {
+                using(AuthenticationContext.EnterSystemContext()){
+                    return ApplicationServiceContext.Current.GetService<ISecurityRepositoryService>().GetUser(AuthenticationContext.Current.Principal.Identity)?.Key;
+                }
+            }
+            },
+            { "Context.UserEntityId", () => {
+                using(AuthenticationContext.EnterSystemContext()){
+                    return ApplicationServiceContext.Current.GetService<ISecurityRepositoryService>().GetUserEntity(AuthenticationContext.Current.Principal.Identity)?.Key;
+                }
+                }
+            },
+            { "Context.Language", () => AuthenticationContext.Current.Principal.GetClaimValue(SanteDBClaimTypes.Language) ?? CultureInfo.CurrentCulture.TwoLetterISOLanguageName },
+            { "Context.UtcOffset", () => TimeZoneInfo.Local.GetUtcOffset(DateTime.UtcNow).TotalHours }
+        };
+
+
         // Tracer
         private readonly Tracer m_tracer = Tracer.GetTracer(typeof(OrmBiDataProvider));
 
@@ -250,7 +278,10 @@ namespace SanteDB.OrmLite
             var stmt = m_parmRegex.Replace(rdbmsQueryDefinition.Sql, (m) =>
             {
                 object pValue = null;
-                parameters.TryGetValue(m.Groups[1].Value, out pValue);
+                if(!parameters.TryGetValue(m.Groups[1].Value, out pValue) && m_contextParams.TryGetValue(m.Groups[1].Value, out var fn))
+                {
+                    pValue = fn();
+                }
                 values.Add(pValue);
                 return "?";
             });
@@ -304,8 +335,9 @@ namespace SanteDB.OrmLite
 
                 if (agg.Sorting?.Any() == true)
                 {
-                    sqlStmt = sqlStmt.Append($" ORDER BY {String.Join(",", agg.Sorting.Select(o => o.Name ?? o.ColumnSelector))}");
+                    sqlStmt = sqlStmt.Append($" ORDER BY {String.Join(",", agg.Sorting.Select(o => $"{(o.Name ?? o.ColumnSelector)} {(o.Direction == BiOrderColumnDirection.Ascending ? "asc" : "desc")}"))}");
                 }
+
             }
 
             // Get a readonly context
@@ -316,11 +348,11 @@ namespace SanteDB.OrmLite
                 var results = new OrmResultSet<ExpandoObject>(provider.GetReadonlyConnection(), sqlStmt);
                 if (offset.HasValue)
                 {
-                    results = results.Skip(offset.Value);
+                    results = results.Skip(offset.Value, false);
                 }
                 if (count.HasValue)
                 {
-                    results = results.Take(count.Value);
+                    results = results.Take(count.Value, false);
                 }
                 return new BisResultContext(
                     queryDefinition,
