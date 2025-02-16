@@ -286,6 +286,8 @@ namespace SanteDB.OrmLite
             SqlStatementBuilder selectStatement = null;
             Dictionary<Type, TableMapping> skippedJoinMappings = new Dictionary<Type, TableMapping>();
 
+            // JF - If there is a disagreement between the claimed foreign key type and the model type 
+            //      then we need to join them together
             // Is the query using any of the properties from this table?
             var useKeys = !skipJoins ||
                 typeof(IVersionedData).IsAssignableFrom(tmodel) && query.Any(o =>
@@ -701,7 +703,8 @@ namespace SanteDB.OrmLite
                                 //var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { subProp.PropertyType }, new Type[] { subQuery.GetType(), typeof(ColumnMapping[]) });
                                 //SqlStatement subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, new ColumnMapping[] { fkColumnDef } }) as SqlStatement;
                                 SqlStatementBuilder subQueryStatement = null;
-                                var subSkipJoins = subQuery.Count(o => !o.Key.Contains(".") && o.Key != "obsoletionTime") == 0;
+                                var fkTypeDisagreement = fkTableDef.OrmType != this.m_mapper.MapModelType(subProp.PropertyType);
+                                var subSkipJoins = subQuery.Count(o => !o.Key.Contains(".") && o.Key != "obsoletionTime") == 0 && !fkTypeDisagreement;
                                 if (String.IsNullOrEmpty(propertyPredicate.CastAs))
                                 {
                                     subQueryStatement = this.CreateQuery(subProp.PropertyType, subQuery.ToParameterDictionary(), prefix, subSkipJoins, scopedTables, new ColumnMapping[] { fkColumnDef });

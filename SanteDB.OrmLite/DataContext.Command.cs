@@ -957,7 +957,7 @@ namespace SanteDB.OrmLite
         }
 
         /// <summary>
-        /// Insert or update the specifed object
+        /// INSERT OR IGNORE the specifed object
         /// </summary>
         public TModel InsertOrUpdate<TModel>(TModel source)
         {
