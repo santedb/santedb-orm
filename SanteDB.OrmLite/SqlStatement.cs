@@ -889,9 +889,18 @@ namespace SanteDB.OrmLite
             }
             var orderCol = orderMap.GetColumn(fldRef.GetMember());
 
+            var orderStatement = $"{this.m_sqlStatement.Alias ?? orderCol.Table.TableName}.{orderCol.Name} {(sortOperation == SortOrderType.OrderBy ? " ASC " : " DESC ")}";
             // Is there already an orderby in the previous statement?
-            var prefix = this.m_sqlStatement.Contains(" ORDER BY ") ? "," : " ORDER BY ";
-            this.m_sqlStatement += $"{prefix} {this.m_sqlStatement.Alias ?? orderCol.Table.TableName}.{orderCol.Name} {(sortOperation == SortOrderType.OrderBy ? " ASC " : " DESC ")}";
+            if (this.m_sqlStatement.Contains(" ORDER BY ")) // combine the order by
+            {
+                var order = this.RemoveOrderBy(out var existingOrderBy);
+                existingOrderBy = existingOrderBy.Append($", {orderStatement}");
+                this.m_sqlStatement += existingOrderBy.Prepare();
+            }
+            else
+            {
+                this.m_sqlStatement += $" ORDER BY {orderStatement}";
+            }
             return this;
         }
 

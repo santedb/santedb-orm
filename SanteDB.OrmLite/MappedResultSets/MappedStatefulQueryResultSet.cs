@@ -118,7 +118,7 @@ namespace SanteDB.OrmLite.MappedResultSets
             if (orderingMatch.Success)
             {
                 // Get the prefix and strip
-                var prefix = orderingMatch.Groups[4].Value?.Split('.');
+                var prefix = orderingMatch.Groups[4].Value?.Trim().Split('.');
                 if (prefix.Length == 2)
                 {
                     ordering = new SqlStatement(ordering.Sql.Replace($"{prefix[0]}.", ""), ordering.Arguments);

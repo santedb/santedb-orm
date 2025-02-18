@@ -17,6 +17,7 @@
  * 
  */
 using SanteDB.Core.i18n;
+using SanteDB.Core.Jobs;
 using SharpCompress;
 using System;
 using System.Collections;
@@ -604,11 +605,19 @@ namespace SanteDB.OrmLite
                 var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
                 if (sqlParts.Success)
                 {
-                    var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
+                    if (sqlParts.Groups[Constants.SQL_GROUP_LIMIT].Value.StartsWith("ORDER BY", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var stmt = this.Context.CreateSqlStatementBuilder(this.Statement).OrderBy(orderExpression, Core.Model.Map.SortOrderType.OrderBy).Statement;
+                        return new OrmResultSet<TData>(this.Context, stmt);
+                    }
+                    else
+                    { // wrap
+                        var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
                         .WrapAsSubQuery()
                         .OrderBy(orderExpression, Core.Model.Map.SortOrderType.OrderBy)
                         .Statement;
-                    return new OrmResultSet<TData>(this.Context, stmt);
+                        return new OrmResultSet<TData>(this.Context, stmt);
+                    }
                 }
                 else
                 {
@@ -658,11 +667,19 @@ namespace SanteDB.OrmLite
                 var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
                 if (sqlParts.Success)
                 {
-                    var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
-                        .WrapAsSubQuery(ColumnMapping.Star)
-                        .OrderBy(orderExpression, Core.Model.Map.SortOrderType.OrderByDescending)
-                        .Statement;
-                    return new OrmResultSet<TData>(this.Context, stmt);
+                    if (sqlParts.Groups[Constants.SQL_GROUP_LIMIT].Value.StartsWith("ORDER BY", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var stmt = this.Context.CreateSqlStatementBuilder(this.Statement).OrderBy(orderExpression, Core.Model.Map.SortOrderType.OrderByDescending).Statement;
+                        return new OrmResultSet<TData>(this.Context, stmt);
+                    }
+                    else
+                    { // wrap
+                        var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
+                            .WrapAsSubQuery(ColumnMapping.Star)
+                            .OrderBy(orderExpression, Core.Model.Map.SortOrderType.OrderByDescending)
+                            .Statement;
+                        return new OrmResultSet<TData>(this.Context, stmt);
+                    }
                 }
                 else
                 {

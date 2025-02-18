@@ -44,7 +44,7 @@ namespace SanteDB.OrmLite
         public static readonly Regex ExtractFilterOperandRegex = new Regex(@"^([<>]?=?)(.*?)$", RegexOptions.Compiled);
         public static readonly Regex ExtractOffsetRegex = new Regex(@"OFFSET (\d+)\s?(?:ROW)?", RegexOptions.Compiled);
         public static readonly Regex ExtractLimitRegex = new Regex(@"(?:FETCH\sFIRST|LIMIT)\s(\d+)(?:\sROWS\sONLY)?", RegexOptions.Compiled);
-        public static readonly Regex ExtractOrderByRegex = new Regex(@"^(.*?)(ORDER BY ((.*?) (ASC|DESC),?){0,})(.*)$", RegexOptions.Compiled);
+        public static readonly Regex ExtractOrderByRegex = new Regex(@"^(.*?)(ORDER BY ((.*?) (ASC|DESC)\s*,?){0,})(.*)$", RegexOptions.Compiled);
         public static readonly Regex ExtractCommentsRegex = new Regex(@"(.*?)--.*$", RegexOptions.Multiline | RegexOptions.Compiled);
     }
 }
