@@ -139,7 +139,15 @@ namespace SanteDB.OrmLite
             this.ForeignKey = pi.GetCustomAttribute<ForeignKeyAttribute>();
             this.IsUnique = pi.HasCustomAttribute<UniqueAttribute>();
             this.IsNonNull = pi.HasCustomAttribute<NotNullAttribute>();
-            this.Table = table;
+
+            if (att.DeclaredTable != null)
+            {
+                this.Table = TableMapping.Get(att.DeclaredTable);
+            }
+            else
+            {
+                this.Table = table;
+            }
             this.IsAlwaysJoin = pi.HasCustomAttribute<AlwaysJoinAttribute>();
             this.JoinFilters = pi.GetCustomAttributes<JoinFilterAttribute>().ToList();
             this.DefaultValue = pi.GetCustomAttribute<DefaultValueAttribute>()?.DefaultValue;

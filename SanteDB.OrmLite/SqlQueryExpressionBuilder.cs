@@ -570,8 +570,16 @@ namespace SanteDB.OrmLite
                                     this.m_lastColumnMapping = tableMap.GetColumn(node.Member);
                                     if (this.m_prefixColumns)
                                     {
-                                        this.Visit(expr);
-                                        this.m_sqlStatement.Append($".{this.m_lastColumnMapping.Name}");
+                                        if (this.m_lastColumnMapping.Table.TableName != tableMap.TableName)
+                                        {
+                                            this.m_sqlStatement.Append($"{this.m_lastColumnMapping.Table.TableName}.{this.m_lastColumnMapping.Name}");
+
+                                        }
+                                        else
+                                        {
+                                            this.Visit(expr);
+                                            this.m_sqlStatement.Append($".{this.m_lastColumnMapping.Name}");
+                                        }
                                     }
                                     else
                                     {

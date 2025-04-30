@@ -41,5 +41,9 @@ namespace SanteDB.OrmLite.Attributes
         /// </summary>
         public String Name { get; set; }
 
+        /// <summary>
+        /// Where this table exists
+        /// </summary>
+        public Type DeclaredTable { get; set; }
     }
 }
