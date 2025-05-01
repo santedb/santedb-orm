@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2025, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -15,6 +15,8 @@
  * License for the specific language governing permissions and limitations under 
  * the License.
  * 
+ * User: fyfej
+ * Date: 2023-6-21
  */
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Map;
@@ -889,9 +891,18 @@ namespace SanteDB.OrmLite
             }
             var orderCol = orderMap.GetColumn(fldRef.GetMember());
 
+            var orderStatement = $"{this.m_sqlStatement.Alias ?? orderCol.Table.TableName}.{orderCol.Name} {(sortOperation == SortOrderType.OrderBy ? " ASC " : " DESC ")}";
             // Is there already an orderby in the previous statement?
-            var prefix = this.m_sqlStatement.Contains(" ORDER BY ") ? "," : " ORDER BY ";
-            this.m_sqlStatement += $"{prefix} {this.m_sqlStatement.Alias ?? orderCol.Table.TableName}.{orderCol.Name} {(sortOperation == SortOrderType.OrderBy ? " ASC " : " DESC ")}";
+            if (this.m_sqlStatement.Contains(" ORDER BY ")) // combine the order by
+            {
+                var order = this.RemoveOrderBy(out var existingOrderBy);
+                existingOrderBy = existingOrderBy.Append($", {orderStatement}");
+                this.m_sqlStatement += existingOrderBy.Prepare();
+            }
+            else
+            {
+                this.m_sqlStatement += $" ORDER BY {orderStatement}";
+            }
             return this;
         }
 

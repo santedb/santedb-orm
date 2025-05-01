@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2025, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -15,6 +15,8 @@
  * License for the specific language governing permissions and limitations under 
  * the License.
  * 
+ * User: fyfej
+ * Date: 2023-6-21
  */
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model;
@@ -286,6 +288,8 @@ namespace SanteDB.OrmLite
             SqlStatementBuilder selectStatement = null;
             Dictionary<Type, TableMapping> skippedJoinMappings = new Dictionary<Type, TableMapping>();
 
+            // JF - If there is a disagreement between the claimed foreign key type and the model type 
+            //      then we need to join them together
             // Is the query using any of the properties from this table?
             var useKeys = !skipJoins ||
                 typeof(IVersionedData).IsAssignableFrom(tmodel) && query.Any(o =>
@@ -701,7 +705,8 @@ namespace SanteDB.OrmLite
                                 //var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { subProp.PropertyType }, new Type[] { subQuery.GetType(), typeof(ColumnMapping[]) });
                                 //SqlStatement subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, new ColumnMapping[] { fkColumnDef } }) as SqlStatement;
                                 SqlStatementBuilder subQueryStatement = null;
-                                var subSkipJoins = subQuery.Count(o => !o.Key.Contains(".") && o.Key != "obsoletionTime") == 0;
+                                var fkTypeDisagreement = fkTableDef.OrmType != this.m_mapper.MapModelType(subProp.PropertyType);
+                                var subSkipJoins = subQuery.Count(o => !o.Key.Contains(".") && o.Key != "obsoletionTime") == 0 && !fkTypeDisagreement;
                                 if (String.IsNullOrEmpty(propertyPredicate.CastAs))
                                 {
                                     subQueryStatement = this.CreateQuery(subProp.PropertyType, subQuery.ToParameterDictionary(), prefix, subSkipJoins, scopedTables, new ColumnMapping[] { fkColumnDef });

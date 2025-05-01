@@ -1,5 +1,5 @@
 ﻿/*
- * Copyright (C) 2021 - 2024, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
+ * Copyright (C) 2021 - 2025, SanteSuite Inc. and the SanteSuite Contributors (See NOTICE.md for full copyright notices)
  * Copyright (C) 2019 - 2021, Fyfe Software Inc. and the SanteSuite Contributors
  * Portions Copyright (C) 2015-2018 Mohawk College of Applied Arts and Technology
  * 
@@ -15,8 +15,11 @@
  * License for the specific language governing permissions and limitations under 
  * the License.
  * 
+ * User: fyfej
+ * Date: 2023-6-21
  */
 using SanteDB.Core.i18n;
+using SanteDB.Core.Jobs;
 using SharpCompress;
 using System;
 using System.Collections;
@@ -604,11 +607,19 @@ namespace SanteDB.OrmLite
                 var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
                 if (sqlParts.Success)
                 {
-                    var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
+                    if (sqlParts.Groups[Constants.SQL_GROUP_LIMIT].Value.StartsWith("ORDER BY", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var stmt = this.Context.CreateSqlStatementBuilder(this.Statement).OrderBy(orderExpression, Core.Model.Map.SortOrderType.OrderBy).Statement;
+                        return new OrmResultSet<TData>(this.Context, stmt);
+                    }
+                    else
+                    { // wrap
+                        var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
                         .WrapAsSubQuery()
                         .OrderBy(orderExpression, Core.Model.Map.SortOrderType.OrderBy)
                         .Statement;
-                    return new OrmResultSet<TData>(this.Context, stmt);
+                        return new OrmResultSet<TData>(this.Context, stmt);
+                    }
                 }
                 else
                 {
@@ -658,11 +669,19 @@ namespace SanteDB.OrmLite
                 var sqlParts = Constants.ExtractRawSqlStatementRegex.Match(this.Statement.ToString());
                 if (sqlParts.Success)
                 {
-                    var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
-                        .WrapAsSubQuery(ColumnMapping.Star)
-                        .OrderBy(orderExpression, Core.Model.Map.SortOrderType.OrderByDescending)
-                        .Statement;
-                    return new OrmResultSet<TData>(this.Context, stmt);
+                    if (sqlParts.Groups[Constants.SQL_GROUP_LIMIT].Value.StartsWith("ORDER BY", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var stmt = this.Context.CreateSqlStatementBuilder(this.Statement).OrderBy(orderExpression, Core.Model.Map.SortOrderType.OrderByDescending).Statement;
+                        return new OrmResultSet<TData>(this.Context, stmt);
+                    }
+                    else
+                    { // wrap
+                        var stmt = this.Context.CreateSqlStatementBuilder(this.Statement)
+                            .WrapAsSubQuery(ColumnMapping.Star)
+                            .OrderBy(orderExpression, Core.Model.Map.SortOrderType.OrderByDescending)
+                            .Statement;
+                        return new OrmResultSet<TData>(this.Context, stmt);
+                    }
                 }
                 else
                 {
