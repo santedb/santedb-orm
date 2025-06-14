@@ -644,6 +644,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 return;
             }
 
+            context.ExecuteNonQuery("SET CONSTRAINTS ALL DEFERRED");
             // Get all tables
             foreach (var tbl in context.ExecQuery<String>(new SqlStatement("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type <> 'VIEW'")).ToArray())
             {
@@ -659,7 +660,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
             {
                 return;
             }
-
 
             // Get all tables
             foreach (var tbl in context.ExecQuery<String>(new SqlStatement("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type <> 'VIEW'")).ToArray())
