@@ -19,6 +19,7 @@
  * Date: 2023-6-21
  */
 using DocumentFormat.OpenXml.Bibliography;
+using DocumentFormat.OpenXml.Office.CustomUI;
 using SanteDB;
 using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
@@ -33,11 +34,13 @@ using SanteDB.OrmLite.Providers.Encryptors;
 using SharpCompress;
 using SQLitePCL;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.Tracing;
 using System.IO;
+using System.IO.IsolatedStorage;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -49,7 +52,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     /// <summary>
     /// SQL Lite provider
     /// </summary>
-    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged, IDbBackupProvider, IDbMonitorProvider
+    public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged, IDbBackupProvider, IDbMonitorProvider //, IDbBulkProvider
     {
 
 
@@ -68,6 +71,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         private static readonly Regex m_parmRegex = new Regex(@"\?", RegexOptions.Compiled);
         private static readonly Regex m_limitOffsetRegex = new Regex(@"(OFFSET\s\d+)\s+(LIMIT\s\d+)?", RegexOptions.Compiled);
         private static readonly Regex m_dateRegex = new Regex(@"(CURRENT_TIMESTAMP|CURRENT_DATE)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        // Bulk Initialization commands
+        private readonly object m_lock = new object();
+        private String[] m_seedDatabaseCommands = null;
+
         // Provider
         private DbProviderFactory m_provider = null;
 
@@ -531,14 +539,26 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <returns></returns>
         public virtual DataContext GetWriteConnection()
         {
+            return this.GetWriteConnectionInternal();
+        }
+
+        /// <summary>
+        /// Get write connection internal overide the foreign keys
+        /// </summary>
+        private DataContext GetWriteConnectionInternal(bool? foreignKeys = null)
+        { 
             this.m_lockoutEvent.Wait();
             var conn = this.GetProviderFactory().CreateConnection();
             var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
             connectionString.SetComponent("Mode", "ReadWriteCreate");
             connectionString.SetComponent("Cache", "Private");
             connectionString.SetComponent("Pooling", "False");
-            conn.ConnectionString = connectionString.ToString();
+            if(foreignKeys.HasValue)
+            {
+                connectionString.SetComponent("Foreign Keys", foreignKeys.ToString());
+            }
 
+            conn.ConnectionString = connectionString.ToString();
             return new ReaderWriterLockingDataContext(this, conn, false);
         }
 
@@ -1046,5 +1066,97 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             yield break;
         }
 
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Opens a connection to the bulk :memory: database. It copies out the schema of the configured database to seed the 
+        /// :memory: connection and turns off caching
+        /// </remarks>
+        public DataContext GetBulkConnection()
+        {
+            try
+            {
+                if (this.m_seedDatabaseCommands == null)
+                {
+                    lock (this.m_lock)
+                    {
+                        if (this.m_seedDatabaseCommands == null) // Only do this once - we may have waited for a locking thread
+                        {
+                            using (var reflectorConnection = this.GetReadonlyConnection())
+                            {
+                                reflectorConnection.Open();
+                                this.m_seedDatabaseCommands = reflectorConnection.ExecQuery<String>(new SqlStatement("SELECT DISTINCT sql FROM sqlite_master WHERE TYPE = 'table' AND name NOT LIKE 'sqlite%'")).ToArray();
+                            }
+                        }
+                    }
+                }
+
+                // Manually open a memory connection and return that
+                var conn = this.GetProviderFactory().CreateConnection();
+                conn.ConnectionString = "Data Source=file::memory:?cache=shared;Cache=Shared;Foreign Keys=false";
+
+                conn.Open();
+                foreach (var cmd in this.m_seedDatabaseCommands)
+                {
+                    conn.Execute(cmd);
+                }
+
+                return new DataContext(this, conn);
+            }
+            catch (Exception ex)
+            {
+                throw new DataException("Unable to open and initialize the bulk connection", ex);
+            }
+        }
+
+        /// <inheritdoc/>
+        public void FlushBulkConnection(DataContext bulkContext)
+        {
+
+            try
+            {
+               
+                // Extract the datasource
+                var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ConnectionString));
+                var locker = ReaderWriterLockingDataContext.GetLock(this.GetDatabaseName());
+
+                // Prevent write lock for other threads while we're committing
+                if (!locker.TryEnterWriteLock(ReaderWriterLockingDataContext.WRITE_LOCK_TIMEOUT))
+                {
+                    throw new DataException("Could not obtain a read lock to commit bulk data");
+                }
+
+                using (var writeContext = this.GetWriteConnectionInternal(false))
+                {
+                    writeContext.Open();
+                    writeContext.Connection.Execute("ATTACH DATABASE 'file::memory:?cache=shared' AS ms");
+                    using (var tx = writeContext.BeginTransaction())
+                    {
+                        var tableNames = writeContext.ExecQuery<String>(new SqlStatement("SELECT DISTINCT name FROM ms.sqlite_master WHERE TYPE = 'table' AND name NOT LIKE 'sqlite%'")).ToArray();
+
+                        foreach (var table in tableNames)
+                        {
+                            if (writeContext.Any(new SqlStatement($"SELECT 1 FROM ms.{table}")))
+                            {
+                                writeContext.ExecuteNonQuery($"INSERT OR REPLACE INTO {table} SELECT * FROM ms.{table};");
+                            }
+                        }
+                        tx.Commit();
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                throw new DataException("Error flushing database contents to filesystem", ex);
+            }
+        }
+
+
+        /// <inheritdoc/>
+        public void InitializeConnection(IDbConnection conn)
+        {
+            conn.Execute("PRAGMA synchronous = OFF");
+            conn.Execute("PRAGMA journal_mode = MEMORY");
+        }
     }
 }

@@ -667,5 +667,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 context.ExecuteNonQuery($"ALTER TABLE {tbl} ENABLE TRIGGER ALL");
             }
         }
+
+        /// <inheritdoc/>
+        public void InitializeConnection(IDbConnection connection)
+        {
+
+        }
     }
 }

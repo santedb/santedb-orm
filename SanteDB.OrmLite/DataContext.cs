@@ -163,13 +163,13 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Begin a transaction
         /// </summary>
-        public IDbTransaction BeginTransaction()
+        public virtual IDbTransaction BeginTransaction()
         {
             if (this.m_transaction == null)
             {
                 this.m_transaction = this.m_connection.BeginTransaction();
             }
-
+            
             return this.m_transaction;
         }
 

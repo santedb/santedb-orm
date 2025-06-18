@@ -555,5 +555,10 @@ namespace SanteDB.OrmLite.Providers.Firebird
             }
         }
 
+        /// <inheritdoc/>
+        public void InitializeConnection(IDbConnection conn)
+        {
+
+        }
     }
 }
