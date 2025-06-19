@@ -278,5 +278,18 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
         /// <inheritdoc/>
         public DataContext GetPersistentConnection() => base.GetWriteConnectionInternal();
+
+        public override void Optimize()
+        {
+            base.Optimize();
+            using (var writer = base.GetWriteConnectionInternal())
+            {
+                writer.Open();
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
+                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
+                writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
+            }
+        }
     }
 }
