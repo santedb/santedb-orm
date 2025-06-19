@@ -1,0 +1,282 @@
+﻿using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
+using DocumentFormat.OpenXml.Wordprocessing;
+using SanteDB.Core;
+using SanteDB.Core.Configuration.Data;
+using SanteDB.Core.Diagnostics;
+using SanteDB.Core.i18n;
+using SanteDB.Core.Services;
+using SharpCompress;
+using System;
+using System.CodeDom;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Data.Common;
+using System.Linq;
+using System.Text;
+using System.Threading;
+
+namespace SanteDB.OrmLite.Providers.Sqlite
+{
+    /// <summary>
+    /// An implementation of a SQLite data provider that creates write-back connections
+    /// </summary>
+    public class SqliteWriteBackProvider : SqliteProvider, IDisposable, IReportProgressChanged, IDbWriteBackProvider
+    {
+
+        /// <summary>
+        /// Last writeback flush
+        /// </summary>
+        private long m_lastWritebackFlush = 0;
+
+        /// <summary>
+        /// Max ticks between a flush
+        /// </summary>
+        private const long MAX_TICKS_BETWEEN_FLUSH = TimeSpan.TicksPerMinute;
+
+        /// <summary>
+        /// Tracer
+        /// </summary>
+        private readonly Tracer m_tracer = Tracer.GetTracer(typeof(SqliteWriteBackProvider));
+
+        /// <summary>
+        /// Disk write-back connections
+        /// </summary>
+        private static readonly ConcurrentDictionary<String, String[]> m_initializedWritebackCaches = new ConcurrentDictionary<string, string[]>();
+
+        /// <summary>
+        /// Lock=object
+        /// </summary>
+        private static readonly object m_lockObject = new object();
+
+        /// <summary>
+        /// Reset event
+        /// </summary>
+        private readonly ManualResetEventSlim m_pingBackgroundWriteThread = new ManualResetEventSlim(false);
+
+        /// <summary>
+        /// Ping the disposal thread
+        /// </summary>
+        private readonly ManualResetEventSlim m_pingDisposalThread = new ManualResetEventSlim(false);
+
+        /// <summary>
+        /// Writeback thread
+        /// </summary>
+        private readonly Thread m_writebackCacheThread;
+
+        /// <summary>
+        /// The number of flush requests waiting
+        /// </summary>
+        private long m_writebackCacheFlushRequests = 0;
+
+        /// <summary>
+        /// Disposed
+        /// </summary>
+        private bool m_runMonitor = true;
+
+        /// <summary>
+        /// Writeback provider
+        /// </summary>
+        public SqliteWriteBackProvider()
+        {
+            this.m_writebackCacheThread = new Thread(this.MonitorWritebackFlush)
+            {
+                IsBackground = true,
+                Name = "SQLite writeback flush thread"
+            };
+            this.m_writebackCacheThread.Start();
+        }
+
+        /// <inheritdoc/>
+        public override string GetDatabaseName() => $"wb_{base.GetDatabaseName()}";
+
+        /// <inheritdoc/>
+        public override DataContext GetWriteConnection()
+        {
+            if (InitializeWritebackCache(base.GetDatabaseName()))
+            {
+                var connection = this.GetProviderFactory().CreateConnection();
+                connection.ConnectionString = this.GetCacheConnectionString(false);
+                var retVal = new DataContext(this, connection);
+                retVal.Disposed += (o, e) => this.RequestWritebackFlush();
+                return retVal;
+            }
+            else
+            {
+                return base.GetWriteConnection();
+            }
+        }
+
+        /// <summary>
+        /// Initialize the cached database
+        /// </summary>
+        private bool InitializeWritebackCache(string databaseName)
+        {
+            // Prevent multiple threads from initializing the writeback cache 
+            if (!m_initializedWritebackCaches.TryGetValue(databaseName, out var tableName))
+            {
+                lock (m_lockObject)
+                {
+                    try
+                    {
+                        this.m_tracer.TraceInfo("Initializing writeback cache for {0}", databaseName);
+                        using (var cacheConnection = this.GetProviderFactory().CreateConnection())
+                        {
+                            using (var context = new ReaderWriterLockingDataContext(this, cacheConnection))
+                            {
+                                cacheConnection.ConnectionString = this.GetCacheConnectionString(false);
+                                context.Open();
+
+                                // Attach the file db
+                                var connectionString = SqliteProvider.CorrectConnectionString(new ConnectionString(this.Invariant, base.ReadonlyConnectionString));
+                                var basePassword = connectionString.GetComponent("Password");
+                                var fileLocation = connectionString.GetComponent("Data Source");
+                                if (!String.IsNullOrEmpty(basePassword))
+                                {
+                                    cacheConnection.Execute($"ATTACH '{fileLocation}' KEY '{basePassword}' AS fs");
+                                }
+                                else
+                                {
+                                    cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs");
+                                }
+
+                                // Extract from file and load the memory cache
+                                var ddlCommands = context.ExecQuery<String>(new SqlStatement("SELECT DISTINCT sql FROM fs.sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite%'")).ToArray();
+                                tableName = context.ExecQuery<String>(new SqlStatement("SELECT DISTINCT name FROM fs.sqlite_master WHERE TYPE = 'table' AND name NOT LIKE 'sqlite%'")).ToArray();
+                                this.m_tracer.TraceVerbose("Initializing tables...");
+                                ddlCommands.ForEach(cmd => cacheConnection.Execute(cmd)); // Create the tables    
+                                this.m_tracer.TraceVerbose("Seeding cache data...");
+
+                                foreach (var itm in tableName)
+                                {
+                                    context.ExecuteNonQuery($"INSERT INTO {itm} SELECT * FROM fs.{itm}");
+                                }
+
+                                this.m_tracer.TraceVerbose("Initializing indexes and triggers...");
+                                ddlCommands = context.ExecQuery<String>(new SqlStatement("SELECT DISTINCT sql FROM fs.sqlite_master WHERE type <> 'table' AND name NOT LIKE 'sqlite%'")).ToArray();
+                                ddlCommands.ForEach(cmd => cacheConnection.Execute(cmd)); // Create the tables    
+
+                                m_initializedWritebackCaches.TryAdd(databaseName, tableName);
+
+                                context.ExecuteNonQuery("DETACH DATABASE fs");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        this.m_tracer.TraceError("Error initializing write-back cache for {0} - revert to file system - {1}", databaseName, ex);
+                        tableName = null;
+                        m_initializedWritebackCaches.TryAdd(databaseName, null);
+                    }
+                }
+            }
+
+            return tableName != null;
+
+        }
+
+        /// <summary>
+        /// Monitor the writeback flush process
+        /// </summary>
+        private void MonitorWritebackFlush(object state)
+        {
+            while (this.m_runMonitor)
+            {
+                try
+                {
+                    this.m_pingBackgroundWriteThread.Wait();
+                    this.FlushWriteBackToDisk(!this.m_runMonitor);
+                }
+                catch (ThreadAbortException)
+                {
+                    this.FlushWriteBackToDisk(true);
+                }
+                catch (Exception e)
+                {
+                    this.m_tracer.TraceError("Error writing out the writeback cache: {0}", e.ToHumanReadableString());
+                }
+                finally
+                {
+                    this.m_pingBackgroundWriteThread.Reset();
+                }
+            }
+            m_pingDisposalThread.Set();
+        }
+
+        /// <summary>
+        /// Flush the write-back cache
+        /// </summary>
+        private void FlushWriteBackToDisk(bool force)
+        {
+            var waitingFlushRequests = Interlocked.Read(ref this.m_writebackCacheFlushRequests);
+            var tickCheck = DateTimeOffset.Now.Ticks;
+            if (m_initializedWritebackCaches.TryGetValue(base.GetDatabaseName(), out var tableNames) && tableNames != null && (force || waitingFlushRequests > 50 || waitingFlushRequests > 0 && tickCheck - m_lastWritebackFlush > MAX_TICKS_BETWEEN_FLUSH)) // There were changes
+            {
+                Interlocked.Exchange(ref this.m_writebackCacheFlushRequests, 0);
+                this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
+                using (var flushConn = base.GetWriteConnectionInternal(false))
+                {
+                    flushConn.Open();
+                    flushConn.Connection.Execute($"ATTACH 'file:{this.GetDatabaseName()}?mode=memory&cache=shared' AS ms");
+
+                    // We want to create any changed tables or indexes
+                    using (var commitTx = flushConn.BeginTransaction())
+                    {
+                        var i = 0;
+                        foreach (var tbl in tableNames)
+                        {
+                            this.FireProgressChanged(new ProgressChangedEventArgs($"WriteBack:{this.GetDatabaseName()}", (float)i++ / (float)tableNames.Length, UserMessages.FLUSHING_CACHE));
+                            flushConn.ExecuteNonQuery($"DELETE FROM {tbl};");
+                            flushConn.ExecuteNonQuery($"INSERT INTO {tbl} SELECT * FROM ms.{tbl}");
+                        }
+                        commitTx.Commit();
+                    }
+
+                }
+            }
+        }
+
+        /// <summary>
+        /// Flush the contents of the memory cache into the disk
+        /// </summary>
+        private void RequestWritebackFlush()
+        {
+            this.m_tracer.TraceVerbose("Requesting flush of writeback - {0} waiting requests", Interlocked.Increment(ref this.m_writebackCacheFlushRequests));
+            this.m_pingBackgroundWriteThread.Set();
+        }
+
+        /// <inheritdoc/>
+        public override DataContext GetReadonlyConnection()
+        {
+            if (InitializeWritebackCache(base.GetDatabaseName()))
+            {
+                var connection = this.GetProviderFactory().CreateConnection();
+                connection.ConnectionString = this.GetCacheConnectionString(true);
+                return new DataContext(this, connection);
+            }
+            else
+            {
+                return base.GetReadonlyConnection();
+            }
+        }
+
+        /// <summary>
+        /// Create cache connection string to the writeback cache
+        /// </summary>
+        private string GetCacheConnectionString(bool isReadonly) => $"Data Source=file:{this.GetDatabaseName()}?mode=memory&cache=shared;Foreign Keys=false; Mode={(isReadonly ? "ReadOnly" : "ReadWriteCreate")}";
+
+        /// <summary>
+        /// Dispose the threads
+        /// </summary>
+        public override void Dispose()
+        {
+            this.m_runMonitor = false;
+            this.m_pingBackgroundWriteThread.Set();
+            this.m_tracer.TraceInfo("Waiting for flush of write-back cache");
+            this.m_pingDisposalThread.Wait();
+            base.Dispose();
+        }
+
+        /// <inheritdoc/>
+        public DataContext GetPersistentConnection() => base.GetWriteConnectionInternal();
+    }
+}

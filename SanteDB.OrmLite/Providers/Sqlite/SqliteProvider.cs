@@ -96,7 +96,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
 
-
         /// <summary>
         /// Gets or sets the connection string for this provier
         /// </summary>
@@ -248,6 +247,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             }
         }
 
+
+        /// <summary>
+        /// Fire progress changed event
+        /// </summary>
+        protected void FireProgressChanged(ProgressChangedEventArgs e)
+        {
+            this.ProgressChanged?.Invoke(this, e);
+        }
 
         /// <summary>
         /// Set the connection string password from a private key if it is set
@@ -494,7 +501,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// Get provider factory
         /// </summary>
         /// <returns>The SQLite provider</returns>
-        private DbProviderFactory GetProviderFactory()
+        protected DbProviderFactory GetProviderFactory()
         {
 
             if (this.m_provider == null) // HACK for Mono - WHY IS THIS A HACK?
@@ -545,7 +552,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Get write connection internal overide the foreign keys
         /// </summary>
-        private DataContext GetWriteConnectionInternal(bool? foreignKeys = null)
+        protected DataContext GetWriteConnectionInternal(bool? foreignKeys = null)
         { 
             this.m_lockoutEvent.Wait();
             var conn = this.GetProviderFactory().CreateConnection();
@@ -702,7 +709,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// Get the database name
         /// </summary>
         /// <returns></returns>
-        public string GetDatabaseName()
+        public virtual string GetDatabaseName()
         {
             var filePath = CorrectConnectionString(new ConnectionString(this.Invariant, this.ConnectionString)).GetComponent("Data Source");
             if (Path.IsPathRooted(filePath))
@@ -1018,7 +1025,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Dispose all waiting handles
         /// </summary>
-        public void Dispose()
+        public virtual void Dispose()
         {
             this.WalCheckpointInvoke();
         }
@@ -1061,7 +1068,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Implement this later
         /// </summary>
-        public IEnumerable<DbStatementReport> StatActivity()
+        public virtual IEnumerable<DbStatementReport> StatActivity()
         {
             yield break;
         }

@@ -30,6 +30,25 @@ using System.Reflection;
 
 namespace SanteDB.OrmLite.Providers.Sqlite
 {
+
+    /// <summary>
+    /// SQLite Writeback mode configuration provider
+    /// </summary>
+    public class SqliteWritebackConfigurationProvider : SqliteConfigurationProvider
+    {
+
+        /// <summary>
+        /// Sqlite writeback
+        /// </summary>
+        public override string Invariant => "Sqlite+wb";
+
+        /// <inheritdoc/>
+        public override string Name => "ADO.NET Sqlite / SqlCipher Writeback";
+
+        /// <inheritdoc/>
+        public override Type DbProviderType => typeof(SqliteWriteBackProvider);
+    }
+
     /// <summary>
     /// SQLite Configuration Provider
     /// </summary>
