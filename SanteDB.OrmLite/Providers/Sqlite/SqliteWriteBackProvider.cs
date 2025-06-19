@@ -34,6 +34,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         private const long MAX_TICKS_BETWEEN_FLUSH = TimeSpan.TicksPerMinute;
 
         /// <summary>
+        /// Maximum flush requests
+        /// </summary>
+        private const int MAX_FLUSH_REQUESTS = 50;
+
+        /// <summary>
         /// Tracer
         /// </summary>
         private readonly Tracer m_tracer = Tracer.GetTracer(typeof(SqliteWriteBackProvider));
@@ -158,6 +163,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                 m_initializedWritebackCaches.TryAdd(databaseName, tableName);
 
                                 context.ExecuteNonQuery("DETACH DATABASE fs");
+                                this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
                             }
                         }
                     }
@@ -209,7 +215,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
             var waitingFlushRequests = Interlocked.Read(ref this.m_writebackCacheFlushRequests);
             var tickCheck = DateTimeOffset.Now.Ticks;
-            if (m_initializedWritebackCaches.TryGetValue(base.GetDatabaseName(), out var tableNames) && tableNames != null && (force || waitingFlushRequests > 50 || waitingFlushRequests > 0 && tickCheck - m_lastWritebackFlush > MAX_TICKS_BETWEEN_FLUSH)) // There were changes
+            if (m_initializedWritebackCaches.TryGetValue(base.GetDatabaseName(), out var tableNames) && tableNames != null && (force || waitingFlushRequests > MAX_FLUSH_REQUESTS || waitingFlushRequests > 0 && tickCheck - m_lastWritebackFlush > MAX_TICKS_BETWEEN_FLUSH)) // There were changes
             {
                 Interlocked.Exchange(ref this.m_writebackCacheFlushRequests, 0);
                 this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
@@ -221,6 +227,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     // We want to create any changed tables or indexes
                     using (var commitTx = flushConn.BeginTransaction())
                     {
+                        // Disable triggers to the file database
+                        flushConn.ExecQuery<String>(new SqlStatement("SELECT DISTINCT name FROM sqlite_master WHERE type IN ('index', 'trigger') AND name NOT LIKE 'sqlite%'")).ToArray().ForEach(cmd => flushConn.Connection.Execute($"DROP TRIGGER IF EXISTS {cmd}; DROP INDEX IF EXISTS {cmd}"));
+
                         var i = 0;
                         foreach (var tbl in tableNames)
                         {
@@ -228,8 +237,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             flushConn.ExecuteNonQuery($"DELETE FROM {tbl};");
                             flushConn.ExecuteNonQuery($"INSERT INTO {tbl} SELECT * FROM ms.{tbl}");
                         }
+                        // Restore triggers
+                        flushConn.ExecQuery<String>(new SqlStatement("SELECT DISTINCT sql FROM ms.sqlite_master WHERE type IN ('index', 'trigger') AND name NOT LIKE 'sqlite%'")).ToArray().ForEach(cmd => flushConn.Connection.Execute(cmd));
+
                         commitTx.Commit();
                     }
+
 
                 }
             }

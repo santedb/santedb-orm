@@ -167,7 +167,7 @@ namespace SanteDB.OrmLite
         {
             if (this.m_transaction == null)
             {
-                this.m_transaction = this.m_connection.BeginTransaction(IsolationLevel.ReadUncommitted);
+                this.m_transaction = this.m_connection.BeginTransaction();
             }
             
             return this.m_transaction;
