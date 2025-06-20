@@ -63,7 +63,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Maximum flush requests
         /// </summary>
-        private const int MAX_FLUSH_REQUESTS = 50;
+        private const int MAX_FLUSH_REQUESTS = 10;
 
         /// <summary>
         /// Tracer
@@ -156,7 +156,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             using (var context = new ReaderWriterLockingDataContext(this, cacheConnection))
                             {
                                 cacheConnection.ConnectionString = this.GetCacheConnectionString(false);
-                                context.Open();
+                                context.Open(initializeExtensions: false);
 
                                 // Attach the file db
                                 var connectionString = SqliteProvider.CorrectConnectionString(new ConnectionString(this.Invariant, base.ReadonlyConnectionString));
@@ -189,6 +189,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                                 context.ExecuteNonQuery("DETACH DATABASE fs");
                                 this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
+                                
                             }
                         }
                     }
@@ -261,7 +262,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
                 using (var flushConn = base.GetWriteConnectionInternal(false))
                 {
-                    flushConn.Open();
+                    flushConn.Open(initializeExtensions: false);
                     flushConn.Connection.Execute($"ATTACH 'file:{this.GetDatabaseName()}?mode=memory&cache=shared' AS ms");
 
                     // We want to create any changed tables or indexes

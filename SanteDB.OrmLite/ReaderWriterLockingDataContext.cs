@@ -110,7 +110,7 @@ namespace SanteDB.OrmLite
         }
 
         /// <inheritdoc />
-        public override bool Open()
+        public override bool Open(bool initializeExtensions = true)
         {
             var ormProbe = this.Provider is IDbMonitorProvider monitorProvider ? monitorProvider.MonitorProbe as OrmClientProbe : null;
 
@@ -140,7 +140,7 @@ namespace SanteDB.OrmLite
                 }
 
 
-                if (!base.Open())
+                if (!base.Open(initializeExtensions))
                 {
                     if (locker.IsReadLockHeld)
                     {

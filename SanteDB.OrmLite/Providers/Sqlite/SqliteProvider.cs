@@ -1164,6 +1164,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
             conn.Execute("PRAGMA synchronous = OFF");
             conn.Execute("PRAGMA journal_mode = MEMORY");
+            conn.Execute("PRAGMA temp_store = MEMORY");
         }
     }
 }
