@@ -63,7 +63,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Maximum flush requests
         /// </summary>
-        private const int MAX_FLUSH_REQUESTS = 10;
+        private const int MAX_FLUSH_REQUESTS = 50;
 
         /// <summary>
         /// Tracer
