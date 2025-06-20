@@ -449,7 +449,7 @@ namespace SanteDB.OrmLite
         {
             var dataSource = queryDefinition.DataSources.First();
             var connectionString = this.m_configurationManager.GetConnectionString(dataSource.ConnectionString ?? dataSource.Id);
-            var provider = this.m_configurationManager.GetSection<OrmConfigurationSection>().GetProvider(connectionString.Provider);
+            var provider = OrmProviderManager.Current.GetProvider(connectionString);
             provider.ConnectionString = connectionString.Value;
             provider.ReadonlyConnectionString = connectionString.Value;
             return provider;

@@ -14,5 +14,10 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         /// <returns>The persistent connection</returns>
         DataContext GetPersistentConnection();
+
+        /// <summary>
+        /// Flush the write-back cache.
+        /// </summary>
+        void FlushWriteBackCache();
     }
 }
