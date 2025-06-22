@@ -183,7 +183,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                 }
 
                                 this.m_tracer.TraceVerbose("Initializing indexes and triggers...");
-                                schemaObjects.Where(o => o.Type != "table").ForEach(cmd => cacheConnection.Execute(cmd.Sql)); // Create the tables    
+                                schemaObjects.Where(o => o.Type != "table").ForEach(cmd => cacheConnection.Execute(cmd.Sql)); // Create the views, indexes, and triggers    
 
                                 m_initializedWritebackCaches.TryAdd(databaseName, schemaObjects);
 
@@ -265,16 +265,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     flushConn.Open(initializeExtensions: false);
                     flushConn.Connection.Execute($"ATTACH 'file:{this.GetDatabaseName()}?mode=memory&cache=shared' AS ms");
 
-                    // We want to create any changed tables or indexes
+                    // We want to create any changed tables or
+                    // indexes
                     using (var commitTx = flushConn.BeginTransaction())
                     {
-                        // Disable triggers to the file database
-                        //if (waitingFlushRequests >= MAX_FLUSH_REQUESTS) // Lots of connections have written so we want to disable triggers
-                        //{
-                        //    dbSchemaObjects.Where(o => o.Type == "index").ForEach(obj => flushConn.Connection.Execute($"DROP INDEX IF EXISTS {obj.Name}"));
-                        //    dbSchemaObjects.Where(o => o.Type == "trigger").ForEach(obj => flushConn.Connection.Execute($"DROP TRIGGER IF EXISTS {obj.Name}"));
-                        //}
-
+                       
                         var i = 0;
                         foreach (var tbl in dbSchemaObjects.Where(o=>o.Type == "table"))
                         {
@@ -283,11 +278,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             flushConn.ExecuteNonQuery($"INSERT INTO {tbl.Name} SELECT * FROM ms.{tbl.Name}");
                         }
 
-                        //if (waitingFlushRequests >= MAX_FLUSH_REQUESTS) // Lots of connections have written so we want to disable triggers
-                        //{
-                        //    // Restore triggers
-                        //    dbSchemaObjects.Where(o=>o.Type == "index" || o.Type == "trigger").ForEach(obj => flushConn.Connection.Execute(obj.Sql));
-                        //}
                         commitTx.Commit();
                     }
 
