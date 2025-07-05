@@ -1165,6 +1165,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             conn.Execute("PRAGMA synchronous = OFF");
             conn.Execute("PRAGMA journal_mode = MEMORY");
             conn.Execute("PRAGMA temp_store = MEMORY");
+            if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Client) // clients have their check constraints disabled
+            {
+                conn.Execute("PRAGMA ignore_check_constraints = ON");
+            }
         }
     }
 }
