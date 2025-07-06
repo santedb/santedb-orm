@@ -12,6 +12,7 @@ using System;
 using System.CodeDom;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.Common;
 using System.Dynamic;
 using System.Linq;
@@ -345,5 +346,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
         /// <inheritdoc/>
         public void FlushWriteBackCache() => this.FlushWriteBackToDisk(true);
+
+        /// <inheritdoc/>
+        public override void InitializeConnection(IDbConnection conn)
+        {
+            if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Client) // clients have their check constraints disabled
+            {
+                conn.Execute("PRAGMA ignore_check_constraints = ON");
+            }
+        }
     }
 }

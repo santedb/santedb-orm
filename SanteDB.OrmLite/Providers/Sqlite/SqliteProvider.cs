@@ -1160,9 +1160,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
 
         /// <inheritdoc/>
-        public void InitializeConnection(IDbConnection conn)
+        public virtual void InitializeConnection(IDbConnection conn)
         {
-            conn.Execute("PRAGMA synchronous = OFF");
+            //conn.Execute("PRAGMA synchronous = OFF");
             conn.Execute("PRAGMA journal_mode = MEMORY");
             conn.Execute("PRAGMA temp_store = MEMORY");
             if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Client) // clients have their check constraints disabled
