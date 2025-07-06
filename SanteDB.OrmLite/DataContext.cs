@@ -219,7 +219,10 @@ namespace SanteDB.OrmLite
                 wasOpened = true;
             }
 
-            this.m_provider.InitializeConnection(this.m_connection);
+            if (this.m_transaction == null)
+            {
+                this.m_provider.InitializeConnection(this.m_connection);
+            }
 
             if (initializeExtensions)
             {

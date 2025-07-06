@@ -350,6 +350,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public override void InitializeConnection(IDbConnection conn)
         {
+            conn.Execute("PRAGMA synchronous = OFF");
             if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Client) // clients have their check constraints disabled
             {
                 conn.Execute("PRAGMA ignore_check_constraints = ON");
