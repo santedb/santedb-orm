@@ -57,19 +57,6 @@ namespace SanteDB.OrmLite.Configuration
         [XmlArray("dbProviderFactories"), XmlArrayItem("add")]
         public List<ProviderRegistrationConfiguration> AdoProvider { get; set; }
 
-        /// <summary>
-        /// Get the specified provider
-        /// </summary>
-        public IDbProvider GetProvider(String invariant)
-        {
-            var provider = this.Providers.FirstOrDefault(o => o.Invariant.Equals(invariant, StringComparison.InvariantCultureIgnoreCase));
-            if (provider == null)
-            {
-                throw new KeyNotFoundException($"Provider {invariant} not registered");
-            }
-
-            return Activator.CreateInstance(provider.Type) as IDbProvider;
-        }
     }
 
 

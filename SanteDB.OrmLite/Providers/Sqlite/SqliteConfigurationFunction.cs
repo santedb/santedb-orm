@@ -92,7 +92,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 }
                 else
                 {
+#if DEBUG
                     _Tracer.TraceWarning("Sqlite attempted to set journal_mode=wal but did not get this journal mode back from the provider.");
+#endif
                 }
 
             }

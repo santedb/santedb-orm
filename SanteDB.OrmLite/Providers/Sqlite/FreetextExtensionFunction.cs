@@ -143,7 +143,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 try
                 {
-                    m_hasSpellFix = connection.ExecuteScalar<int>("SELECT editdist3('test', 'test1');") > 0;
+                    connection.Execute("SELECT editdist3('test', 'test1');");
+                    m_hasSpellFix = true;
                 }
                 catch
                 {
@@ -155,7 +156,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 try
                 {
-                    m_hasSoundex = connection.ExecuteScalar<bool>("SELECT soundex('FOO') = 'F000'");
+                    connection.Execute("SELECT soundex('FOO') = 'F000'");
+                    m_hasSoundex = true;
                 }
                 catch
                 {

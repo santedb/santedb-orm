@@ -163,13 +163,13 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Begin a transaction
         /// </summary>
-        public IDbTransaction BeginTransaction()
+        public virtual IDbTransaction BeginTransaction()
         {
             if (this.m_transaction == null)
             {
                 this.m_transaction = this.m_connection.BeginTransaction();
             }
-
+            
             return this.m_transaction;
         }
 
@@ -198,7 +198,7 @@ namespace SanteDB.OrmLite
         /// Open the connection to the database
         /// </summary>
         /// <returns>True if a new connection was opened (false if the connection was already open)</returns>
-        public virtual bool Open()
+        public virtual bool Open(bool initializeExtensions = true)
         {
             this.ThrowIfDisposed();
             var wasOpened = false;
@@ -219,8 +219,15 @@ namespace SanteDB.OrmLite
                 wasOpened = true;
             }
 
+            if (this.m_transaction == null)
+            {
+                this.m_provider.InitializeConnection(this.m_connection);
+            }
 
-            this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().ForEach(o => _ = o.Initialize(this.m_connection, this.m_transaction));
+            if (initializeExtensions)
+            {
+                this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().ForEach(o => _ = o.Initialize(this.m_connection, this.m_transaction));
+            }
 
             //if (!this.m_opened && wasOpened)
             //{
@@ -265,11 +272,11 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Opens a cloned context
         /// </summary>
-        public virtual DataContext OpenClonedContext()
+        internal virtual DataContext OpenClonedContext()
         {
 
             var retVal = this.m_provider.CloneConnection(this);
-            retVal.Open();
+            retVal.Open(initializeExtensions: false);
             retVal.m_dataDictionary = this.m_dataDictionary; // share data
             //retVal.PrepareStatements = this.PrepareStatements;
             return retVal;

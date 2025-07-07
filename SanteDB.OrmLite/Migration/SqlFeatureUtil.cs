@@ -89,7 +89,7 @@ namespace SanteDB.OrmLite.Migration
         {
             // First, does the database exist?
             m_traceSource.TraceInfo("Ensure context {0} is updated...", scopeOfContext);
-            var configProvider = GetConfigurationProviders().FirstOrDefault(o => o.DbProviderType == provider.GetType());
+            var configProvider = GetConfigurationProviders().FirstOrDefault(o => o.DbProviderType.IsAssignableFrom(provider.GetType()));
             var connectionString = new ConnectionString(provider.Invariant, provider.ConnectionString);
             var dbName = connectionString.GetComponent(configProvider.Capabilities.NameSetting);
             // TODO: Move this to a common location
@@ -114,11 +114,20 @@ namespace SanteDB.OrmLite.Migration
 
             // Some of the updates from V2 to V3 can take hours to complete - this timer allows us to report progress on the log
             int i = 0;
-            using (var conn = provider.GetWriteConnection())
+            if(provider is IDbWriteBackProvider writeBack)
             {
-                UpgradeSchema(conn, scopeOfContext, progressMonitor);
+                using (var conn = writeBack.GetPersistentConnection())
+                {
+                    UpgradeSchema(conn, scopeOfContext, progressMonitor);
+                }
             }
-
+            else
+            {
+                using (var conn = provider.GetWriteConnection())
+                {
+                    UpgradeSchema(conn, scopeOfContext, progressMonitor);
+                }
+            }
             progressMonitor?.Invoke(nameof(UpgradeSchema), 1f, UserMessages.COMPLETE);
         }
 

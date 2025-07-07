@@ -125,5 +125,10 @@ namespace SanteDB.OrmLite.Providers
         /// </summary>
         void Optimize();
 
+        /// <summary>
+        /// Allows te database connection provider to initialize the connection
+        /// </summary>
+        /// <param name="connection"></param>
+        void InitializeConnection(IDbConnection connection);
     }
 }

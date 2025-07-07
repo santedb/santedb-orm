@@ -55,7 +55,7 @@ namespace SanteDB.OrmLite
         /// <param name="databaseName">The provider to use as the key for checking the dictionary with.</param>
         /// <returns>An instance of <see cref="ReaderWriterLockSlim"/> scoped to the <paramref name="provider"/>.</returns>
         /// <exception cref="InvalidOperationException">Thrown when <see cref="ConcurrentDictionary{TKey, TValue}.TryGetValue(TKey, out TValue)"/> and <see cref="ConcurrentDictionary{TKey, TValue}.TryAdd(TKey, TValue)"/> both return false indicating we cannot add to the dictionary but the key does not exist.</exception>
-        protected static ReaderWriterLockSlim GetLock(string databaseName)
+        internal static ReaderWriterLockSlim GetLock(string databaseName)
         {
             if (!s_Locks.TryGetValue(databaseName, out var lck))
             {
@@ -110,7 +110,7 @@ namespace SanteDB.OrmLite
         }
 
         /// <inheritdoc />
-        public override bool Open()
+        public override bool Open(bool initializeExtensions = true)
         {
             var ormProbe = this.Provider is IDbMonitorProvider monitorProvider ? monitorProvider.MonitorProbe as OrmClientProbe : null;
 
@@ -140,7 +140,7 @@ namespace SanteDB.OrmLite
                 }
 
 
-                if (!base.Open())
+                if (!base.Open(initializeExtensions))
                 {
                     if (locker.IsReadLockHeld)
                     {

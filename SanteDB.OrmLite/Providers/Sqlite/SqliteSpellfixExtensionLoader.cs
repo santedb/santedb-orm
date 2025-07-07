@@ -108,14 +108,20 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             //    {
             try
             {
-                if (s_LibraryName == null)
+                try
                 {
-                    connection.LoadExtension("e_sqlite3mc", "sqlite3_spellfix_init");
+                    connection.Execute("SELECT editdist3('test', 'test1');");
                 }
-                else
+                catch
                 {
-                    connection.LoadExtension(s_LibraryName, s_EntryPoint ?? "sqlite3_spellfix_init");
-
+                    if (s_LibraryName == null)
+                    {
+                        connection.LoadExtension("e_sqlite3mc", "sqlite3_spellfix_init");
+                    }
+                    else
+                    {
+                        connection.LoadExtension(s_LibraryName, s_EntryPoint ?? "sqlite3_spellfix_init");
+                    }
                 }
             }
             catch

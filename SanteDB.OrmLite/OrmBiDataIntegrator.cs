@@ -120,8 +120,7 @@ namespace SanteDB.OrmLite
         {
 
             this.m_executionContext = executionContext;
-            var ormConfiguration = ApplicationServiceContext.Current.GetService<IConfigurationManager>().GetSection<OrmConfigurationSection>();
-            this.m_provider = ormConfiguration.GetProvider(connectionString.Provider);
+            this.m_provider = OrmProviderManager.Current.GetProvider(connectionString);
             if (this.m_provider == null)
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.TYPE_NOT_FOUND, connectionString.Provider));
