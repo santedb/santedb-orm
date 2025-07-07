@@ -40,7 +40,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Sqlite writeback
         /// </summary>
-        public override string Invariant => "Sqlite+wb";
+        public override string Invariant => "sqlite+wb";
 
         /// <inheritdoc/>
         public override string Name => "ADO.NET Sqlite / SqlCipher Writeback";
