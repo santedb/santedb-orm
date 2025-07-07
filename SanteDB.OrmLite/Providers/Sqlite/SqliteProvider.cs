@@ -553,14 +553,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// Get write connection internal overide the foreign keys
         /// </summary>
         protected DataContext GetWriteConnectionInternal(bool? foreignKeys = null)
-        { 
+        {
             this.m_lockoutEvent.Wait();
             var conn = this.GetProviderFactory().CreateConnection();
             var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
             connectionString.SetComponent("Mode", "ReadWriteCreate");
             connectionString.SetComponent("Cache", "Private");
             connectionString.SetComponent("Pooling", "False");
-            if(foreignKeys.HasValue)
+            if (foreignKeys.HasValue)
             {
                 connectionString.SetComponent("Foreign Keys", foreignKeys.ToString());
             }
@@ -1121,7 +1121,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
             try
             {
-               
+
                 // Extract the datasource
                 var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ConnectionString));
                 var locker = ReaderWriterLockingDataContext.GetLock(this.GetDatabaseName());
@@ -1162,13 +1162,23 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public virtual void InitializeConnection(IDbConnection conn)
         {
-            conn.Execute("PRAGMA synchronous = OFF");
-            //conn.Execute("PRAGMA journal_mode = MEMORY");
-            //conn.Execute("PRAGMA temp_store = MEMORY");
-            if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Client) // clients have their check constraints disabled
+
+            if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Client)
             {
-                conn.Execute("PRAGMA ignore_check_constraints = ON");
+                conn.Execute("PRAGMA synchronous=OFF");
+                conn.Execute("PRAGMA journal_mode=MEMORY");
+                conn.Execute("PRAGMA temp_store=MEMORY");
+                conn.Execute("PRAGMA ignore_check_constraints=ON");
             }
+            else
+            {
+                conn.Execute("PRAGMA journal_mode=WAL");
+                conn.ExecuteScalar<Object>("PRAGMA synchronous=normal");
+                conn.ExecuteScalar<Object>("PRAGMA locking_mode=normal");
+            }
+
+            conn.ExecuteScalar<object>("PRAGMA pragma_automatic_index=true");
+
         }
     }
 }
