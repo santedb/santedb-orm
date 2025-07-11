@@ -129,7 +129,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             {
                 try
                 {
-                    conn.Open();
+                    conn.Open(initializeExtensions: false);
                     using (var cmd = conn.Connection.CreateCommand())
                     {
                         cmd.CommandText = "SELECT datname FROM pg_database;";
@@ -177,7 +177,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 try
                 {
                     // Create the database
-                    conn.Open();
+                    conn.Open(initializeExtensions: false);
 
                     String[] cmds =
                     {
@@ -219,7 +219,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 try
                 {
                     // Create the database
-                    conn.Open();
+                    conn.Open(initializeExtensions: false);
 
                     String[] cmds =
                     {

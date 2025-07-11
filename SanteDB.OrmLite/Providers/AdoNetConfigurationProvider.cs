@@ -198,7 +198,7 @@ namespace SanteDB.OrmLite.Providers
                 using (var conn = pvdr.GetReadonlyConnection())
                 {
 
-                    conn.Open();
+                    conn.Open(initializeExtensions: false);
                     return true;
                 }
             }

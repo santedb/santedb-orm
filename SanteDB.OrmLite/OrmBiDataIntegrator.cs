@@ -605,7 +605,7 @@ namespace SanteDB.OrmLite
             this.m_configurationProvider.CreateDatabase(this.m_connectionString, this.m_connectionString.GetComponent(this.m_configurationProvider.Capabilities.NameSetting), String.Empty);
             using (var context = this.m_provider.GetWriteConnection())
             {
-                context.Open();
+                context.Open(initializeExtensions: false);
                 context.CreateTable<OrmBiDatamartMetadata>();
                 context.CreateTable<OrmBiDatamartDependencyMetadata>();
                 context.Close();
@@ -793,7 +793,7 @@ namespace SanteDB.OrmLite
             this.m_pepService.Demand(PermissionPolicyIdentifiers.QueryWarehouseData);
             this.m_currentContext = this.m_provider.GetReadonlyConnection();
             this.m_currentContext.CommandTimeout = 3600;
-            this.m_currentContext.Open();
+            this.m_currentContext.Open(initializeExtensions: false);
         }
 
 
@@ -805,7 +805,7 @@ namespace SanteDB.OrmLite
             this.ThrowIfHasPurpose(DataFlowExecutionPurposeType.Discovery);
             this.m_pepService.Demand(PermissionPolicyIdentifiers.WriteWarehouseData);
             this.m_currentContext = this.m_provider.GetWriteConnection();
-            this.m_currentContext.Open();
+            this.m_currentContext.Open(initializeExtensions: false);
         }
 
 

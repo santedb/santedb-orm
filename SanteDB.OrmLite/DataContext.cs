@@ -198,6 +198,7 @@ namespace SanteDB.OrmLite
         /// Open the connection to the database
         /// </summary>
         /// <returns>True if a new connection was opened (false if the connection was already open)</returns>
+        /// <param name="initializeExtensions">False if the extended functions (freetext, soundex, etc.) should be initialized. Default is TRUE to maintain backwards compatibility</param>
         public virtual bool Open(bool initializeExtensions = true)
         {
             this.ThrowIfDisposed();
@@ -219,12 +220,12 @@ namespace SanteDB.OrmLite
                 wasOpened = true;
             }
 
-            if (this.m_transaction == null)
+            if (wasOpened && this.m_transaction == null)
             {
                 this.m_provider.InitializeConnection(this.m_connection);
             }
 
-            if (initializeExtensions)
+            if (wasOpened && initializeExtensions)
             {
                 this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().ForEach(o => _ = o.Initialize(this.m_connection, this.m_transaction));
             }

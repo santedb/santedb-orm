@@ -1036,7 +1036,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             this.ClearAllPools();
             using (var writer = this.GetWriteConnection())
             {
-                writer.Open();
+                writer.Open(initializeExtensions: false);
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
@@ -1051,7 +1051,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
             using (var writer = this.GetWriteConnection())
             {
-                writer.Open();
+                writer.Open(initializeExtensions: false);
                 writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
             }
             this.ClearAllPools();
@@ -1072,92 +1072,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
             yield break;
         }
-
-        /// <inheritdoc/>
-        /// <remarks>
-        /// Opens a connection to the bulk :memory: database. It copies out the schema of the configured database to seed the 
-        /// :memory: connection and turns off caching
-        /// </remarks>
-        public DataContext GetBulkConnection()
-        {
-            try
-            {
-                if (this.m_seedDatabaseCommands == null)
-                {
-                    lock (this.m_lock)
-                    {
-                        if (this.m_seedDatabaseCommands == null) // Only do this once - we may have waited for a locking thread
-                        {
-                            using (var reflectorConnection = this.GetReadonlyConnection())
-                            {
-                                reflectorConnection.Open();
-                                this.m_seedDatabaseCommands = reflectorConnection.ExecQuery<String>(new SqlStatement("SELECT DISTINCT sql FROM sqlite_master WHERE TYPE = 'table' AND name NOT LIKE 'sqlite%'")).ToArray();
-                            }
-                        }
-                    }
-                }
-
-                // Manually open a memory connection and return that
-                var conn = this.GetProviderFactory().CreateConnection();
-                conn.ConnectionString = "Data Source=file::memory:?cache=shared;Cache=Shared;Foreign Keys=false";
-
-                conn.Open();
-                foreach (var cmd in this.m_seedDatabaseCommands)
-                {
-                    conn.Execute(cmd);
-                }
-
-                return new DataContext(this, conn);
-            }
-            catch (Exception ex)
-            {
-                throw new DataException("Unable to open and initialize the bulk connection", ex);
-            }
-        }
-
-        /// <inheritdoc/>
-        public void FlushBulkConnection(DataContext bulkContext)
-        {
-
-            try
-            {
-
-                // Extract the datasource
-                var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ConnectionString));
-                var locker = ReaderWriterLockingDataContext.GetLock(this.GetDatabaseName());
-
-                // Prevent write lock for other threads while we're committing
-                if (!locker.TryEnterWriteLock(ReaderWriterLockingDataContext.WRITE_LOCK_TIMEOUT))
-                {
-                    throw new DataException("Could not obtain a read lock to commit bulk data");
-                }
-
-                using (var writeContext = this.GetWriteConnectionInternal(false))
-                {
-                    writeContext.Open();
-                    writeContext.Connection.Execute("ATTACH DATABASE 'file::memory:?cache=shared' AS ms");
-                    using (var tx = writeContext.BeginTransaction())
-                    {
-                        var tableNames = writeContext.ExecQuery<String>(new SqlStatement("SELECT DISTINCT name FROM ms.sqlite_master WHERE TYPE = 'table' AND name NOT LIKE 'sqlite%'")).ToArray();
-
-                        foreach (var table in tableNames)
-                        {
-                            if (writeContext.Any(new SqlStatement($"SELECT 1 FROM ms.{table}")))
-                            {
-                                writeContext.ExecuteNonQuery($"INSERT OR REPLACE INTO {table} SELECT * FROM ms.{table};");
-                            }
-                        }
-                        tx.Commit();
-                    }
-                }
-
-            }
-            catch (Exception ex)
-            {
-                throw new DataException("Error flushing database contents to filesystem", ex);
-            }
-        }
-
 
         /// <inheritdoc/>
         public virtual void InitializeConnection(IDbConnection conn)

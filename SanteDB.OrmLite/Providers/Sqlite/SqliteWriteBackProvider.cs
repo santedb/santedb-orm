@@ -331,12 +331,15 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public DataContext GetPersistentConnection() => base.GetWriteConnectionInternal();
 
+        /// <summary>
+        /// Optimize the database on disk not in memory
+        /// </summary>
         public override void Optimize()
         {
             base.Optimize();
             using (var writer = base.GetWriteConnectionInternal())
             {
-                writer.Open();
+                writer.Open(initializeExtensions: false);
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
