@@ -109,7 +109,7 @@ namespace SanteDB.OrmLite.Configuration.Features
                     provider.ConnectionString = connectionString.ToString();
                     using (var conn = provider.GetWriteConnection())
                     {
-                        conn.Open();
+                        conn.Open(initializeExtensions: false);
                         try
                         {
                             conn.Any(new SqlStatement("SELECT * FROM ale_systbl"));

@@ -468,7 +468,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             using (var conn = this.GetReadonlyConnection())
             {
-                conn.Open();
+                conn.Open(initializeExtensions: false);
                 using (var cmd = conn.Connection.CreateCommand())
                 {
                     cmd.CommandType = CommandType.Text;
@@ -548,7 +548,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
         {
             using (var writer = this.GetWriteConnection())
             {
-                writer.Open();
+                writer.Open(initializeExtensions: false);
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));

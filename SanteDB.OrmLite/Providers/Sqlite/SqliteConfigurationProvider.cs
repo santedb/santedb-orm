@@ -167,7 +167,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 try
                 {
                     // Create the database
-                    conn.Open();
+                    conn.Open(initializeExtensions: false);
 
                     var newConnectionString = SqliteProvider.CorrectConnectionString(connectionString);
                     var password = newConnectionString.GetComponent("Password");
