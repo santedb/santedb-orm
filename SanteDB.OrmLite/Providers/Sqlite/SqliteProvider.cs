@@ -1169,6 +1169,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 conn.Execute("PRAGMA journal_mode=MEMORY");
                 conn.Execute("PRAGMA temp_store=MEMORY");
                 conn.Execute("PRAGMA ignore_check_constraints=ON");
+                conn.Execute("PRAGMA foreign_keys=FALSE");
             }
             else
             {
