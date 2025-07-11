@@ -147,7 +147,7 @@ namespace SanteDB.OrmLite.Migration
             {
                 try
                 {
-                    conn.Open();
+                    conn.Open(initializeExtensions: false);
                     progressMonitor?.Invoke(nameof(UpgradeSchema), (((float)++i) / updates.Length), String.Format(UserMessages.UPDATE_DATABASE, itm.Description));
 
                     if (!conn.IsInstalled(itm))
@@ -188,7 +188,7 @@ namespace SanteDB.OrmLite.Migration
             {
                 try
                 {
-                    context.Open();
+                    context.Open(initializeExtensions: false);
                     float percentCompletePerProperty = 1.0f / (float)propertiesToEncrypt.Length,
                         propertiesComplete = 0.0f;
 
@@ -238,7 +238,7 @@ namespace SanteDB.OrmLite.Migration
         /// </summary>
         public static bool Install(this DataContext conn, SqlFeature migration)
         {
-            conn.Open();
+            conn.Open(initializeExtensions: false);
 
             var stmts = migration.GetDeploySql().Split(new string[] { "--#!" }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var dsql in stmts)
@@ -291,7 +291,7 @@ namespace SanteDB.OrmLite.Migration
         /// </summary>
         public static bool IsInstalled(this DataContext conn, SqlFeature migration)
         {
-            conn.Open();
+            conn.Open(initializeExtensions: false);
 
             string checkSql = migration.GetCheckSql(),
                         preConditionSql = migration.GetPreCheckSql();
