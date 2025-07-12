@@ -237,7 +237,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 }
                 catch (ThreadAbortException)
                 {
-                    this.FlushWriteBackToDisk(true);
+                    try
+                    {
+                        this.FlushWriteBackToDisk(true);
+                    }
+                    catch(Exception e)
+                    {
+                        this.m_tracer.TraceError("Error writing out the writeback cache: {0}", e.ToHumanReadableString());
+                    }
                 }
                 catch (Exception e)
                 {
