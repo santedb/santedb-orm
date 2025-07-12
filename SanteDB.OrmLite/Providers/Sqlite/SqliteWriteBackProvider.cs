@@ -59,12 +59,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Max ticks between a flush
         /// </summary>
-        private const long MAX_TICKS_BETWEEN_FLUSH = TimeSpan.TicksPerSecond * 60;
+        private const long MAX_TICKS_BETWEEN_FLUSH = TimeSpan.TicksPerSecond * 15;
 
         /// <summary>
         /// Maximum flush requests
         /// </summary>
-        private const int MAX_FLUSH_REQUESTS = 100;
+        private const int MAX_FLUSH_REQUESTS = 5;
 
         /// <summary>
         /// Tracer
@@ -165,8 +165,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                 var fileLocation = connectionString.GetComponent("Data Source");
                                 if (!String.IsNullOrEmpty(basePassword))
                                 {
-                                    cacheConnection.Execute($"ATTACH '{fileLocation}' KEY '{basePassword}' AS fs");
-                                }
+                                    this.m_tracer.TraceVerbose("Attempting to attach database '{0}' using '{1}'", fileLocation, basePassword);
+                                    cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs KEY '{basePassword}'");
+                                }   
                                 else
                                 {
                                     cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs");
@@ -236,7 +237,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 }
                 catch (ThreadAbortException)
                 {
-                    this.FlushWriteBackToDisk(true);
+                    try
+                    {
+                        this.FlushWriteBackToDisk(true);
+                    }
+                    catch(Exception e)
+                    {
+                        this.m_tracer.TraceError("Error writing out the writeback cache: {0}", e.ToHumanReadableString());
+                    }
                 }
                 catch (Exception e)
                 {
@@ -259,6 +267,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             var tickCheck = DateTimeOffset.Now.Ticks;
             if (m_initializedWritebackCaches.TryGetValue(base.GetDatabaseName(), out var dbSchemaObjects) && dbSchemaObjects != null && (force || waitingFlushRequests > MAX_FLUSH_REQUESTS || waitingFlushRequests > 0 && tickCheck - m_lastWritebackFlush > MAX_TICKS_BETWEEN_FLUSH)) // There were changes
             {
+                this.m_tracer.TraceInfo("Flushing Writeback to Disk for {0}", this.GetDatabaseName());
                 Interlocked.Exchange(ref this.m_writebackCacheFlushRequests, 0);
                 this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
                 using (var flushConn = base.GetWriteConnectionInternal(false))
@@ -275,6 +284,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         foreach (var tbl in dbSchemaObjects.Where(o=>o.Type == "table"))
                         {
                             this.FireProgressChanged(new ProgressChangedEventArgs($"WriteBack:{this.GetDatabaseName()}", (float)i++ / (float)dbSchemaObjects.Length, UserMessages.FLUSHING_CACHE));
+                            this.m_tracer.TraceVerbose("Flushing {0}", tbl.Name);
                             flushConn.ExecuteNonQuery($"DELETE FROM {tbl.Name};");
                             flushConn.ExecuteNonQuery($"INSERT INTO {tbl.Name} SELECT * FROM ms.{tbl.Name}");
                         }
@@ -284,6 +294,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
 
                 }
+                this.m_tracer.TraceInfo("Writeback has been flushed to {0}", this.GetDatabaseName());
+
             }
         }
 
@@ -292,7 +304,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         private void RequestWritebackFlush()
         {
-            this.m_tracer.TraceVerbose("Requesting flush of writeback - {0} waiting requests", Interlocked.Increment(ref this.m_writebackCacheFlushRequests));
+            this.m_tracer.TraceVerbose("Requesting flush of writeback {0} - {1} waiting requests", this.GetDatabaseName(), Interlocked.Increment(ref this.m_writebackCacheFlushRequests));
             this.m_pingBackgroundWriteThread.Set();
         }
 
