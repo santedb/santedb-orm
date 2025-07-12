@@ -59,12 +59,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Max ticks between a flush
         /// </summary>
-        private const long MAX_TICKS_BETWEEN_FLUSH = TimeSpan.TicksPerSecond * 60;
+        private const long MAX_TICKS_BETWEEN_FLUSH = TimeSpan.TicksPerSecond * 15;
 
         /// <summary>
         /// Maximum flush requests
         /// </summary>
-        private const int MAX_FLUSH_REQUESTS = 50;
+        private const int MAX_FLUSH_REQUESTS = 5;
 
         /// <summary>
         /// Tracer
