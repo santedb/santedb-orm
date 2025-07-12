@@ -165,8 +165,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                 var fileLocation = connectionString.GetComponent("Data Source");
                                 if (!String.IsNullOrEmpty(basePassword))
                                 {
-                                    cacheConnection.Execute($"ATTACH '{fileLocation}' KEY '{basePassword}' AS fs");
-                                }
+                                    this.m_tracer.TraceVerbose("Attempting to attach database '{0}' using '{1}'", fileLocation, basePassword);
+                                    cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs KEY '{basePassword}'");
+                                }   
                                 else
                                 {
                                     cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs");
