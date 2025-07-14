@@ -80,7 +80,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         private DbProviderFactory m_provider = null;
 
         // Blocker for backup process
-        private readonly ManualResetEventSlim m_lockoutEvent = new ManualResetEventSlim(true);
+        protected readonly ManualResetEventSlim m_lockoutEvent = new ManualResetEventSlim(true);
 
         // Monitoring probe
         private IDiagnosticsProbe m_monitor;
@@ -876,7 +876,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                 using (var rw = new ReaderWriterLockingDataContext(this, null))
                 {
-                    rw.Lock();
+                    rw.Lock(); // Ensure that there are no active connections
+                    this.m_lockoutEvent.Wait(); // Ensure that no other maintenance threads are doing any work
                     this.m_lockoutEvent.Reset();
 
                     var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
@@ -1036,11 +1037,19 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             this.ClearAllPools();
             using (var writer = this.GetWriteConnection())
             {
-                writer.Open(initializeExtensions: false);
-                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
-                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
-                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
-                writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
+                try
+                {
+                    this.m_lockoutEvent.Reset();
+                    writer.Open(initializeExtensions: false);
+                    writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
+                    writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
+                    writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
+                    writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
+                }
+                finally
+                {
+                    this.m_lockoutEvent.Set();
+                }
             }
         }
 
