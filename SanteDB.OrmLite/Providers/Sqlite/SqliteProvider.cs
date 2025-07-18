@@ -26,6 +26,7 @@ using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Map;
+using SanteDB.Core.Model.Query;
 using SanteDB.Core.Security;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
@@ -928,6 +929,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 this.WalCheckpointInvoke();
 
                 // Grab a lock and prevent everyone from interacting with this database
+                this.m_lockoutEvent.Wait();
                 this.m_lockoutEvent.Reset();
 
                 using (var rw = new ReaderWriterLockingDataContext(this, null))
@@ -1039,6 +1041,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 try
                 {
+                    this.m_lockoutEvent.Wait();
                     this.m_lockoutEvent.Reset();
                     writer.Open(initializeExtensions: false);
                     writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
