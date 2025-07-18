@@ -291,26 +291,30 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         flushConn.Open(initializeExtensions: false);
                         flushConn.Connection.Execute($"ATTACH 'file:{this.GetDatabaseName()}?mode=memory&cache=shared' AS ms");
 
-                    // We want to create any changed tables or
-                    // indexes
-                    using (var commitTx = flushConn.BeginTransaction())
-                    {
-
-                        var i = 0;
-                        foreach (var tbl in dbSchemaObjects.Where(o => o.Type == "table"))
+                        // We want to create any changed tables or
+                        // indexes
+                        using (var commitTx = flushConn.BeginTransaction())
                         {
-                            this.FireProgressChanged(new ProgressChangedEventArgs($"WriteBack:{this.GetDatabaseName()}", (float)i++ / (float)dbSchemaObjects.Length, UserMessages.FLUSHING_CACHE));
-                            this.m_tracer.TraceVerbose("Flushing {0}", tbl.Name);
-                            flushConn.ExecuteNonQuery($"DELETE FROM {tbl.Name};");
-                            flushConn.ExecuteNonQuery($"INSERT INTO {tbl.Name} SELECT * FROM ms.{tbl.Name}");
+
+                            var i = 0;
+                            foreach (var tbl in dbSchemaObjects.Where(o => o.Type == "table"))
+                            {
+                                this.FireProgressChanged(new ProgressChangedEventArgs($"WriteBack:{this.GetDatabaseName()}", (float)i++ / (float)dbSchemaObjects.Length, UserMessages.FLUSHING_CACHE));
+                                this.m_tracer.TraceVerbose("Flushing {0}", tbl.Name);
+                                flushConn.ExecuteNonQuery($"DELETE FROM {tbl.Name};");
+                                flushConn.ExecuteNonQuery($"INSERT INTO {tbl.Name} SELECT * FROM ms.{tbl.Name}");
+                            }
+
+                            commitTx.Commit();
                         }
-
-                        commitTx.Commit();
                     }
+
+                    this.m_tracer.TraceInfo("Writeback has been flushed to {0}", this.GetDatabaseName());
                 }
-
-                this.m_tracer.TraceInfo("Writeback has been flushed to {0}", this.GetDatabaseName());
-
+                finally
+                {
+                    this.m_lockoutEvent.Set(); // allow other threads to access the disk file
+                }
             }
         }
 
