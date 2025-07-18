@@ -55,7 +55,7 @@ namespace SanteDB.OrmLite.Providers
         {
             get
             {
-                if(m_current == null)
+                if(m_current == null && ApplicationServiceContext.Current != null)
                 {
                     lock(m_lock)
                     {
@@ -67,6 +67,17 @@ namespace SanteDB.OrmLite.Providers
                     }
                 }
                 return m_current;
+            }
+        }
+
+        /// <summary>
+        /// Flush connect providers
+        /// </summary>
+        public void Flush()
+        {
+            foreach(var itm in this.m_providerTypes.OfType<IDbWriteBackProvider>())
+            {
+                itm.FlushWriteBackCache();
             }
         }
 

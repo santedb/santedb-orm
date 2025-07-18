@@ -169,7 +169,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                 {
                                     this.m_tracer.TraceVerbose("Attempting to attach database '{0}' using '{1}'", fileLocation, basePassword);
                                     cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs KEY '{basePassword}'");
-                                }   
+                                }
                                 else
                                 {
                                     cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs");
@@ -181,7 +181,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                 schemaObjects.Where(o => o.Type == "table").ForEach(obj => cacheConnection.Execute(obj.Sql)); // Create the tables    
                                 this.m_tracer.TraceVerbose("Seeding cache data...");
 
-                                foreach (var itm in schemaObjects.Where(t=>t.Type == "table" ))
+                                foreach (var itm in schemaObjects.Where(t => t.Type == "table"))
                                 {
                                     context.ExecuteNonQuery($"INSERT INTO {itm.Name} SELECT * FROM fs.{itm.Name}");
                                 }
@@ -193,7 +193,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                                 context.ExecuteNonQuery("DETACH DATABASE fs");
                                 this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
-                                
+
                             }
                         }
                     }
@@ -243,7 +243,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     {
                         this.FlushWriteBackToDisk(true);
                     }
-                    catch(Exception e)
+                    catch (Exception e)
                     {
                         this.m_tracer.TraceError("Error writing out the writeback cache: {0}", e.ToHumanReadableString());
                     }
@@ -272,40 +272,32 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 this.m_tracer.TraceInfo("Flushing Writeback to Disk for {0}", this.GetDatabaseName());
                 Interlocked.Exchange(ref this.m_writebackCacheFlushRequests, 0);
                 this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
-                
+
                 this.m_lockoutEvent.Wait(); // Allow the underlying Sqlite provider to prevent us from opening the disk connection
-                try
+                using (var flushConn = base.GetWriteConnectionInternal(false))
+                using (var roContext = new ReaderWriterLockingDataContext(this, null))
                 {
-                    // Prevent other connections from opening on the backend 
-                    this.m_lockoutEvent.Reset();
-                    using (var flushConn = base.GetWriteConnectionInternal(false))
+                    flushConn.Open(initializeExtensions: false);
+                    flushConn.Connection.Execute($"ATTACH 'file:{this.GetDatabaseName()}?mode=memory&cache=shared' AS ms");
+
+                    // We want to create any changed tables or
+                    // indexes
+                    using (var commitTx = flushConn.BeginTransaction())
                     {
-                        flushConn.Open(initializeExtensions: false);
-                        flushConn.Connection.Execute($"ATTACH 'file:{this.GetDatabaseName()}?mode=memory&cache=shared' AS ms");
 
-                        // We want to create any changed tables or
-                        // indexes
-                        using (var commitTx = flushConn.BeginTransaction())
+                        var i = 0;
+                        foreach (var tbl in dbSchemaObjects.Where(o => o.Type == "table"))
                         {
-
-                            var i = 0;
-                            foreach (var tbl in dbSchemaObjects.Where(o => o.Type == "table"))
-                            {
-                                this.FireProgressChanged(new ProgressChangedEventArgs($"WriteBack:{this.GetDatabaseName()}", (float)i++ / (float)dbSchemaObjects.Length, UserMessages.FLUSHING_CACHE));
-                                this.m_tracer.TraceVerbose("Flushing {0}", tbl.Name);
-                                flushConn.ExecuteNonQuery($"DELETE FROM {tbl.Name};");
-                                flushConn.ExecuteNonQuery($"INSERT INTO {tbl.Name} SELECT * FROM ms.{tbl.Name}");
-                            }
-
-                            commitTx.Commit();
+                            this.FireProgressChanged(new ProgressChangedEventArgs($"WriteBack:{this.GetDatabaseName()}", (float)i++ / (float)dbSchemaObjects.Length, UserMessages.FLUSHING_CACHE));
+                            this.m_tracer.TraceVerbose("Flushing {0}", tbl.Name);
+                            flushConn.ExecuteNonQuery($"DELETE FROM {tbl.Name};");
+                            flushConn.ExecuteNonQuery($"INSERT INTO {tbl.Name} SELECT * FROM ms.{tbl.Name}");
                         }
+
+                        commitTx.Commit();
                     }
                 }
-                finally
-                {
-                    this.m_lockoutEvent.Set();
-                }
-                
+
                 this.m_tracer.TraceInfo("Writeback has been flushed to {0}", this.GetDatabaseName());
 
             }
