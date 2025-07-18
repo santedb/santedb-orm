@@ -64,7 +64,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Maximum flush requests
         /// </summary>
-        private const int MAX_FLUSH_REQUESTS = 5;
+        private const int MAX_FLUSH_REQUESTS = 15;
 
         /// <summary>
         /// Tracer
@@ -164,19 +164,19 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                     context.Open(initializeExtensions: false);
                                     this.m_lockoutEvent.Reset();
 
-                                // Attach the file db
-                                var connectionString = SqliteProvider.CorrectConnectionString(new ConnectionString(this.Invariant, base.ReadonlyConnectionString));
-                                var basePassword = connectionString.GetComponent("Password");
-                                var fileLocation = connectionString.GetComponent("Data Source");
-                                if (!String.IsNullOrEmpty(basePassword))
-                                {
-                                    this.m_tracer.TraceVerbose("Attempting to attach database '{0}' using '{1}'", fileLocation, basePassword);
-                                    cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs KEY '{basePassword}'");
-                                }
-                                else
-                                {
-                                    cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs");
-                                }
+                                    // Attach the file db
+                                    var connectionString = SqliteProvider.CorrectConnectionString(new ConnectionString(this.Invariant, base.ReadonlyConnectionString));
+                                    var basePassword = connectionString.GetComponent("Password");
+                                    var fileLocation = connectionString.GetComponent("Data Source");
+                                    if (!String.IsNullOrEmpty(basePassword))
+                                    {
+                                        this.m_tracer.TraceVerbose("Attempting to attach database '{0}' using '{1}'", fileLocation, basePassword);
+                                        cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs KEY '{basePassword}'");
+                                    }
+                                    else
+                                    {
+                                        cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs");
+                                    }
 
                                     // Extract from file and load the memory cache
                                     schemaObjects = context.ExecQuery<DbSchemaObject>(new SqlStatement("SELECT DISTINCT name, sql, type FROM fs.sqlite_master WHERE name NOT LIKE 'sqlite%'")).ToArray();
@@ -184,10 +184,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                     schemaObjects.Where(o => o.Type == "table").ForEach(obj => cacheConnection.Execute(obj.Sql)); // Create the tables    
                                     this.m_tracer.TraceVerbose("Seeding cache data...");
 
-                                foreach (var itm in schemaObjects.Where(t => t.Type == "table"))
-                                {
-                                    context.ExecuteNonQuery($"INSERT INTO {itm.Name} SELECT * FROM fs.{itm.Name}");
-                                }
+                                    foreach (var itm in schemaObjects.Where(t => t.Type == "table"))
+                                    {
+                                        context.ExecuteNonQuery($"INSERT INTO {itm.Name} SELECT * FROM fs.{itm.Name}");
+                                    }
 
                                     this.m_tracer.TraceVerbose("Initializing indexes and triggers...");
                                     schemaObjects.Where(o => o.Type != "table").ForEach(cmd => cacheConnection.Execute(cmd.Sql)); // Create the views, indexes, and triggers    
