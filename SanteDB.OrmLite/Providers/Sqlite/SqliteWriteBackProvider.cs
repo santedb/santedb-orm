@@ -64,7 +64,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Maximum flush requests
         /// </summary>
-        private const int MAX_FLUSH_REQUESTS = 5;
+        private const int MAX_FLUSH_REQUESTS = 15;
 
         /// <summary>
         /// Tracer
@@ -155,45 +155,53 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         using (var cacheConnection = this.GetProviderFactory().CreateConnection())
                         {
                             this.m_lockoutEvent.Wait(); // Allow the underlying Sqlite provider to prevent us from opening the disk connection
-
-                            using (var context = new ReaderWriterLockingDataContext(this, cacheConnection))
+                            try
                             {
-                                cacheConnection.ConnectionString = this.GetCacheConnectionString(false);
-                                context.Open(initializeExtensions: false);
 
-                                // Attach the file db
-                                var connectionString = SqliteProvider.CorrectConnectionString(new ConnectionString(this.Invariant, base.ReadonlyConnectionString));
-                                var basePassword = connectionString.GetComponent("Password");
-                                var fileLocation = connectionString.GetComponent("Data Source");
-                                if (!String.IsNullOrEmpty(basePassword))
+                                using (var context = new ReaderWriterLockingDataContext(this, cacheConnection))
                                 {
-                                    this.m_tracer.TraceVerbose("Attempting to attach database '{0}' using '{1}'", fileLocation, basePassword);
-                                    cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs KEY '{basePassword}'");
-                                }   
-                                else
-                                {
-                                    cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs");
+                                    cacheConnection.ConnectionString = this.GetCacheConnectionString(false);
+                                    context.Open(initializeExtensions: false);
+                                    this.m_lockoutEvent.Reset();
+
+                                    // Attach the file db
+                                    var connectionString = SqliteProvider.CorrectConnectionString(new ConnectionString(this.Invariant, base.ReadonlyConnectionString));
+                                    var basePassword = connectionString.GetComponent("Password");
+                                    var fileLocation = connectionString.GetComponent("Data Source");
+                                    if (!String.IsNullOrEmpty(basePassword))
+                                    {
+                                        this.m_tracer.TraceVerbose("Attempting to attach database '{0}' using '{1}'", fileLocation, basePassword);
+                                        cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs KEY '{basePassword}'");
+                                    }
+                                    else
+                                    {
+                                        cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs");
+                                    }
+
+                                    // Extract from file and load the memory cache
+                                    schemaObjects = context.ExecQuery<DbSchemaObject>(new SqlStatement("SELECT DISTINCT name, sql, type FROM fs.sqlite_master WHERE name NOT LIKE 'sqlite%'")).ToArray();
+                                    this.m_tracer.TraceVerbose("Initializing tables...");
+                                    schemaObjects.Where(o => o.Type == "table").ForEach(obj => cacheConnection.Execute(obj.Sql)); // Create the tables    
+                                    this.m_tracer.TraceVerbose("Seeding cache data...");
+
+                                    foreach (var itm in schemaObjects.Where(t => t.Type == "table"))
+                                    {
+                                        context.ExecuteNonQuery($"INSERT INTO {itm.Name} SELECT * FROM fs.{itm.Name}");
+                                    }
+
+                                    this.m_tracer.TraceVerbose("Initializing indexes and triggers...");
+                                    schemaObjects.Where(o => o.Type != "table").ForEach(cmd => cacheConnection.Execute(cmd.Sql)); // Create the views, indexes, and triggers    
+
+                                    m_initializedWritebackCaches.TryAdd(databaseName, schemaObjects);
+
+                                    context.ExecuteNonQuery("DETACH DATABASE fs");
+                                    this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
+
                                 }
-
-                                // Extract from file and load the memory cache
-                                schemaObjects = context.ExecQuery<DbSchemaObject>(new SqlStatement("SELECT DISTINCT name, sql, type FROM fs.sqlite_master WHERE name NOT LIKE 'sqlite%'")).ToArray();
-                                this.m_tracer.TraceVerbose("Initializing tables...");
-                                schemaObjects.Where(o => o.Type == "table").ForEach(obj => cacheConnection.Execute(obj.Sql)); // Create the tables    
-                                this.m_tracer.TraceVerbose("Seeding cache data...");
-
-                                foreach (var itm in schemaObjects.Where(t=>t.Type == "table" ))
-                                {
-                                    context.ExecuteNonQuery($"INSERT INTO {itm.Name} SELECT * FROM fs.{itm.Name}");
-                                }
-
-                                this.m_tracer.TraceVerbose("Initializing indexes and triggers...");
-                                schemaObjects.Where(o => o.Type != "table").ForEach(cmd => cacheConnection.Execute(cmd.Sql)); // Create the views, indexes, and triggers    
-
-                                m_initializedWritebackCaches.TryAdd(databaseName, schemaObjects);
-
-                                context.ExecuteNonQuery("DETACH DATABASE fs");
-                                this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
-                                
+                            }
+                            finally
+                            {
+                                this.m_lockoutEvent.Set();
                             }
                         }
                     }
@@ -243,7 +251,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     {
                         this.FlushWriteBackToDisk(true);
                     }
-                    catch(Exception e)
+                    catch (Exception e)
                     {
                         this.m_tracer.TraceError("Error writing out the writeback cache: {0}", e.ToHumanReadableString());
                     }
@@ -272,14 +280,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 this.m_tracer.TraceInfo("Flushing Writeback to Disk for {0}", this.GetDatabaseName());
                 Interlocked.Exchange(ref this.m_writebackCacheFlushRequests, 0);
                 this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
-                
+
                 this.m_lockoutEvent.Wait(); // Allow the underlying Sqlite provider to prevent us from opening the disk connection
                 try
                 {
-                    // Prevent other connections from opening on the backend 
-                    this.m_lockoutEvent.Reset();
                     using (var flushConn = base.GetWriteConnectionInternal(false))
                     {
+                        // Prevent other connections from opening on the backend 
+                        this.m_lockoutEvent.Reset();
                         flushConn.Open(initializeExtensions: false);
                         flushConn.Connection.Execute($"ATTACH 'file:{this.GetDatabaseName()}?mode=memory&cache=shared' AS ms");
 
@@ -300,14 +308,13 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             commitTx.Commit();
                         }
                     }
+
+                    this.m_tracer.TraceInfo("Writeback has been flushed to {0}", this.GetDatabaseName());
                 }
                 finally
                 {
-                    this.m_lockoutEvent.Set();
+                    this.m_lockoutEvent.Set(); // allow other threads to access the disk file
                 }
-                
-                this.m_tracer.TraceInfo("Writeback has been flushed to {0}", this.GetDatabaseName());
-
             }
         }
 
