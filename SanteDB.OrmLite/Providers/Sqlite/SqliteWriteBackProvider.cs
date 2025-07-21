@@ -7,6 +7,7 @@ using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Attributes;
+using SanteDB.OrmLite.Diagnostics;
 using SharpCompress;
 using System;
 using System.CodeDom;
@@ -128,7 +129,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 IsBackground = true,
                 Name = $"SQLite+WB Flush {this.GetHashCode()}"
             };
-            this.m_writebackCacheThread.Start();
         }
 
         /// <inheritdoc/>
@@ -164,6 +164,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     try
                     {
                         this.m_tracer.TraceInfo("Initializing writeback cache for {0} (current writeback caches: {1})", databaseName, String.Join(";", m_initializedWritebackCaches.Keys));
+
+
                         using (var cacheConnection = this.GetProviderFactory().CreateConnection())
                         {
                             this.m_lockoutEvent.Wait(); // Allow the underlying Sqlite provider to prevent us from opening the disk connection
@@ -216,7 +218,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                     schemaObjects.Where(o => o.Type != "table").ForEach(cmd => cacheConnection.Execute(cmd.Sql)); // Create the views, indexes, and triggers    
 
                                     context.ExecuteNonQuery("DETACH DATABASE fs");
-                                    this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
+                                    Interlocked.Exchange(ref this.m_lastWritebackFlush, DateTimeOffset.Now.Ticks); 
                                 }
                             }
                             finally
@@ -224,6 +226,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                 this.m_lockoutEvent.Set();
                             }
                             m_initializedWritebackCaches.TryAdd(databaseName, schemaObjects);
+                            if (!this.m_writebackCacheThread.IsAlive)
+                            {
+                                this.m_writebackCacheThread.Start(); // Start the monitoring thread
+                            }
 
                         }
                     }
@@ -260,10 +266,13 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         private void MonitorWritebackFlush(object state)
         {
+            var ocp = this.MonitorProbe as OrmClientProbe;
             while (this.m_runMonitor)
             {
                 try
                 {
+                    ocp.Set(OrmPerformanceMetric.WritebackFlushes, Interlocked.Read(ref this.m_writebackCacheFlushRequests));
+                    ocp.Set(OrmPerformanceMetric.WriteBackAge, (DateTimeOffset.Now.Ticks - Interlocked.Read(ref this.m_lastWritebackFlush)) / TimeSpan.TicksPerSecond);
                     this.m_pingBackgroundWriteThread.Wait(3000);
                     this.FlushWriteBackToDisk(!this.m_runMonitor);
                 }
@@ -295,9 +304,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         private void FlushWriteBackToDisk(bool force)
         {
+
             var waitingFlushRequests = Interlocked.Read(ref this.m_writebackCacheFlushRequests);
-            var tickCheck = DateTimeOffset.Now.Ticks;
-            if (m_initializedWritebackCaches.TryGetValue(base.GetDatabaseName(), out var dbSchemaObjects) && dbSchemaObjects != null && (force || waitingFlushRequests > MAX_FLUSH_REQUESTS || waitingFlushRequests > 0 && tickCheck - m_lastWritebackFlush > MAX_TICKS_BETWEEN_FLUSH)) // There were changes
+            var ticksSinceLastWrite = DateTimeOffset.Now.Ticks - Interlocked.Read(ref this.m_lastWritebackFlush);
+            if (m_initializedWritebackCaches.TryGetValue(base.GetDatabaseName(), out var dbSchemaObjects) && dbSchemaObjects != null && (force || waitingFlushRequests > MAX_FLUSH_REQUESTS || waitingFlushRequests > 0 && ticksSinceLastWrite > MAX_TICKS_BETWEEN_FLUSH)) // There were changes
             {
                 this.m_tracer.TraceInfo("Flushing Writeback to Disk for {0}", this.GetDatabaseName());
                 Interlocked.Exchange(ref this.m_writebackCacheFlushRequests, 0);
@@ -330,8 +340,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     }
 
                     this.m_tracer.TraceInfo("Writeback has been flushed to {0}", this.GetDatabaseName());
-                    this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
-
+                    Interlocked.Exchange(ref this.m_lastWritebackFlush, DateTimeOffset.Now.Ticks);
                 }
                 finally
                 {
@@ -389,6 +398,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public override void Optimize()
         {
+            this.FlushWriteBackToDisk(true);
             base.Optimize();
             using (var writer = base.GetWriteConnectionInternal())
             {

@@ -90,7 +90,7 @@ namespace SanteDB.OrmLite
         {
             if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
             {
-                ocp.AverageWith(OrmPerformanceMetric.AverageTime, value);
+                ocp.Set(OrmPerformanceMetric.AverageTime, value);
             }
         }
 
