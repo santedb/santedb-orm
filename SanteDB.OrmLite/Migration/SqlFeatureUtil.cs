@@ -148,7 +148,7 @@ namespace SanteDB.OrmLite.Migration
                 try
                 {
                     conn.Open(initializeExtensions: false);
-                    progressMonitor?.Invoke(nameof(UpgradeSchema), (((float)++i) / updates.Length), String.Format(UserMessages.UPDATE_DATABASE, itm.Description));
+                    progressMonitor?.Invoke(nameof(UpgradeSchema), (((float)++i) / updates.Length), String.Format(UserMessages.UPDATE_DATABASE, scopeOfContext));
 
                     if (!conn.IsInstalled(itm))
                     {
