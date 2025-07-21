@@ -883,9 +883,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                     var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
                     // First bytes for the password or NIL for no password
-                    var pwd = Encoding.UTF8.GetBytes(cstr.GetComponent("password"));
-                    backupStream.WriteByte((byte)pwd.Length); // Pascal String
-                    backupStream.Write(pwd, 0, pwd.Length); // Pascal string contents
+                    backupStream.WritePascalString(cstr.GetComponent("password"));
 
                     var rootFileName = cstr.GetComponent("Data Source");
                     var filesToBackup = Directory.GetFiles(Path.GetDirectoryName(rootFileName), Path.GetFileName(rootFileName) + "*");
@@ -895,11 +893,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     {
                         try
                         {
-                            var assetName = Encoding.UTF8.GetBytes(Path.GetFileName(fileName));
+                            var assetName = Path.GetFileName(fileName);
                             using (var fs = File.OpenRead(fileName))
                             {
-                                backupStream.WriteByte((byte)assetName.Length);
-                                backupStream.Write(assetName, 0, assetName.Length);
+                                backupStream.WritePascalString(assetName);
                                 backupStream.Write(BitConverter.GetBytes(fs.Length), 0, 8);
                                 fs.CopyTo(backupStream);
                             }
@@ -941,25 +938,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     {
                         var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
                         var productionFile = cstr.GetComponent("Data Source");
-                        var sourcePassword = String.Empty;
+                        var sourcePassword = restoreStream.ReadPascalString();
                         // First bytes for the password or NIL for no password
-                        var pwdLen = restoreStream.ReadByte();
-                        var pwdBuf = new byte[pwdLen];
-                        restoreStream.Read(pwdBuf, 0, pwdLen);
-                        if (pwdLen > 0)
-                        {
-                            sourcePassword = Encoding.UTF8.GetString(pwdBuf);
-                        }
 
                         while (true)
                         {
-                            var assetNameLength = restoreStream.ReadByte();
-                            if (assetNameLength == -1) break;
-
-                            var assetBuffer = new Byte[assetNameLength];
-                            restoreStream.Read(assetBuffer, 0, assetNameLength);
-                            var assetName = Encoding.UTF8.GetString(assetBuffer);
-                            assetBuffer = new byte[8];
+                            var assetName = restoreStream.ReadPascalString();
+                            if (String.IsNullOrEmpty(assetName)) break;
+                            var assetBuffer = new byte[8];
                             restoreStream.Read(assetBuffer, 0, 8);
                             var assetSize = BitConverter.ToInt64(assetBuffer, 0);
                             var bytesRead = 0;
@@ -1091,8 +1077,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
             if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Client)
             {
-                conn.Execute("PRAGMA synchronous=OFF");
                 conn.Execute("PRAGMA journal_mode=MEMORY");
+                conn.Execute("PRAGMA synchronous=OFF");
                 conn.Execute("PRAGMA temp_store=MEMORY");
                 conn.Execute("PRAGMA ignore_check_constraints=ON");
                 conn.Execute("PRAGMA foreign_keys=FALSE");
@@ -1101,9 +1087,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 conn.Execute("PRAGMA journal_mode=WAL");
                 conn.ExecuteScalar<Object>("PRAGMA synchronous=normal");
-                conn.ExecuteScalar<Object>("PRAGMA locking_mode=normal");
             }
 
+            conn.ExecuteScalar<Object>("PRAGMA locking_mode=normal");
             conn.ExecuteScalar<object>("PRAGMA pragma_automatic_index=true");
 
         }
