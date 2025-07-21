@@ -284,6 +284,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public IDbCommand CreateCommand(DataContext context, SqlStatement stmt)
         {
             var c = stmt.Prepare();
+            // if(this.TraceSql) {
+            this.m_tracer.TraceVerbose(stmt.ToLiteral());
+            // }
             return CreateCommandInternal(context, CommandType.Text, c.Sql, c.Arguments.ToArray());
         }
 
@@ -877,6 +880,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                 using (var rw = new ReaderWriterLockingDataContext(this, null))
                 {
+                    this.m_tracer.TraceInfo("Backing up {0} to provided stream", this.GetDatabaseName());
                     rw.Lock(); // Ensure that there are no active connections
                     this.m_lockoutEvent.Wait(); // Ensure that no other maintenance threads are doing any work
                     this.m_lockoutEvent.Reset();
@@ -896,6 +900,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         try
                         {
                             var assetName = Encoding.UTF8.GetBytes(Path.GetFileName(fileName));
+                            this.m_tracer.TraceInfo("Writing {0}...", fileName);
                             using (var fs = File.OpenRead(fileName))
                             {
                                 backupStream.WriteByte((byte)assetName.Length);
@@ -1041,6 +1046,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 try
                 {
+                    this.m_tracer.TraceInfo("Optimizing {0}...", this.GetDatabaseName());
+
                     this.m_lockoutEvent.Wait();
                     this.m_lockoutEvent.Reset();
                     writer.Open(initializeExtensions: false);
@@ -1061,6 +1068,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         private void WalCheckpointInvoke()
         {
+            this.m_tracer.TraceInfo("Performing WAL Checkpoint on {0}", this.GetDatabaseName());
             using (var writer = this.GetWriteConnection())
             {
                 writer.Open(initializeExtensions: false);
@@ -1095,6 +1103,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 conn.Execute("PRAGMA journal_mode=MEMORY");
                 conn.Execute("PRAGMA temp_store=MEMORY");
                 conn.Execute("PRAGMA ignore_check_constraints=ON");
+                conn.Execute("PRAGMA recursive_triggers=OFF");
                 conn.Execute("PRAGMA foreign_keys=FALSE");
             }
             else

@@ -32,6 +32,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         private class DbSchemaObject
         {
+
             /// <summary>
             /// Gets or sets the name of the object
             /// </summary>
@@ -49,6 +50,16 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             /// </summary>
             [Column("type")]
             public string Type { get; set; }
+
+            /// <summary>
+            /// Column names
+            /// </summary>
+            public String[] Columns { get; set; }
+
+            /// <summary>
+            /// Gets or sets the primary keys
+            /// </summary>
+            public String[] PrimaryKeys { get; set; }
         }
 
         /// <summary>
@@ -59,12 +70,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Max ticks between a flush
         /// </summary>
-        private const long MAX_TICKS_BETWEEN_FLUSH = TimeSpan.TicksPerSecond * 15;
+        private const long MAX_TICKS_BETWEEN_FLUSH = TimeSpan.TicksPerSecond * 30;
 
         /// <summary>
         /// Maximum flush requests
         /// </summary>
-        private const int MAX_FLUSH_REQUESTS = 15;
+        private const int MAX_FLUSH_REQUESTS = 30;
 
         /// <summary>
         /// Tracer
@@ -111,10 +122,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public SqliteWriteBackProvider()
         {
+            this.m_tracer.TraceInfo("Creating new instance of SqliteWritebackProvider");
             this.m_writebackCacheThread = new Thread(this.MonitorWritebackFlush)
             {
                 IsBackground = true,
-                Name = "SQLite writeback flush thread"
+                Name = $"SQLite+WB Flush {this.GetHashCode()}"
             };
             this.m_writebackCacheThread.Start();
         }
@@ -151,7 +163,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 {
                     try
                     {
-                        this.m_tracer.TraceInfo("Initializing writeback cache for {0}", databaseName);
+                        this.m_tracer.TraceInfo("Initializing writeback cache for {0} (current writeback caches: {1})", databaseName, String.Join(";", m_initializedWritebackCaches.Keys));
                         using (var cacheConnection = this.GetProviderFactory().CreateConnection())
                         {
                             this.m_lockoutEvent.Wait(); // Allow the underlying Sqlite provider to prevent us from opening the disk connection
@@ -179,30 +191,40 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                     }
 
                                     // Extract from file and load the memory cache
-                                    schemaObjects = context.ExecQuery<DbSchemaObject>(new SqlStatement("SELECT DISTINCT name, sql, type FROM fs.sqlite_master WHERE name NOT LIKE 'sqlite%'")).ToArray();
                                     this.m_tracer.TraceVerbose("Initializing tables...");
+                                    schemaObjects = context.ExecQuery<DbSchemaObject>(new SqlStatement("SELECT DISTINCT name, sql, type FROM fs.sqlite_master WHERE name NOT LIKE 'sqlite%'")).ToArray();
                                     schemaObjects.Where(o => o.Type == "table").ForEach(obj => cacheConnection.Execute(obj.Sql)); // Create the tables    
+
+                                    // Initialize the schema
+                                    this.m_tracer.TraceVerbose("Fetching table schemas...");
+                                    schemaObjects.Where(o => o.Type == "table").ForEach(table =>
+                                    {
+                                        this.m_tracer.TraceVerbose("Fetching schema {0}...", table.Name);
+                                        var metadata = context.Query<ExpandoObject>(new SqlStatement($"PRAGMA table_info('{table.Name}')")).OfType<IDictionary<string, Object>>().ToArray();
+                                        table.Columns = metadata.Select(o => o["name"].ToString()).ToArray();
+                                        table.PrimaryKeys = metadata.Where(o => 1l.Equals(o["pk"])).Select(o => o["name"].ToString()).ToArray();
+                                    });
+
                                     this.m_tracer.TraceVerbose("Seeding cache data...");
 
                                     foreach (var itm in schemaObjects.Where(t => t.Type == "table"))
                                     {
-                                        context.ExecuteNonQuery($"INSERT INTO {itm.Name} SELECT * FROM fs.{itm.Name}");
+                                        context.ExecuteNonQuery($"INSERT INTO {itm.Name} ({String.Join(",", itm.Columns)}) SELECT {String.Join(",", itm.Columns)} FROM fs.{itm.Name}");
                                     }
 
                                     this.m_tracer.TraceVerbose("Initializing indexes and triggers...");
                                     schemaObjects.Where(o => o.Type != "table").ForEach(cmd => cacheConnection.Execute(cmd.Sql)); // Create the views, indexes, and triggers    
 
-                                    m_initializedWritebackCaches.TryAdd(databaseName, schemaObjects);
-
                                     context.ExecuteNonQuery("DETACH DATABASE fs");
                                     this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
-
                                 }
                             }
                             finally
                             {
                                 this.m_lockoutEvent.Set();
                             }
+                            m_initializedWritebackCaches.TryAdd(databaseName, schemaObjects);
+
                         }
                     }
                     catch (Exception ex)
@@ -279,7 +301,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 this.m_tracer.TraceInfo("Flushing Writeback to Disk for {0}", this.GetDatabaseName());
                 Interlocked.Exchange(ref this.m_writebackCacheFlushRequests, 0);
-                this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
 
                 this.m_lockoutEvent.Wait(); // Allow the underlying Sqlite provider to prevent us from opening the disk connection
                 try
@@ -293,23 +314,24 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                         // We want to create any changed tables or
                         // indexes
-                        using (var commitTx = flushConn.BeginTransaction())
+                        var i = 0;
+                        foreach (var tbl in dbSchemaObjects.Where(o => o.Type == "table"))
                         {
+                            this.FireProgressChanged(new ProgressChangedEventArgs($"WriteBack:{this.GetDatabaseName()}", (float)i++ / (float)dbSchemaObjects.Length, UserMessages.FLUSHING_CACHE));
+                            this.m_tracer.TraceVerbose("Flushing {0}", tbl.Name);
 
-                            var i = 0;
-                            foreach (var tbl in dbSchemaObjects.Where(o => o.Type == "table"))
-                            {
-                                this.FireProgressChanged(new ProgressChangedEventArgs($"WriteBack:{this.GetDatabaseName()}", (float)i++ / (float)dbSchemaObjects.Length, UserMessages.FLUSHING_CACHE));
-                                this.m_tracer.TraceVerbose("Flushing {0}", tbl.Name);
-                                flushConn.ExecuteNonQuery($"DELETE FROM {tbl.Name};");
-                                flushConn.ExecuteNonQuery($"INSERT INTO {tbl.Name} SELECT * FROM ms.{tbl.Name}");
-                            }
+                            flushConn.ExecuteNonQuery($"DELETE FROM {tbl.Name};");
 
-                            commitTx.Commit();
+                            // Get the column names
+                            flushConn.ExecuteNonQuery($"INSERT INTO {tbl.Name} ({String.Join(",", tbl.Columns)}) SELECT {String.Join(",", tbl.Columns)} FROM ms.{tbl.Name}");
                         }
+
+                        flushConn.Connection.Execute("DETACH DATABASE ms");
                     }
 
                     this.m_tracer.TraceInfo("Writeback has been flushed to {0}", this.GetDatabaseName());
+                    this.m_lastWritebackFlush = DateTimeOffset.Now.Ticks;
+
                 }
                 finally
                 {
@@ -370,6 +392,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             base.Optimize();
             using (var writer = base.GetWriteConnectionInternal())
             {
+                this.m_tracer.TraceInfo("Optimizing {0}...", this.GetDatabaseName());
                 writer.Open(initializeExtensions: false);
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
@@ -388,6 +411,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Client) // clients have their check constraints disabled
             {
                 conn.Execute("PRAGMA ignore_check_constraints = ON");
+                conn.Execute("PRAGMA foreign_keys=FALSE");
+                conn.Execute("PRAGMA journal_mode=MEMORY");
+                conn.Execute("PRAGMA temp_store=MEMORY");
             }
         }
     }
