@@ -407,10 +407,13 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public override void InitializeConnection(IDbConnection conn)
         {
-            conn.Execute("PRAGMA synchronous = OFF");
+            conn.Execute("PRAGMA synchronous=OFF");
+            conn.ExecuteScalar<object>("PRAGMA pragma_automatic_index=true");
+            conn.ExecuteScalar<Object>("PRAGMA locking_mode=normal");
+
             if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Client) // clients have their check constraints disabled
             {
-                conn.Execute("PRAGMA ignore_check_constraints = ON");
+                conn.Execute("PRAGMA ignore_check_constraints=ON");
                 conn.Execute("PRAGMA foreign_keys=FALSE");
                 conn.Execute("PRAGMA journal_mode=MEMORY");
                 conn.Execute("PRAGMA temp_store=MEMORY");
