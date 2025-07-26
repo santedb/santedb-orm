@@ -92,6 +92,10 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// The SQL engine requires manual intervention of the freetext index
         /// </summary>
-        StoredFreetextIndex = 0x4000
+        StoredFreetextIndex = 0x4000,
+        /// <summary>
+        /// Can generate primary key sequences
+        /// </summary>
+        AuditGeneratePrimaryKeySequences = 0x8000
     }
 }

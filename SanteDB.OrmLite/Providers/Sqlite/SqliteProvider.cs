@@ -284,9 +284,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public IDbCommand CreateCommand(DataContext context, SqlStatement stmt)
         {
             var c = stmt.Prepare();
-            // if(this.TraceSql) {
-            this.m_tracer.TraceVerbose(stmt.ToLiteral());
-            // }
+            if(this.TraceSql) {
+                this.m_tracer.TraceVerbose(stmt.ToLiteral());
+            }
             return CreateCommandInternal(context, CommandType.Text, c.Sql, c.Arguments.ToArray());
         }
 
@@ -335,11 +335,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             cmd.CommandText = sql;
             cmd.Transaction = context.Transaction;
 
-            if (TraceSql)
-            {
-                m_tracer.TraceEvent(EventLevel.Verbose, "[{0}] {1}", type, sql);
-            }
-
+           
             pno = 0;
             foreach (var itm in parms)
             {
@@ -378,10 +374,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                 parm.Direction = ParameterDirection.Input;
 
-                if (TraceSql)
-                {
-                    m_tracer.TraceEvent(EventLevel.Verbose, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
-                }
+              
 
                 cmd.Parameters.Add(parm);
             }

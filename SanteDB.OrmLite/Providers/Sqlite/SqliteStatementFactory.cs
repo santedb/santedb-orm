@@ -35,7 +35,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     {
 
         // Sequence lock value
-        private int m_sequenceLock = (int)DateTimeOffset.Now.ToUnixTimeSeconds();
+        private int m_sequenceLock = 0;
 
         // Filter functions
         private static readonly ConcurrentDictionary<string, IDbFilterFunction> s_filterFunctions;
@@ -90,7 +90,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     SqlEngineFeatures.ReturnedInsertsAsReader |
                     SqlEngineFeatures.ReturnedUpdatesAsReader |
                     SqlEngineFeatures.StrictSubQueryColumnNames |
-                    SqlEngineFeatures.AutoGenerateGuids;
+                    SqlEngineFeatures.AutoGenerateGuids |
+                    SqlEngineFeatures.AuditGeneratePrimaryKeySequences;
             }
         }
 

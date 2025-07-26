@@ -185,6 +185,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             c.Parameters.Clear();
                             c.ExecuteNonQuery();
                         }
+
                     }
 
                 }
