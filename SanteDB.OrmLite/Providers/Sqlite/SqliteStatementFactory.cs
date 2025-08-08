@@ -189,7 +189,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public SqlStatement GetNextSequenceValue(string sequenceName)
         {
             // Move the "seconds" from epoch up to the upper half of a long and then placethe current sequence lock into the lower 32 bits
-            var sequence = ((ulong)m_offsetLock << 32) | (ulong)Interlocked.Increment(ref this.m_sequenceLock); 
+            var sequence = ((ulong)m_offsetLock << 32) | (uint)Interlocked.Increment(ref this.m_sequenceLock); 
             return new SqlStatement(sequence.ToString());  // new SqlStatement($"SELECT COALESCE(MAX(ROWID), 0) + 1 FROM {sequenceName.Sanitize()}");
         }
 
