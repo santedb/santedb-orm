@@ -55,7 +55,7 @@ namespace SanteDB.OrmLite.Providers
         {
             get
             {
-                if(m_current == null)
+                if(m_current == null && ApplicationServiceContext.Current != null)
                 {
                     lock(m_lock)
                     {
@@ -67,6 +67,17 @@ namespace SanteDB.OrmLite.Providers
                     }
                 }
                 return m_current;
+            }
+        }
+
+        /// <summary>
+        /// Flush connect providers
+        /// </summary>
+        public void Flush()
+        {
+            foreach(var itm in this.m_providerTypes.OfType<IDbWriteBackProvider>())
+            {
+                itm.FlushWriteBackCache();
             }
         }
 
@@ -92,16 +103,19 @@ namespace SanteDB.OrmLite.Providers
             }
             else if (this.m_providerTypes.TryGetValue(ormConfigurationSection.ProviderType, out var providerType))
             {
-                retVal = (IDbProvider)providerType.CreateInjected();
-                retVal.ReadonlyConnectionString = this.ResolveConnectionString(ormConfigurationSection.ReadonlyConnectionString);
-                retVal.ConnectionString = this.ResolveConnectionString(ormConfigurationSection.ReadWriteConnectionString);
-                retVal.TraceSql = ormConfigurationSection.TraceSql;
-                if (ormConfigurationSection.AleConfiguration != null && retVal is IEncryptedDbProvider e)
+                lock (m_lock)
                 {
-                    e.SetEncryptionSettings(ormConfigurationSection.AleConfiguration);
+                    retVal = (IDbProvider)providerType.CreateInjected();
+                    retVal.ReadonlyConnectionString = this.ResolveConnectionString(ormConfigurationSection.ReadonlyConnectionString);
+                    retVal.ConnectionString = this.ResolveConnectionString(ormConfigurationSection.ReadWriteConnectionString);
+                    retVal.TraceSql = ormConfigurationSection.TraceSql;
+                    if (ormConfigurationSection.AleConfiguration != null && retVal is IEncryptedDbProvider e)
+                    {
+                        e.SetEncryptionSettings(ormConfigurationSection.AleConfiguration);
+                    }
+                    this.m_providers.TryAdd(ormConfigurationSection.ReadWriteConnectionString, retVal);
+                    return retVal;
                 }
-                this.m_providers.TryAdd(ormConfigurationSection.ReadWriteConnectionString, retVal);
-                return retVal;
             }
             else
             {

@@ -40,7 +40,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Sqlite writeback
         /// </summary>
-        public override string Invariant => "Sqlite+wb";
+        public override string Invariant => "sqlite+wb";
 
         /// <inheritdoc/>
         public override string Name => "ADO.NET Sqlite / SqlCipher Writeback";
@@ -167,7 +167,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 try
                 {
                     // Create the database
-                    conn.Open();
+                    conn.Open(initializeExtensions: false);
 
                     var newConnectionString = SqliteProvider.CorrectConnectionString(connectionString);
                     var password = newConnectionString.GetComponent("Password");
@@ -185,6 +185,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             c.Parameters.Clear();
                             c.ExecuteNonQuery();
                         }
+
                     }
 
                 }

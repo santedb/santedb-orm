@@ -53,7 +53,14 @@ namespace SanteDB.OrmLite.Diagnostics
         /// Average time
         /// </summary>
         AverageTime = 4,
-
+        /// <summary>
+        /// Number of waiting writeback flushes
+        /// </summary>
+        WritebackFlushes = 5,
+        /// <summary>
+        /// Number of waiting writeback age
+        /// </summary>
+        WriteBackAge = 6
     }
 
     /// <summary>
@@ -62,11 +69,8 @@ namespace SanteDB.OrmLite.Diagnostics
     internal class OrmClientProbe : ICompositeDiagnosticsProbe, IDisposable
     {
 
-        // Lock object
-        private static object m_lockObject = new object();
-
         // Registered probes
-        private static readonly IDictionary<String, OrmClientProbe> m_registeredProbes = new Dictionary<String, OrmClientProbe>();
+        private static readonly ConcurrentDictionary<String, OrmClientProbe> m_registeredProbes = new ConcurrentDictionary<String, OrmClientProbe>();
 
         // Update
         private ConcurrentQueue<KeyValuePair<OrmPerformanceMetric, long>> m_queueInstructions = new ConcurrentQueue<KeyValuePair<OrmPerformanceMetric, long>>();
@@ -179,8 +183,15 @@ namespace SanteDB.OrmLite.Diagnostics
                 new OrmPerformanceComponentProbe(Guid.NewGuid(), "Waiting for Lock", "Shows the number of connections which are waiting for a read or write lock to continue opening")
 
 };
-
 #endif
+            if (provider is IDbWriteBackProvider wb)
+            {
+                this.m_componentValues = this.m_componentValues.Union(new OrmPerformanceComponentProbe[]
+                {
+                    new OrmPerformanceComponentProbe(Guid.NewGuid(), "Pending Writeback Flushes", "Shows the number of times the writeback has received a flush request"),
+                    new OrmPerformanceComponentProbe(Guid.NewGuid(), "Writeback Age", "Shows the amount of seconds the writeback is out of date")
+                }).ToArray();
+            }
 
             DiagnosticsProbeManager.Current?.Add(this);
         }
@@ -201,6 +212,8 @@ namespace SanteDB.OrmLite.Diagnostics
                         switch (instruction.Key)
                         {
                             case OrmPerformanceMetric.AverageTime:
+                            case OrmPerformanceMetric.WriteBackAge:
+                            case OrmPerformanceMetric.WritebackFlushes:
                                 this.m_componentValues[(int)instruction.Key].SetValue(instruction.Value);
                                 break;
                             default:
@@ -229,15 +242,12 @@ namespace SanteDB.OrmLite.Diagnostics
         /// </summary>
         public static OrmClientProbe CreateProbe(IDbProvider provider)
         {
-            lock (m_lockObject)
+            if (!m_registeredProbes.TryGetValue(provider.GetDatabaseName(), out var retVal))
             {
-                if (!m_registeredProbes.TryGetValue(provider.GetDatabaseName(), out var retVal))
-                {
-                    retVal = new OrmClientProbe(provider);
-                    m_registeredProbes.Add(provider.GetDatabaseName(), retVal);
-                }
-                return retVal;
+                retVal = new OrmClientProbe(provider);
+                m_registeredProbes.TryAdd(provider.GetDatabaseName(), retVal);
             }
+            return retVal;
         }
 
         /// <summary>
@@ -261,7 +271,7 @@ namespace SanteDB.OrmLite.Diagnostics
         /// <summary>
         /// Average the time
         /// </summary>
-        internal void AverageWith(OrmPerformanceMetric metric, long value)
+        internal void Set(OrmPerformanceMetric metric, long value)
         {
             this.m_queueInstructions.Enqueue(new KeyValuePair<OrmPerformanceMetric, long>(metric, value));
             this.m_resetEvent.Set();

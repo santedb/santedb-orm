@@ -24,6 +24,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace SanteDB.OrmLite.Providers.Sqlite
 {
@@ -32,6 +33,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     /// </summary>
     public class SqliteStatementFactory : IDbStatementFactory
     {
+
+        // Sequence lock value
+        private int m_sequenceLock = 0;
 
         // Filter functions
         private static readonly ConcurrentDictionary<string, IDbFilterFunction> s_filterFunctions;
@@ -86,7 +90,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     SqlEngineFeatures.ReturnedInsertsAsReader |
                     SqlEngineFeatures.ReturnedUpdatesAsReader |
                     SqlEngineFeatures.StrictSubQueryColumnNames |
-                    SqlEngineFeatures.AutoGenerateGuids;
+                    SqlEngineFeatures.AutoGenerateGuids |
+                    SqlEngineFeatures.AuditGeneratePrimaryKeySequences;
             }
         }
 
@@ -178,7 +183,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public SqlStatement GetNextSequenceValue(string sequenceName)
         {
-            return new SqlStatement($"SELECT COALESCE(MAX(ROWID), 0) + 1 FROM {sequenceName.Sanitize()}");
+            return new SqlStatement(Interlocked.Increment(ref this.m_sequenceLock).ToString());  // new SqlStatement($"SELECT COALESCE(MAX(ROWID), 0) + 1 FROM {sequenceName.Sanitize()}");
         }
 
         /// <inheritdoc/>

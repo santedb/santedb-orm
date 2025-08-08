@@ -26,6 +26,7 @@ using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Map;
+using SanteDB.Core.Model.Query;
 using SanteDB.Core.Security;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
@@ -80,7 +81,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         private DbProviderFactory m_provider = null;
 
         // Blocker for backup process
-        private readonly ManualResetEventSlim m_lockoutEvent = new ManualResetEventSlim(true);
+        protected readonly ManualResetEventSlim m_lockoutEvent = new ManualResetEventSlim(true);
 
         // Monitoring probe
         private IDiagnosticsProbe m_monitor;
@@ -283,6 +284,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public IDbCommand CreateCommand(DataContext context, SqlStatement stmt)
         {
             var c = stmt.Prepare();
+            if(this.TraceSql) {
+                this.m_tracer.TraceVerbose(stmt.ToLiteral());
+            }
             return CreateCommandInternal(context, CommandType.Text, c.Sql, c.Arguments.ToArray());
         }
 
@@ -331,11 +335,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             cmd.CommandText = sql;
             cmd.Transaction = context.Transaction;
 
-            if (TraceSql)
-            {
-                m_tracer.TraceEvent(EventLevel.Verbose, "[{0}] {1}", type, sql);
-            }
-
+           
             pno = 0;
             foreach (var itm in parms)
             {
@@ -374,10 +374,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                 parm.Direction = ParameterDirection.Input;
 
-                if (TraceSql)
-                {
-                    m_tracer.TraceEvent(EventLevel.Verbose, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
-                }
+              
 
                 cmd.Parameters.Add(parm);
             }
@@ -876,14 +873,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                 using (var rw = new ReaderWriterLockingDataContext(this, null))
                 {
-                    rw.Lock();
+                    this.m_tracer.TraceInfo("Backing up {0} to provided stream", this.GetDatabaseName());
+                    rw.Lock(); // Ensure that there are no active connections
+                    this.m_lockoutEvent.Wait(); // Ensure that no other maintenance threads are doing any work
                     this.m_lockoutEvent.Reset();
 
                     var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
                     // First bytes for the password or NIL for no password
-                    var pwd = Encoding.UTF8.GetBytes(cstr.GetComponent("password"));
-                    backupStream.WriteByte((byte)pwd.Length); // Pascal String
-                    backupStream.Write(pwd, 0, pwd.Length); // Pascal string contents
+                    backupStream.WritePascalString(cstr.GetComponent("password"));
 
                     var rootFileName = cstr.GetComponent("Data Source");
                     var filesToBackup = Directory.GetFiles(Path.GetDirectoryName(rootFileName), Path.GetFileName(rootFileName) + "*");
@@ -893,11 +890,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     {
                         try
                         {
-                            var assetName = Encoding.UTF8.GetBytes(Path.GetFileName(fileName));
+                            var assetName = Path.GetFileName(fileName);
+                            this.m_tracer.TraceInfo("Writing {0}...", fileName);
                             using (var fs = File.OpenRead(fileName))
                             {
-                                backupStream.WriteByte((byte)assetName.Length);
-                                backupStream.Write(assetName, 0, assetName.Length);
+                                backupStream.WritePascalString(assetName);
                                 backupStream.Write(BitConverter.GetBytes(fs.Length), 0, 8);
                                 fs.CopyTo(backupStream);
                             }
@@ -927,6 +924,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 this.WalCheckpointInvoke();
 
                 // Grab a lock and prevent everyone from interacting with this database
+                this.m_lockoutEvent.Wait();
                 this.m_lockoutEvent.Reset();
 
                 using (var rw = new ReaderWriterLockingDataContext(this, null))
@@ -938,25 +936,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     {
                         var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
                         var productionFile = cstr.GetComponent("Data Source");
-                        var sourcePassword = String.Empty;
+                        var sourcePassword = restoreStream.ReadPascalString();
                         // First bytes for the password or NIL for no password
-                        var pwdLen = restoreStream.ReadByte();
-                        var pwdBuf = new byte[pwdLen];
-                        restoreStream.Read(pwdBuf, 0, pwdLen);
-                        if (pwdLen > 0)
-                        {
-                            sourcePassword = Encoding.UTF8.GetString(pwdBuf);
-                        }
 
                         while (true)
                         {
-                            var assetNameLength = restoreStream.ReadByte();
-                            if (assetNameLength == -1) break;
-
-                            var assetBuffer = new Byte[assetNameLength];
-                            restoreStream.Read(assetBuffer, 0, assetNameLength);
-                            var assetName = Encoding.UTF8.GetString(assetBuffer);
-                            assetBuffer = new byte[8];
+                            var assetName = restoreStream.ReadPascalString();
+                            if (String.IsNullOrEmpty(assetName)) break;
+                            var assetBuffer = new byte[8];
                             restoreStream.Read(assetBuffer, 0, 8);
                             var assetSize = BitConverter.ToInt64(assetBuffer, 0);
                             var bytesRead = 0;
@@ -1036,11 +1023,22 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             this.ClearAllPools();
             using (var writer = this.GetWriteConnection())
             {
-                writer.Open();
-                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
-                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
-                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
-                writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
+                try
+                {
+                    this.m_tracer.TraceInfo("Optimizing {0}...", this.GetDatabaseName());
+
+                    this.m_lockoutEvent.Wait();
+                    this.m_lockoutEvent.Reset();
+                    writer.Open(initializeExtensions: false);
+                    writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
+                    writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
+                    writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
+                    writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
+                }
+                finally
+                {
+                    this.m_lockoutEvent.Set();
+                }
             }
         }
 
@@ -1049,9 +1047,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         private void WalCheckpointInvoke()
         {
+            this.m_tracer.TraceInfo("Performing WAL Checkpoint on {0}", this.GetDatabaseName());
             using (var writer = this.GetWriteConnection())
             {
-                writer.Open();
+                writer.Open(initializeExtensions: false);
                 writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
             }
             this.ClearAllPools();
@@ -1074,109 +1073,25 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         }
 
         /// <inheritdoc/>
-        /// <remarks>
-        /// Opens a connection to the bulk :memory: database. It copies out the schema of the configured database to seed the 
-        /// :memory: connection and turns off caching
-        /// </remarks>
-        public DataContext GetBulkConnection()
-        {
-            try
-            {
-                if (this.m_seedDatabaseCommands == null)
-                {
-                    lock (this.m_lock)
-                    {
-                        if (this.m_seedDatabaseCommands == null) // Only do this once - we may have waited for a locking thread
-                        {
-                            using (var reflectorConnection = this.GetReadonlyConnection())
-                            {
-                                reflectorConnection.Open();
-                                this.m_seedDatabaseCommands = reflectorConnection.ExecQuery<String>(new SqlStatement("SELECT DISTINCT sql FROM sqlite_master WHERE TYPE = 'table' AND name NOT LIKE 'sqlite%'")).ToArray();
-                            }
-                        }
-                    }
-                }
-
-                // Manually open a memory connection and return that
-                var conn = this.GetProviderFactory().CreateConnection();
-                conn.ConnectionString = "Data Source=file::memory:?cache=shared;Cache=Shared;Foreign Keys=false";
-
-                conn.Open();
-                foreach (var cmd in this.m_seedDatabaseCommands)
-                {
-                    conn.Execute(cmd);
-                }
-
-                return new DataContext(this, conn);
-            }
-            catch (Exception ex)
-            {
-                throw new DataException("Unable to open and initialize the bulk connection", ex);
-            }
-        }
-
-        /// <inheritdoc/>
-        public void FlushBulkConnection(DataContext bulkContext)
-        {
-
-            try
-            {
-
-                // Extract the datasource
-                var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ConnectionString));
-                var locker = ReaderWriterLockingDataContext.GetLock(this.GetDatabaseName());
-
-                // Prevent write lock for other threads while we're committing
-                if (!locker.TryEnterWriteLock(ReaderWriterLockingDataContext.WRITE_LOCK_TIMEOUT))
-                {
-                    throw new DataException("Could not obtain a read lock to commit bulk data");
-                }
-
-                using (var writeContext = this.GetWriteConnectionInternal(false))
-                {
-                    writeContext.Open();
-                    writeContext.Connection.Execute("ATTACH DATABASE 'file::memory:?cache=shared' AS ms");
-                    using (var tx = writeContext.BeginTransaction())
-                    {
-                        var tableNames = writeContext.ExecQuery<String>(new SqlStatement("SELECT DISTINCT name FROM ms.sqlite_master WHERE TYPE = 'table' AND name NOT LIKE 'sqlite%'")).ToArray();
-
-                        foreach (var table in tableNames)
-                        {
-                            if (writeContext.Any(new SqlStatement($"SELECT 1 FROM ms.{table}")))
-                            {
-                                writeContext.ExecuteNonQuery($"INSERT OR REPLACE INTO {table} SELECT * FROM ms.{table};");
-                            }
-                        }
-                        tx.Commit();
-                    }
-                }
-
-            }
-            catch (Exception ex)
-            {
-                throw new DataException("Error flushing database contents to filesystem", ex);
-            }
-        }
-
-
-        /// <inheritdoc/>
         public virtual void InitializeConnection(IDbConnection conn)
         {
 
             if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Client)
             {
-                conn.Execute("PRAGMA synchronous=OFF");
                 conn.Execute("PRAGMA journal_mode=MEMORY");
+                conn.Execute("PRAGMA synchronous=OFF");
                 conn.Execute("PRAGMA temp_store=MEMORY");
                 conn.Execute("PRAGMA ignore_check_constraints=ON");
+                conn.Execute("PRAGMA recursive_triggers=OFF");
+                conn.Execute("PRAGMA foreign_keys=FALSE");
             }
             else
             {
                 conn.Execute("PRAGMA journal_mode=WAL");
                 conn.ExecuteScalar<Object>("PRAGMA synchronous=normal");
-                conn.ExecuteScalar<Object>("PRAGMA locking_mode=normal");
             }
 
+            conn.ExecuteScalar<Object>("PRAGMA locking_mode=normal");
             conn.ExecuteScalar<object>("PRAGMA pragma_automatic_index=true");
 
         }

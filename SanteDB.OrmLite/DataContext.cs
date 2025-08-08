@@ -48,6 +48,7 @@ namespace SanteDB.OrmLite
 
         // Data dictionary
         private ConcurrentDictionary<String, Object> m_dataDictionary = new ConcurrentDictionary<string, object>();
+        private bool m_isClone;
         private bool m_opened;
 
         // Trace source
@@ -90,7 +91,7 @@ namespace SanteDB.OrmLite
         {
             if (this.m_provider is IDbMonitorProvider idmp && idmp.MonitorProbe is OrmClientProbe ocp)
             {
-                ocp.AverageWith(OrmPerformanceMetric.AverageTime, value);
+                ocp.Set(OrmPerformanceMetric.AverageTime, value);
             }
         }
 
@@ -198,6 +199,7 @@ namespace SanteDB.OrmLite
         /// Open the connection to the database
         /// </summary>
         /// <returns>True if a new connection was opened (false if the connection was already open)</returns>
+        /// <param name="initializeExtensions">False if the extended functions (freetext, soundex, etc.) should be initialized. Default is TRUE to maintain backwards compatibility</param>
         public virtual bool Open(bool initializeExtensions = true)
         {
             this.ThrowIfDisposed();
@@ -219,12 +221,12 @@ namespace SanteDB.OrmLite
                 wasOpened = true;
             }
 
-            if (this.m_transaction == null)
+            if (wasOpened && this.m_transaction == null)
             {
                 this.m_provider.InitializeConnection(this.m_connection);
             }
 
-            if (initializeExtensions)
+            if (wasOpened && initializeExtensions)
             {
                 this.m_provider.StatementFactory.GetFilterFunctions()?.OfType<IDbInitializedFilterFunction>().ForEach(o => _ = o.Initialize(this.m_connection, this.m_transaction));
             }
@@ -278,6 +280,7 @@ namespace SanteDB.OrmLite
             var retVal = this.m_provider.CloneConnection(this);
             retVal.Open(initializeExtensions: false);
             retVal.m_dataDictionary = this.m_dataDictionary; // share data
+            retVal.m_isClone = true;
             //retVal.PrepareStatements = this.PrepareStatements;
             return retVal;
         }
@@ -316,8 +319,12 @@ namespace SanteDB.OrmLite
             this.m_connection?.Close();
             this.m_connection?.Dispose();
             this.m_connection = null;
-            this.m_dataDictionary?.Clear();
-            this.m_dataDictionary = null;
+
+            if (!this.m_isClone)
+            {
+                this.m_dataDictionary?.Clear();
+                this.m_dataDictionary = null;
+            }
             this.Disposed?.Invoke(this, EventArgs.Empty);
 
 
