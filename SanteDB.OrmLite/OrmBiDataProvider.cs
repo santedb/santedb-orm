@@ -160,12 +160,17 @@ namespace SanteDB.OrmLite
         /// </summary>
         /// <param name="queryDefinition">The SQL query definition to prepare</param>
         /// <param name="parameters">The parameters to pass to the query</param>
+        /// <param name="referenceStatements">Refernece tables provided by the calller (examples: lookup tables, generated tables, etc.)</param>
         /// <returns>The constructed SqlStatement</returns>
-        private SqlStatement PrepareQueryStatement(BiQueryDefinition queryDefinition, IDictionary<String, object> parameters)
+        private SqlStatement PrepareQueryStatement(BiQueryDefinition queryDefinition, IDictionary<String, object> parameters, params BiSqlDefinition[] referenceStatements)
         {
             if (queryDefinition == null)
             {
                 throw new ArgumentNullException(nameof(queryDefinition));
+            }
+            if(referenceStatements == null)
+            {
+                referenceStatements = new BiSqlDefinition[0];
             }
 
             queryDefinition = BiUtils.ResolveRefs(queryDefinition);
@@ -290,14 +295,28 @@ namespace SanteDB.OrmLite
 
             var sqlStatement = new SqlStatement(stmt, values.ToArray()).Prepare();
 
-            if(queryDefinition.WithQuery?.Any() == true)
-            {
-                var withStatements = queryDefinition.WithQuery.ToDictionary(o => o.Name, o => this.PrepareQueryStatement(o, parameters));
-                var withStmt = new SqlStatement("WITH ");
-                foreach(var kv in withStatements)
+            var withQueries = queryDefinition.WithQuery?.ToDictionary(o => o.Name, o => this.PrepareQueryStatement(o, parameters)) ?? new Dictionary<string, SqlStatement>();
+            if(referenceStatements.Length > 0) { 
+                foreach(var wt in referenceStatements)
                 {
+                    if (m_parmRegex.IsMatch(wt.Sql))
+                    {
+                        throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, "${parameterName} in a reference range"));
+                    }
+                    withQueries.Add(wt.Name, new SqlStatement(wt.Sql));
+                }
+            }
+            if (withQueries.Any())
+            {
+                var withStmt = new SqlStatement("WITH ");
+                foreach(var kv in withQueries)
+                {
+
                     withStmt = withStmt.Append($" {kv.Key} AS (").Append(kv.Value).Append(") ").Append(",");
                 }
+
+                // Any admin supplied with statments
+
                 withStmt = withStmt.RemoveLast(out _);
                 sqlStatement = withStmt.Append(sqlStatement);
             }
@@ -582,7 +601,7 @@ namespace SanteDB.OrmLite
             // Prepare statement
             foreach (var measure in indicatorDef.Measures)
             {
-                var sourceStatement = new SqlStatement("WITH source AS (").Append(this.PrepareQueryStatement(indicatorDef.Query, parameters)).Append(")");
+                var sourceStatement = new SqlStatement("WITH source AS (").Append(this.PrepareQueryStatement(indicatorDef.Query, parameters, indicatorDef.ReferenceRanges?.Where(o=>o.Invariants.Contains(provider.Invariant))?.ToArray())).Append(")");
 
                 LinkedList<KeyValuePair<String, List<BiSqlColumnReference>>> queriesToExecute = new LinkedList<KeyValuePair<String, List<BiSqlColumnReference>>>();
                 queriesToExecute.AddLast(new KeyValuePair<String, List<BiSqlColumnReference>>(String.Empty, new List<BiSqlColumnReference>() { indicatorDef.Subject }));
@@ -594,7 +613,7 @@ namespace SanteDB.OrmLite
                     while (workingStrat != null)
                     {
                         queryName += $"/{workingStrat.Name}";
-                        columnsToSelectAndGroup.Add(stratifier.ColumnReference);
+                        columnsToSelectAndGroup.Add(workingStrat.ColumnReference);
                         queriesToExecute.AddLast(new KeyValuePair<string, List<BiSqlColumnReference>>(queryName, new List<BiSqlColumnReference>(columnsToSelectAndGroup)));
                         workingStrat = workingStrat.ThenBy;
                         
