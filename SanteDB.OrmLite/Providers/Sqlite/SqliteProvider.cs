@@ -1059,7 +1059,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Clear all pools
         /// </summary>
-        private void ClearAllPools()
+        protected void ClearAllPools()
         {
             this.GetProviderFactory().CreateConnection().GetType().GetMethod("ClearAllPools").Invoke(null, new object[0]);
         }
