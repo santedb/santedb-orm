@@ -264,8 +264,15 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     }
                     else if (dt.Kind == DateTimeKind.Unspecified)
                     {
-                        parm.DbType = DbType.Date;
-                        parm.Value = dt;
+                        if (dt.TimeOfDay.Hours == 0 && dt.TimeOfDay.Minutes == 0 && dt.TimeOfDay.Seconds == 0 && dt.TimeOfDay.Milliseconds == 0) // A date expressed
+                        {
+                            parm.DbType = DbType.Date;
+                            parm.Value = dt;
+                        }
+                        else
+                        {
+                            parm.Value = dt.ToUniversalTime();
+                        }
                     }
                     else
                     {
