@@ -634,7 +634,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 retVal = new Guid(bValue2);
             }
-
             else
             {
                 MapUtil.TryConvert(value, toType, out retVal);
