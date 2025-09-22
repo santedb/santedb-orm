@@ -391,7 +391,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         }
 
         /// <inheritdoc/>
-        public DataContext GetPersistentConnection() => base.GetWriteConnectionInternal();
+        public DataContext GetPersistentConnection()
+        {
+            this.FlushWriteBackToDisk(true);
+            base.ClearAllPools(); // Force close
+            // Invalidate this writeback - which should force the re-initialization of the database
+            m_initializedWritebackCaches.TryRemove(this.GetDatabaseName(), out _);
+            return base.GetWriteConnectionInternal();
+        }
 
         /// <summary>
         /// Optimize the database on disk not in memory
