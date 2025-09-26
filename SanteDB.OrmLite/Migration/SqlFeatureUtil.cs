@@ -365,7 +365,7 @@ namespace SanteDB.OrmLite.Migration
             if (me is IDbBackupProvider dbb)
             {
                 var tfs = new TemporaryFileStream();
-                dbb.BackupToStream(tfs);
+                var result = dbb.BackupToStream(tfs);
                 tfs.Seek(0, SeekOrigin.Begin);
                 return new StreamBackupAsset(assetId, $"{dbb.GetDatabaseName()}#{dbb.Invariant}", () => tfs);
             }

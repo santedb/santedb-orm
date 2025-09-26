@@ -35,7 +35,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     {
 
         // Sequence lock value
-        private int m_sequenceLock = (int)DateTimeOffset.Now.ToUnixTimeSeconds();
+        private int m_sequenceLock = 0;
+
+        // Offset of the sequence lock
+        private int m_offsetLock = 0;
 
         // Filter functions
         private static readonly ConcurrentDictionary<string, IDbFilterFunction> s_filterFunctions;
@@ -51,6 +54,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         static SqliteStatementFactory()
         {
+            
             if (ApplicationServiceContext.Current != null)
             {
                 s_filterFunctions = new ConcurrentDictionary<string, IDbFilterFunction>(ApplicationServiceContext.Current.GetService<IServiceManager>()
@@ -67,6 +71,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public SqliteStatementFactory(SqliteProvider sqliteProvider)
         {
+            this.m_offsetLock = (int)DateTimeOffset.Now.Subtract(new DateTime(2025, 01, 01)).TotalSeconds;
             this.Provider = sqliteProvider;
         }
 
@@ -90,7 +95,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     SqlEngineFeatures.ReturnedInsertsAsReader |
                     SqlEngineFeatures.ReturnedUpdatesAsReader |
                     SqlEngineFeatures.StrictSubQueryColumnNames |
-                    SqlEngineFeatures.AutoGenerateGuids;
+                    SqlEngineFeatures.AutoGenerateGuids |
+                    SqlEngineFeatures.AuditGeneratePrimaryKeySequences;
             }
         }
 
@@ -182,7 +188,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public SqlStatement GetNextSequenceValue(string sequenceName)
         {
-            return new SqlStatement(Interlocked.Increment(ref this.m_sequenceLock).ToString());  // new SqlStatement($"SELECT COALESCE(MAX(ROWID), 0) + 1 FROM {sequenceName.Sanitize()}");
+            // Move the "seconds" from epoch up to the upper half of a long and then placethe current sequence lock into the lower 32 bits
+            var sequence = ((ulong)m_offsetLock << 32) | (uint)Interlocked.Increment(ref this.m_sequenceLock); 
+            return new SqlStatement(sequence.ToString());  // new SqlStatement($"SELECT COALESCE(MAX(ROWID), 0) + 1 FROM {sequenceName.Sanitize()}");
         }
 
         /// <inheritdoc/>

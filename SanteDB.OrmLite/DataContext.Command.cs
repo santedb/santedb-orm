@@ -1038,7 +1038,9 @@ namespace SanteDB.OrmLite
                         }
                         else if ((col.SourceProperty.PropertyType.StripNullable() == typeof(long) ||
                             col.SourceProperty.PropertyType.StripNullable() == typeof(int)) &&
-                            !this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.AutoGenerateSequences))
+                            (!col.IsPrimaryKey && !this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.AutoGenerateSequences) ||
+                             col.IsPrimaryKey && !this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.AuditGeneratePrimaryKeySequences))
+                        )
                         {
                             columnNames.Append($"{col.Name}").Append(",");
                             values.Append("(").Append(this.Provider.StatementFactory.GetNextSequenceValue(tableMap.TableName)).Append(")").Append(",");

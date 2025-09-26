@@ -48,6 +48,7 @@ namespace SanteDB.OrmLite
 
         // Data dictionary
         private ConcurrentDictionary<String, Object> m_dataDictionary = new ConcurrentDictionary<string, object>();
+        private bool m_isClone;
         private bool m_opened;
 
         // Trace source
@@ -279,6 +280,7 @@ namespace SanteDB.OrmLite
             var retVal = this.m_provider.CloneConnection(this);
             retVal.Open(initializeExtensions: false);
             retVal.m_dataDictionary = this.m_dataDictionary; // share data
+            retVal.m_isClone = true;
             //retVal.PrepareStatements = this.PrepareStatements;
             return retVal;
         }
@@ -317,8 +319,12 @@ namespace SanteDB.OrmLite
             this.m_connection?.Close();
             this.m_connection?.Dispose();
             this.m_connection = null;
-            this.m_dataDictionary?.Clear();
-            this.m_dataDictionary = null;
+
+            if (!this.m_isClone)
+            {
+                this.m_dataDictionary?.Clear();
+                this.m_dataDictionary = null;
+            }
             this.Disposed?.Invoke(this, EventArgs.Empty);
 
 

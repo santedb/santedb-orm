@@ -284,9 +284,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public IDbCommand CreateCommand(DataContext context, SqlStatement stmt)
         {
             var c = stmt.Prepare();
-            // if(this.TraceSql) {
-            this.m_tracer.TraceVerbose(stmt.ToLiteral());
-            // }
+            if(this.TraceSql) {
+                this.m_tracer.TraceVerbose(stmt.ToLiteral());
+            }
             return CreateCommandInternal(context, CommandType.Text, c.Sql, c.Arguments.ToArray());
         }
 
@@ -335,53 +335,45 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             cmd.CommandText = sql;
             cmd.Transaction = context.Transaction;
 
-            if (TraceSql)
-            {
-                m_tracer.TraceEvent(EventLevel.Verbose, "[{0}] {1}", type, sql);
-            }
-
+           
             pno = 0;
-            foreach (var itm in parms)
+            foreach (var value in parms)
             {
                 var parm = cmd.CreateParameter();
-                var value = itm;
 
                 // Parameter type
                 parm.DbType = MapParameterType(value?.GetType());
                 parm.ParameterName = $"@parm{pno++}";
-                if (value is DateTime && itm != null)
+                if (value is DateTime && value != null)
                 {
-                    parm.Value = ConvertValue(itm, typeof(long));
+                    parm.Value = ConvertValue(value, typeof(long));
                 }
-                else if (value is DateTimeOffset && itm != null)
+                else if (value is DateTimeOffset && value!= null)
                 {
-                    parm.Value = ConvertValue(itm, typeof(long));
+                    parm.Value = ConvertValue(value, typeof(long));
                 }
-                else if ((value is Guid || value is Guid?) && itm != null)
+                else if ((value is Guid || value is Guid?) && value != null)
                 {
-                    parm.Value = ((Guid)itm).ToByteArray();
+                    parm.Value = ((Guid)value).ToByteArray();
                 }
 
                 // Set value
-                if (itm == null)
+                if (value == null)
                 {
                     parm.Value = DBNull.Value;
                 }
-                else if (itm.GetType().IsEnum)
+                else if (value.GetType().IsEnum)
                 {
-                    parm.Value = (int)itm;
+                    parm.Value = (int)value;
                 }
                 else if (parm.Value == null)
                 {
-                    parm.Value = itm;
+                    parm.Value = value;
                 }
 
                 parm.Direction = ParameterDirection.Input;
 
-                if (TraceSql)
-                {
-                    m_tracer.TraceEvent(EventLevel.Verbose, "\t [{0}] {1} ({2})", cmd.Parameters.Count, parm.Value, parm.DbType);
-                }
+              
 
                 cmd.Parameters.Add(parm);
             }
@@ -641,7 +633,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 retVal = new Guid(bValue2);
             }
-
             else
             {
                 MapUtil.TryConvert(value, toType, out retVal);
@@ -1066,7 +1057,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Clear all pools
         /// </summary>
-        private void ClearAllPools()
+        protected void ClearAllPools()
         {
             this.GetProviderFactory().CreateConnection().GetType().GetMethod("ClearAllPools").Invoke(null, new object[0]);
         }

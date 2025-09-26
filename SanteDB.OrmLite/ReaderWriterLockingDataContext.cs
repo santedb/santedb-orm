@@ -41,7 +41,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Writer lock timeout
         /// </summary>
-        public const int WRITE_LOCK_TIMEOUT = 2000;
+        public const int WRITE_LOCK_TIMEOUT = 20_000;
 
         private readonly string m_databaseName;
         /// <summary>
