@@ -206,7 +206,7 @@ namespace SanteDB.OrmLite.Diagnostics
             {
                 try
                 {
-                    this.m_resetEvent.Wait(1000);
+                    this.m_resetEvent.Wait(5000);
                     while (this.m_queueInstructions.TryDequeue(out var instruction))
                     {
                         switch (instruction.Key)
