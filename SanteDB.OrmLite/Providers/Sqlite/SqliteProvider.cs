@@ -1074,7 +1074,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public virtual void InitializeConnection(IDbConnection conn)
         {
 
-            if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Client)
+            if (ApplicationServiceContext.Current?.HostType == SanteDBHostType.Client)
             {
                 conn.Execute("PRAGMA journal_mode=MEMORY");
                 conn.Execute("PRAGMA synchronous=OFF");
