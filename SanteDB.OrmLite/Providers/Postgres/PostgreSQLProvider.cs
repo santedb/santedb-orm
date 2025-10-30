@@ -258,26 +258,20 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 }
                 else if (value is DateTime dt)
                 {
-                    if (dt.Kind == DateTimeKind.Local)
+                    if (dt.TimeOfDay.Hours == 0 && dt.TimeOfDay.Minutes == 0 && dt.TimeOfDay.Seconds == 0 && dt.TimeOfDay.Milliseconds == 0) // A date expressed
+                    {
+                        parm.DbType = DbType.Date;
+                        parm.Value = dt;
+                    }
+                    else if (dt.Kind == DateTimeKind.Local || dt.Kind == DateTimeKind.Unspecified)
                     {
                         parm.Value = dt.ToUniversalTime();
                     }
-                    else if (dt.Kind == DateTimeKind.Unspecified)
-                    {
-                        if (dt.TimeOfDay.Hours == 0 && dt.TimeOfDay.Minutes == 0 && dt.TimeOfDay.Seconds == 0 && dt.TimeOfDay.Milliseconds == 0) // A date expressed
-                        {
-                            parm.DbType = DbType.Date;
-                            parm.Value = dt;
-                        }
-                        else
-                        {
-                            parm.Value = dt.ToUniversalTime();
-                        }
-                    }
-                    else
+                    else if(dt.Kind == DateTimeKind.Utc)
                     {
                         parm.Value = dt; // already utc
                     }
+                    
                 }
                 else
                 {
