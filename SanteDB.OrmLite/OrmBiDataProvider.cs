@@ -44,6 +44,7 @@ using System.Linq;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Runtime.CompilerServices;
 
 namespace SanteDB.OrmLite
 {
@@ -137,7 +138,7 @@ namespace SanteDB.OrmLite
             }
 
             // Get connection and execute
-            using (var context = provider.GetWriteConnection())
+            using (var context = provider is IDbWriteBackProvider dbw ? dbw.GetPersistentConnection() : provider.GetWriteConnection())
             {
                 try
                 {
