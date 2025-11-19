@@ -364,10 +364,12 @@ namespace SanteDB.OrmLite.Migration
         {
             if (me is IDbBackupProvider dbb)
             {
-                var tfs = new TemporaryFileStream();
-                var result = dbb.BackupToStream(tfs);
-                tfs.Seek(0, SeekOrigin.Begin);
-                return new StreamBackupAsset(assetId, $"{dbb.GetDatabaseName()}#{dbb.Invariant}", () => tfs);
+                return new StreamBackupAsset(assetId, $"{dbb.GetDatabaseName()}#{dbb.Invariant}", () => {
+                    var tfs = new TemporaryFileStream();
+                    var result = dbb.BackupToStream(tfs);
+                    tfs.Seek(0, SeekOrigin.Begin);
+                    return tfs;
+                });
             }
             else
             {
