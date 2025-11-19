@@ -19,6 +19,7 @@
  * Date: 2023-6-21
  */
 using DocumentFormat.OpenXml.Bibliography;
+using DocumentFormat.OpenXml.InkML;
 using DocumentFormat.OpenXml.Office.CustomUI;
 using SanteDB;
 using SanteDB.Core;
@@ -29,6 +30,7 @@ using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Query;
 using SanteDB.Core.Security;
 using SanteDB.Core.Services;
+using SanteDB.OrmLite.Attributes;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Migration;
 using SanteDB.OrmLite.Providers.Encryptors;
@@ -40,6 +42,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.Tracing;
+using System.Dynamic;
 using System.IO;
 using System.IO.IsolatedStorage;
 using System.Linq;
@@ -56,6 +59,40 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     public class SqliteProvider : IDbProvider, IEncryptedDbProvider, IReportProgressChanged, IDbBackupProvider, IDbMonitorProvider //, IDbBulkProvider
     {
 
+        /// <summary>
+        /// Schema information
+        /// </summary>
+        protected class DbSchemaObject
+        {
+
+            /// <summary>
+            /// Gets or sets the name of the object
+            /// </summary>
+            [Column("name")]
+            public string Name { get; set; }
+
+            /// <summary>
+            /// Gets or sets the SQL to create the object
+            /// </summary>
+            [Column("sql")]
+            public string Sql { get; set; }
+
+            /// <summary>
+            /// Gets or sets the type of object
+            /// </summary>
+            [Column("type")]
+            public string Type { get; set; }
+
+            /// <summary>
+            /// Column names
+            /// </summary>
+            public String[] Columns { get; set; }
+
+            /// <summary>
+            /// Gets or sets the primary keys
+            /// </summary>
+            public String[] PrimaryKeys { get; set; }
+        }
 
         /// <summary>
         /// Invariant name
@@ -284,7 +321,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public IDbCommand CreateCommand(DataContext context, SqlStatement stmt)
         {
             var c = stmt.Prepare();
-            if(this.TraceSql) {
+            if (this.TraceSql)
+            {
                 this.m_tracer.TraceVerbose(stmt.ToLiteral());
             }
             return CreateCommandInternal(context, CommandType.Text, c.Sql, c.Arguments.ToArray());
@@ -335,7 +373,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             cmd.CommandText = sql;
             cmd.Transaction = context.Transaction;
 
-           
+
             pno = 0;
             foreach (var value in parms)
             {
@@ -348,7 +386,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 {
                     parm.Value = ConvertValue(value, typeof(long));
                 }
-                else if (value is DateTimeOffset && value!= null)
+                else if (value is DateTimeOffset && value != null)
                 {
                     parm.Value = ConvertValue(value, typeof(long));
                 }
@@ -373,7 +411,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                 parm.Direction = ParameterDirection.Input;
 
-              
+
 
                 cmd.Parameters.Add(parm);
             }
@@ -878,30 +916,62 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                     var cstr = CorrectConnectionString(new ConnectionString(this.Invariant, this.ReadonlyConnectionString));
                     // First bytes for the password or NIL for no password
-                    backupStream.WritePascalString(cstr.GetComponent("password"));
+                    var password = cstr.GetComponent("password");
+                    backupStream.WritePascalString(password);
 
                     var rootFileName = cstr.GetComponent("Data Source");
-                    var filesToBackup = Directory.GetFiles(Path.GetDirectoryName(rootFileName), Path.GetFileName(rootFileName) + "*");
-
-                    // Emit the backup stuff
-                    filesToBackup.ForEach(fileName =>
+                    try
                     {
-                        try
+                        var assetName = Path.GetFileName(rootFileName);
+                        var tempFileName = Path.GetTempFileName();
+                        this.m_tracer.TraceInfo("Writing {0}...", rootFileName);
+
+                        if (!String.IsNullOrEmpty(password))
                         {
-                            var assetName = Path.GetFileName(fileName);
-                            this.m_tracer.TraceInfo("Writing {0}...", fileName);
-                            using (var fs = File.OpenRead(fileName))
+                            using (var conn = this.GetProviderFactory().CreateConnection())
                             {
-                                backupStream.WritePascalString(assetName);
-                                backupStream.Write(BitConverter.GetBytes(fs.Length), 0, 8);
-                                fs.CopyTo(backupStream);
+                                this.m_tracer.TraceInfo("Decrypting database for backup portability");
+                                conn.ConnectionString = $"Data Source={tempFileName}";
+                                conn.Open();
+                                conn.Execute($"ATTACH DATABASE '{rootFileName}' AS enc KEY '{password}';");
+                                using(var context = new DataContext(this, conn))
+                                {
+                                    var schemaObjects = context.ExecQuery<DbSchemaObject>(new SqlStatement("SELECT DISTINCT name, sql, type FROM enc.sqlite_master WHERE name NOT LIKE 'sqlite%'")).ToArray();
+                                    schemaObjects.Where(o => o.Type == "table").ForEach(obj => conn.Execute(obj.Sql)); // Create the tables
+                                    schemaObjects.Where(o => o.Type == "table").ForEach(table =>
+                                    {
+                                        this.m_tracer.TraceVerbose("Fetching schema {0}...", table.Name);
+                                        var metadata = context.Query<ExpandoObject>(new SqlStatement($"PRAGMA table_info('{table.Name}')")).OfType<IDictionary<string, Object>>().ToArray();
+                                        table.Columns = metadata.Select(o => o["name"].ToString()).ToArray();
+                                        table.PrimaryKeys = metadata.Where(o => 1l.Equals(o["pk"])).Select(o => o["name"].ToString()).ToArray();
+                                    });
+
+                                    foreach (var itm in schemaObjects.Where(t => t.Type == "table"))
+                                    {
+                                        this.m_tracer.TraceInfo("Backing up {0}...", itm.Name);
+                                        context.ExecuteNonQuery($"INSERT INTO {itm.Name} ({String.Join(",", itm.Columns)}) SELECT {String.Join(",", itm.Columns)} FROM enc.{itm.Name}");
+                                    }
+                                    schemaObjects.Where(o => o.Type != "table").ForEach(cmd => conn.Execute(cmd.Sql)); // Create the views, indexes, and triggers    
+                                }
+                                conn.Execute("DETACH DATABASE enc;");
                             }
                         }
-                        catch (Exception e)
+                        else
                         {
-                            this.m_tracer.TraceWarning("Could not backup {0} - {1}", fileName, e.ToHumanReadableString());
+                            File.Copy(rootFileName, tempFileName, true);
                         }
-                    });
+
+                        using (var fs = File.OpenRead(tempFileName))
+                        {
+                            backupStream.WritePascalString(assetName);
+                            backupStream.Write(BitConverter.GetBytes(fs.Length), 0, 8);
+                            fs.CopyTo(backupStream);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        this.m_tracer.TraceWarning("Could not backup {0} - {1}", rootFileName, e.ToHumanReadableString());
+                    }
                     return true;
                 } // lock is released
             }
@@ -940,10 +1010,16 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         while (true)
                         {
                             var assetName = restoreStream.ReadPascalString();
+
                             if (String.IsNullOrEmpty(assetName)) break;
+
+
                             var assetBuffer = new byte[8];
                             restoreStream.Read(assetBuffer, 0, 8);
                             var assetSize = BitConverter.ToInt64(assetBuffer, 0);
+
+                            this.m_tracer.TraceInfo("Restoring SQLite {0} ({1:#,###,###} bytes) to {2}", assetName, assetSize, tempFile);
+
                             var bytesRead = 0;
                             using (var fs = File.OpenWrite(tempFile))
                             {
@@ -957,8 +1033,43 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                             try
                             {
+                                var password = cstr.GetComponent("password");
                                 var destinationFile = Path.Combine(Path.GetDirectoryName(productionFile), Path.GetFileName(assetName));
-                                File.Copy(tempFile, destinationFile, true); // Move the file to replace the original
+
+                                if (!String.IsNullOrEmpty(password))
+                                {
+                                    this.m_tracer.TraceInfo("Copying temporary file {0} -> {1}", tempFile, destinationFile);
+                                    File.Copy(tempFile, destinationFile, true); // Move the file to replace the original
+                                }
+                                else
+                                {
+                                    this.m_tracer.TraceInfo("Re-keying database");
+                                    using (var conn = this.GetProviderFactory().CreateConnection())
+                                    {
+                                        conn.ConnectionString = $"Data Source={tempFile}; Password={password}";
+                                        conn.Open();
+                                        conn.Execute($"ATTACH DATABASE '{tempFile}' AS bak KEY '';");
+                                        using (var context = new DataContext(this, conn))
+                                        {
+                                            var schemaObjects = context.ExecQuery<DbSchemaObject>(new SqlStatement("SELECT DISTINCT name, sql, type FROM bak.sqlite_master WHERE name NOT LIKE 'sqlite%'")).ToArray();
+                                            schemaObjects.Where(o => o.Type == "table").ForEach(obj => conn.Execute(obj.Sql)); // Create the tables
+                                            schemaObjects.Where(o => o.Type == "table").ForEach(table =>
+                                            {
+                                                this.m_tracer.TraceVerbose("Fetching schema {0}...", table.Name);
+                                                var metadata = context.Query<ExpandoObject>(new SqlStatement($"PRAGMA table_info('{table.Name}')")).OfType<IDictionary<string, Object>>().ToArray();
+                                                table.Columns = metadata.Select(o => o["name"].ToString()).ToArray();
+                                                table.PrimaryKeys = metadata.Where(o => 1l.Equals(o["pk"])).Select(o => o["name"].ToString()).ToArray();
+                                            });
+
+                                            foreach (var itm in schemaObjects.Where(t => t.Type == "table"))
+                                            {
+                                                context.ExecuteNonQuery($"INSERT INTO {itm.Name} ({String.Join(",", itm.Columns)}) SELECT {String.Join(",", itm.Columns)} FROM bak.{itm.Name}");
+                                            }
+                                            schemaObjects.Where(o => o.Type != "table").ForEach(cmd => conn.Execute(cmd.Sql)); // Create the views, indexes, and triggers    
+                                        }
+                                        conn.Execute("DETACH DATABASE bak;");
+                                    }
+                                }
                             }
                             catch (Exception e)
                             {
@@ -967,29 +1078,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             finally
                             {
                                 File.Delete(tempFile);
-                            }
-                        }
-
-
-                        // Does the database need to be re-keyed?
-                        var myPassword = cstr.GetComponent("password");
-                        if (!String.IsNullOrEmpty(sourcePassword) && !sourcePassword.Equals(myPassword))
-                        {
-                            using (var conn = this.GetProviderFactory().CreateConnection())
-                            {
-                                conn.ConnectionString = $"Data Source={tempFile}; Password={sourcePassword}";
-                                conn.Open();
-                                using (var c = conn.CreateCommand())
-                                {
-                                    c.CommandText = "SELECT quote($password)";
-                                    var passwordParm = c.CreateParameter();
-                                    passwordParm.ParameterName = "$password";
-                                    passwordParm.Value = myPassword;
-                                    c.Parameters.Add(passwordParm);
-                                    c.CommandText = $"PRAGMA rekey = {c.ExecuteScalar()}";
-                                    c.Parameters.Clear();
-                                    c.ExecuteNonQuery();
-                                }
                             }
                         }
 

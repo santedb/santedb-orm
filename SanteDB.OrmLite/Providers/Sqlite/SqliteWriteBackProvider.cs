@@ -28,41 +28,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     public class SqliteWriteBackProvider : SqliteProvider, IDisposable, IReportProgressChanged, IDbWriteBackProvider
     {
 
-        /// <summary>
-        /// Schema information
-        /// </summary>
-        private class DbSchemaObject
-        {
-
-            /// <summary>
-            /// Gets or sets the name of the object
-            /// </summary>
-            [Column("name")]
-            public string Name { get; set; }
-
-            /// <summary>
-            /// Gets or sets the SQL to create the object
-            /// </summary>
-            [Column("sql")]
-            public string Sql { get; set; }
-
-            /// <summary>
-            /// Gets or sets the type of object
-            /// </summary>
-            [Column("type")]
-            public string Type { get; set; }
-
-            /// <summary>
-            /// Column names
-            /// </summary>
-            public String[] Columns { get; set; }
-
-            /// <summary>
-            /// Gets or sets the primary keys
-            /// </summary>
-            public String[] PrimaryKeys { get; set; }
-        }
-
+        
         /// <summary>
         /// Last writeback flush
         /// </summary>
