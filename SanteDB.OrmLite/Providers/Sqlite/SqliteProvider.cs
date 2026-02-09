@@ -1125,7 +1125,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public virtual void Optimize()
         {
             this.ClearAllPools();
-            using (var writer = this.GetWriteConnection())
+            using (var writer = this.GetWriteConnectionInternal())
             {
                 try
                 {
