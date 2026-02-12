@@ -54,6 +54,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         private static readonly ConcurrentDictionary<String, DbSchemaObject[]> m_initializedWritebackCaches = new ConcurrentDictionary<string, DbSchemaObject[]>();
 
         /// <summary>
+        /// Keep connections alive so that our memory database does not disappear randomly
+        /// </summary>
+        private static readonly ConcurrentDictionary<String, IDbConnection> m_keepAliveConnections = new ConcurrentDictionary<string, IDbConnection>();
+
+        /// <summary>
         /// Lock=object
         /// </summary>
         private static readonly object m_lockObject = new object();
@@ -134,57 +139,62 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         using (var cacheConnection = this.GetProviderFactory().CreateConnection())
                         {
                             this.m_lockoutEvent.Wait(); // Allow the underlying Sqlite provider to prevent us from opening the disk connection
+                            var context = new ReaderWriterLockingDataContext(this, cacheConnection);
+
                             try
                             {
+                                cacheConnection.ConnectionString = this.GetCacheConnectionString(false);
+                                context.Open(initializeExtensions: false);
+                                this.m_lockoutEvent.Reset();
 
-                                using (var context = new ReaderWriterLockingDataContext(this, cacheConnection))
+                                // Attach the file db
+                                var connectionString = SqliteProvider.CorrectConnectionString(new ConnectionString(this.Invariant, base.ReadonlyConnectionString));
+                                var basePassword = connectionString.GetComponent("Password");
+                                var fileLocation = connectionString.GetComponent("Data Source");
+                                if (!String.IsNullOrEmpty(basePassword))
                                 {
-                                    cacheConnection.ConnectionString = this.GetCacheConnectionString(false);
-                                    context.Open(initializeExtensions: false);
-                                    this.m_lockoutEvent.Reset();
-
-                                    // Attach the file db
-                                    var connectionString = SqliteProvider.CorrectConnectionString(new ConnectionString(this.Invariant, base.ReadonlyConnectionString));
-                                    var basePassword = connectionString.GetComponent("Password");
-                                    var fileLocation = connectionString.GetComponent("Data Source");
-                                    if (!String.IsNullOrEmpty(basePassword))
-                                    {
-                                        this.m_tracer.TraceVerbose("Attempting to attach database '{0}' using '{1}'", fileLocation, basePassword);
-                                        cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs KEY '{basePassword}'");
-                                    }
-                                    else
-                                    {
-                                        cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs");
-                                    }
-
-                                    // Extract from file and load the memory cache
-                                    this.m_tracer.TraceVerbose("Initializing tables...");
-                                    schemaObjects = context.ExecQuery<DbSchemaObject>(new SqlStatement("SELECT DISTINCT name, sql, type FROM fs.sqlite_master WHERE name NOT LIKE 'sqlite%'")).ToArray();
-                                    schemaObjects.Where(o => o.Type == "table").ForEach(obj => cacheConnection.Execute(obj.Sql)); // Create the tables    
-
-                                    // Initialize the schema
-                                    this.m_tracer.TraceVerbose("Fetching table schemas...");
-                                    schemaObjects.Where(o => o.Type == "table").ForEach(table =>
-                                    {
-                                        this.m_tracer.TraceVerbose("Fetching schema {0}...", table.Name);
-                                        var metadata = context.Query<ExpandoObject>(new SqlStatement($"PRAGMA table_info('{table.Name}')")).OfType<IDictionary<string, Object>>().ToArray();
-                                        table.Columns = metadata.Select(o => o["name"].ToString()).ToArray();
-                                        table.PrimaryKeys = metadata.Where(o => 1l.Equals(o["pk"])).Select(o => o["name"].ToString()).ToArray();
-                                    });
-
-                                    this.m_tracer.TraceVerbose("Seeding cache data...");
-
-                                    foreach (var itm in schemaObjects.Where(t => t.Type == "table"))
-                                    {
-                                        context.ExecuteNonQuery($"INSERT INTO {itm.Name} ({String.Join(",", itm.Columns)}) SELECT {String.Join(",", itm.Columns)} FROM fs.{itm.Name}");
-                                    }
-
-                                    this.m_tracer.TraceVerbose("Initializing indexes and triggers...");
-                                    schemaObjects.Where(o => o.Type != "table").ForEach(cmd => cacheConnection.Execute(cmd.Sql)); // Create the views, indexes, and triggers    
-
-                                    context.ExecuteNonQuery("DETACH DATABASE fs");
-                                    Interlocked.Exchange(ref this.m_lastWritebackFlush, DateTimeOffset.Now.Ticks); 
+                                    this.m_tracer.TraceVerbose("Attempting to attach database '{0}' using '{1}'", fileLocation, basePassword);
+                                    cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs KEY '{basePassword}'");
                                 }
+                                else
+                                {
+                                    cacheConnection.Execute($"ATTACH '{fileLocation}' AS fs");
+                                }
+
+                                // Extract from file and load the memory cache
+                                this.m_tracer.TraceVerbose("Initializing tables...");
+                                schemaObjects = context.ExecQuery<DbSchemaObject>(new SqlStatement("SELECT DISTINCT name, sql, type FROM fs.sqlite_master WHERE name NOT LIKE 'sqlite%'")).ToArray();
+                                schemaObjects.Where(o => o.Type == "table").ForEach(obj => cacheConnection.Execute(obj.Sql)); // Create the tables    
+
+                                // Initialize the schema
+                                this.m_tracer.TraceVerbose("Fetching table schemas...");
+                                schemaObjects.Where(o => o.Type == "table").ForEach(table =>
+                                {
+                                    this.m_tracer.TraceVerbose("Fetching schema {0}...", table.Name);
+                                    var metadata = context.Query<ExpandoObject>(new SqlStatement($"PRAGMA table_info('{table.Name}')")).OfType<IDictionary<string, Object>>().ToArray();
+                                    table.Columns = metadata.Select(o => o["name"].ToString()).ToArray();
+                                    table.PrimaryKeys = metadata.Where(o => 1l.Equals(o["pk"])).Select(o => o["name"].ToString()).ToArray();
+                                });
+
+                                this.m_tracer.TraceVerbose("Seeding cache data...");
+
+                                foreach (var itm in schemaObjects.Where(t => t.Type == "table"))
+                                {
+                                    context.ExecuteNonQuery($"INSERT INTO {itm.Name} ({String.Join(",", itm.Columns)}) SELECT {String.Join(",", itm.Columns)} FROM fs.{itm.Name}");
+                                }
+
+                                this.m_tracer.TraceVerbose("Initializing indexes and triggers...");
+                                schemaObjects.Where(o => o.Type != "table").ForEach(cmd => cacheConnection.Execute(cmd.Sql)); // Create the views, indexes, and triggers    
+
+                                context.ExecuteNonQuery("DETACH DATABASE fs");
+                                Interlocked.Exchange(ref this.m_lastWritebackFlush, DateTimeOffset.Now.Ticks);
+
+                                m_keepAliveConnections.TryAdd(databaseName, context.Connection);
+                            }
+                            catch
+                            {
+                                context.Dispose(); // We couldn't initialize - to dispose the connection
+                                throw;
                             }
                             finally
                             {
@@ -349,10 +359,13 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public override void Dispose()
         {
+            this.m_tracer.TraceInfo("Disposing the SQLite WriteBack provider");
             this.m_runMonitor = false;
             this.m_pingBackgroundWriteThread.Set();
             this.m_tracer.TraceInfo("Waiting for flush of write-back cache");
             this.m_pingDisposalThread.Wait();
+            this.m_writebackCacheThread.Abort(); // abort the writeback thread
+            m_keepAliveConnections.Values.ForEach(c => c.Dispose()); // dispose the keep alives
             base.Dispose();
         }
 
@@ -373,15 +386,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
             this.FlushWriteBackToDisk(true);
             base.Optimize();
-            using (var writer = base.GetWriteConnectionInternal())
-            {
-                this.m_tracer.TraceInfo("Optimizing {0}...", this.GetDatabaseName());
-                writer.Open(initializeExtensions: false);
-                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
-                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
-                writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
-                writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
-            }
         }
 
         /// <inheritdoc/>
