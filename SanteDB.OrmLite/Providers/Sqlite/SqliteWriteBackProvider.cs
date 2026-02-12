@@ -28,7 +28,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     public class SqliteWriteBackProvider : SqliteProvider, IDisposable, IReportProgressChanged, IDbWriteBackProvider
     {
 
-        
         /// <summary>
         /// Last writeback flush
         /// </summary>
@@ -217,6 +216,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     }
                     if (schemaObjectCount == 0) // Our cache is gone 😔
                     {
+                        this.m_tracer.TraceWarning("Schema for writeback cache `{0}` is gone!", databaseName);
                         if (m_initializedWritebackCaches.TryRemove(databaseName, out _))
                         {
                             return this.InitializeWritebackCache(databaseName);
@@ -342,7 +342,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Create cache connection string to the writeback cache
         /// </summary>
-        private string GetCacheConnectionString(bool isReadonly) => $"Data Source=file:{this.GetDatabaseName()}?mode=memory&cache=shared;Foreign Keys=false; Mode={(isReadonly ? "ReadOnly" : "ReadWriteCreate")}";
+        private string GetCacheConnectionString(bool isReadonly) => $"Data Source=file:{this.GetDatabaseName()}?mode=memory&cache=shared;Foreign Keys=false; Mode={(isReadonly ? "ReadOnly" : "ReadWriteCreate")}; Pooling=True";
 
         /// <summary>
         /// Dispose the threads
@@ -360,7 +360,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public DataContext GetPersistentConnection()
         {
             this.FlushWriteBackToDisk(true);
-            base.ClearAllPools(); // Force close
+            base.ClearPools(); // Force close
             // Invalidate this writeback - which should force the re-initialization of the database
             m_initializedWritebackCaches.TryRemove(this.GetDatabaseName(), out _);
             return base.GetWriteConnectionInternal();
