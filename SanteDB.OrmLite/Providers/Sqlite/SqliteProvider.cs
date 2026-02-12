@@ -593,7 +593,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             var connectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ReadonlyConnectionString ?? this.ConnectionString));
             connectionString.SetComponent("Mode", "ReadWriteCreate");
             connectionString.SetComponent("Cache", "Private");
-            connectionString.SetComponent("Pooling", "False");
+            connectionString.SetComponent("Pooling", "True");
             if (foreignKeys.HasValue)
             {
                 connectionString.SetComponent("Foreign Keys", foreignKeys.ToString());
@@ -904,7 +904,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             try
             {
                 // Grab a lock and prevent everyone from interacting with this database
-                this.ClearAllPools();
+                this.ClearPools();
                 this.WalCheckpointInvoke();
 
                 using (var rw = new ReaderWriterLockingDataContext(this, null))
@@ -956,7 +956,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                     conn.Execute("PRAGMA wal_checkpoint(truncate)");
                                 }
                             }
-                            this.ClearAllPools();
+                            this.ClearPools();
                         }
                         else
                         {
@@ -994,7 +994,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
 
                 // Clear all pools
-                this.ClearAllPools();
+                this.ClearPools();
                 this.WalCheckpointInvoke();
 
                 // Grab a lock and prevent everyone from interacting with this database
@@ -1086,7 +1086,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                     }
                                 }
 
-                                this.ClearAllPools();
+                                this.ClearPools();
 
                             }
                         }
@@ -1124,7 +1124,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc>
         public virtual void Optimize()
         {
-            this.ClearAllPools();
+            this.ClearPools();
             using (var writer = this.GetWriteConnectionInternal())
             {
                 try
@@ -1157,15 +1157,19 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 writer.Open(initializeExtensions: false);
                 writer.ExecuteNonQuery("PRAGMA wal_checkpoint(truncate)");
             }
-            this.ClearAllPools();
+            this.ClearPools();
         }
 
         /// <summary>
         /// Clear all pools
         /// </summary>
-        protected void ClearAllPools()
+        protected virtual void ClearPools()
         {
-            this.GetProviderFactory().CreateConnection().GetType().GetMethod("ClearAllPools").Invoke(null, new object[0]);
+            using (var context = this.GetWriteConnectionInternal())
+            {
+                this.m_tracer.TraceInfo("Clearing all open pools associated with {0}", context.Connection.Database);
+                this.GetProviderFactory().CreateConnection().GetType().GetMethod("ClearPool").Invoke(null, new object[] { context.Connection });
+            }
         }
 
         /// <summary>
