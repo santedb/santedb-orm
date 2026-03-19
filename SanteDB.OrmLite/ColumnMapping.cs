@@ -50,6 +50,9 @@ namespace SanteDB.OrmLite
         // Specified property
         private PropertyInfo m_specifiedProperty = null;
 
+        // Weak references
+        private IDictionary<Type, WeakReferenceHintAttribute> m_weakReferences;
+
         // Column mapping
         private static Dictionary<PropertyInfo, ColumnMapping> s_columnCache = new Dictionary<PropertyInfo, ColumnMapping>();
 
@@ -82,6 +85,17 @@ namespace SanteDB.OrmLite
         /// Gets the foreign key
         /// </summary>
         public ForeignKeyAttribute ForeignKey { get; private set; }
+
+        /// <summary>
+        /// Get the weak reference to the specified table
+        /// </summary>
+        /// <param name="targetType">The table where the query builder is attempting to navigate</param>
+        /// <returns>The resolved weak reference hint</returns>
+        public WeakReferenceHintAttribute GetWeakReference(Type targetType)
+        {
+            _ = this.m_weakReferences.TryGetValue(targetType, out var retVal);
+            return retVal;
+        }
 
         /// <summary>
         /// Join filters
@@ -151,6 +165,7 @@ namespace SanteDB.OrmLite
             this.IsAlwaysJoin = pi.HasCustomAttribute<AlwaysJoinAttribute>();
             this.JoinFilters = pi.GetCustomAttributes<JoinFilterAttribute>().ToList();
             this.DefaultValue = pi.GetCustomAttribute<DefaultValueAttribute>()?.DefaultValue;
+            this.m_weakReferences = pi.GetCustomAttributes<WeakReferenceHintAttribute>().ToDictionaryIgnoringDuplicates(o => o.Table, o => o);
             if (this.DefaultValue is String str && Guid.TryParse(str, out Guid defaultGuid))
             {
                 this.DefaultValue = defaultGuid;
