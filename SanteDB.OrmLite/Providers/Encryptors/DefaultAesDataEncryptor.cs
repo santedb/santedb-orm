@@ -53,10 +53,7 @@ namespace SanteDB.OrmLite.Providers.Encryptors
             {
                 this.m_secret = rsa.Decrypt(aleMasterKey, RSAEncryptionPadding.Pkcs1);
             }
-            using (var rsa = encryptionSettings.Certificate.GetRSAPublicKey())
-            {
-                this.m_saltSeed = rsa.Encrypt(encryptionSettings.SaltSeed, RSAEncryptionPadding.Pkcs1);
-            }
+            this.m_saltSeed = encryptionSettings.SaltSeed;
         }
 
         /// <summary>
