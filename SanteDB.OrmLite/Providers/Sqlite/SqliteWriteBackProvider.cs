@@ -193,11 +193,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             }
                             catch
                             {
-                                context.Dispose(); // We couldn't initialize - to dispose the connection
                                 throw;
                             }
                             finally
                             {
+                                context.Dispose(); // We couldn't initialize - to dispose the connection
                                 this.m_lockoutEvent.Set();
                             }
                             m_initializedWritebackCaches.TryAdd(databaseName, schemaObjects);
@@ -286,7 +286,6 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             if (m_initializedWritebackCaches.TryGetValue(base.GetDatabaseName(), out var dbSchemaObjects) && dbSchemaObjects != null && (force || waitingFlushRequests > MAX_FLUSH_REQUESTS || waitingFlushRequests > 0 && ticksSinceLastWrite > MAX_TICKS_BETWEEN_FLUSH)) // There were changes
             {
                 this.m_tracer.TraceInfo("Flushing Writeback to Disk for {0}", this.GetDatabaseName());
-                Interlocked.Exchange(ref this.m_writebackCacheFlushRequests, 0);
 
                 this.m_lockoutEvent.Wait(); // Allow the underlying Sqlite provider to prevent us from opening the disk connection
                 try
@@ -317,6 +316,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                     this.m_tracer.TraceInfo("Writeback has been flushed to {0}", this.GetDatabaseName());
                     Interlocked.Exchange(ref this.m_lastWritebackFlush, DateTimeOffset.Now.Ticks);
+                    Interlocked.Exchange(ref this.m_writebackCacheFlushRequests, 0);
+
                 }
                 finally
                 {
@@ -341,7 +342,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 var connection = this.GetProviderFactory().CreateConnection();
                 connection.ConnectionString = this.GetCacheConnectionString(true);
-                return new DataContext(this, connection);
+                return new DataContext(this, connection, true);
             }
             else
             {

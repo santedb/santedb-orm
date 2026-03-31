@@ -24,6 +24,7 @@ using SanteDB.Core.Model.Attributes;
 using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Query;
+using SanteDB.Core.Model.Serialization;
 using SanteDB.OrmLite.Attributes;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Providers;
@@ -208,6 +209,7 @@ namespace SanteDB.OrmLite
         private readonly ModelMapper m_mapper;
         private readonly IDbStatementFactory m_factory;
         private readonly IDbEncryptor m_encryptionProvider;
+        private readonly ModelSerializationBinder m_modelSerializationBinder = new ModelSerializationBinder();
 
         /// <summary>
         /// Provider
@@ -697,15 +699,28 @@ namespace SanteDB.OrmLite
                                     linkColumn = tableMapping.GetColumn(domainProperty);
                                 }
 
-                                var fkTableDef = parentScopedTables?.FirstOrDefault(o => o.OrmType == linkColumn.ForeignKey.Table) ?? TableMapping.Get(linkColumn.ForeignKey.Table);
-                                var fkColumnDef = fkTableDef.GetColumn(linkColumn.ForeignKey.Column);
+                                // Does the link column hae a foreign key?
+                                TableReferenceAttribute fkAttribute = linkColumn.ForeignKey;
+                                if(fkAttribute == null && !String.IsNullOrEmpty(propertyPredicate.CastAs))
+                                {
+                                    var mappedCast = this.m_mapper.MapModelType(this.m_modelSerializationBinder.BindToType("SanteDB.Core.Model", propertyPredicate.CastAs));
+                                    fkAttribute = linkColumn.GetWeakReference(mappedCast);
+                                }
+
+                                if(fkAttribute == null)
+                                {
+                                    throw new InvalidOperationException(ErrorMessages.MAP_EXPRESSION_NOT_POSSIBLE);
+                                }
+
+                                var fkTableDef = parentScopedTables?.FirstOrDefault(o => o.OrmType == fkAttribute.Table) ?? TableMapping.Get(fkAttribute.Table);
+                                var fkColumnDef = fkTableDef.GetColumn(fkAttribute.Column);
                                 var prefix = IncrementSubQueryAlias(tablePrefix);
 
                                 // Create the sub-query
                                 //var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { subProp.PropertyType }, new Type[] { subQuery.GetType(), typeof(ColumnMapping[]) });
                                 //SqlStatement subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, new ColumnMapping[] { fkColumnDef } }) as SqlStatement;
                                 SqlStatementBuilder subQueryStatement = null;
-                                var fkTypeDisagreement = fkTableDef.OrmType != this.m_mapper.MapModelType(subProp.PropertyType);
+                                var fkTypeDisagreement = fkTableDef.OrmType != this.m_mapper.MapModelType(subProp.PropertyType, false);
                                 var subSkipJoins = subQuery.Count(o => !o.Key.Contains(".") && o.Key != "obsoletionTime") == 0 && !fkTypeDisagreement;
                                 if (String.IsNullOrEmpty(propertyPredicate.CastAs))
                                 {
@@ -713,7 +728,7 @@ namespace SanteDB.OrmLite
                                 }
                                 else // we need to cast!
                                 {
-                                    var castAsType = new SanteDB.Core.Model.Serialization.ModelSerializationBinder().BindToType("SanteDB.Core.Model", propertyPredicate.CastAs);
+                                    var castAsType = this.m_modelSerializationBinder.BindToType("SanteDB.Core.Model", propertyPredicate.CastAs);
                                     subQueryStatement = this.CreateQuery(castAsType, subQuery.ToParameterDictionary(), prefix, false, scopedTables, new ColumnMapping[] { fkColumnDef });
                                 }
 
