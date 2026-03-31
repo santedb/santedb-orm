@@ -347,7 +347,7 @@ namespace SanteDB.OrmLite
                     throw new InvalidOperationException($"No provided aggregation can be found for {provider.Invariant}");
                 }
 
-                var selector = agg.Columns?.Select(o=>this.PrepareAggregateFunction(o)).ToArray() ?? new string[] { "*" };
+                var selector = agg.Columns?.Select(o=> this.PrepareAggregateFunction(o, this.GetProvider(queryDefinition))).ToArray() ?? new string[] { "*" };
                 String[] groupings = agg.Groupings.Select(g => g.ColumnSelector).ToArray(),
                     colGroupings = agg.Groupings.Select(g => $"{g.ColumnSelector} AS {g.Name}").ToArray();
                 // Aggregate
@@ -393,7 +393,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Prepare the aggregate function
         /// </summary>
-        private String PrepareAggregateFunction(BiAggregateSqlColumnReference columnRef, String defaultName = null)
+        private String PrepareAggregateFunction(BiAggregateSqlColumnReference columnRef, IDbProvider provider, String defaultName = null)
         {
             var sb = new StringBuilder();
             switch (columnRef.Aggregation)
@@ -432,7 +432,9 @@ namespace SanteDB.OrmLite
                 case BiAggregateFunction.Value:
                     sb.Append($"{columnRef.ColumnSelector}");
                     break;
-
+                case BiAggregateFunction.Concatenate:
+                    sb.Append($"{provider.StatementFactory.CreateSqlKeyword(SqlKeyword.StringAggregate)}({columnRef.ColumnSelector}, ' ')");
+                    break;
                 default:
                     throw new InvalidOperationException("Cannot apply aggregation function");
             }
@@ -626,7 +628,7 @@ namespace SanteDB.OrmLite
                 foreach (var query in queriesToExecute)
                 {
                     var sqlStmt = new SqlStatement(sourceStatement).Append($"SELECT {String.Join(", ", query.Value.Select(c=>$"{c.ColumnSelector} AS {c.Name ?? c.ColumnSelector}"))}")
-                        .Append($", {String.Join(", ", measure.Computation.Select(o=>this.PrepareAggregateFunction(o, o.GetColumnName())))}")
+                        .Append($", {String.Join(", ", measure.Computation.Select(o=>this.PrepareAggregateFunction(o, this.GetProvider(indicatorDef.Query), o.GetColumnName())))}")
                         .Append($" FROM source GROUP BY {String.Join(", ", query.Value.Select(o=>o.ColumnSelector))} ORDER BY {String.Join(", ", query.Value.Select(o => o.ColumnSelector))}");
 
                     yield return new BisIndicatorMeasureResultContext(

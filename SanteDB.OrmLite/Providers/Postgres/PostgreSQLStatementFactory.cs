@@ -179,6 +179,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     return " CURRENT_TIMESTAMP ";
                 case SqlKeyword.NewGuid:
                     return " UUID_GENERATE_V1() ";
+                case SqlKeyword.StringAggregate:
+                    return " STRING_AGG";
                 default:
                     throw new NotImplementedException();
             }
