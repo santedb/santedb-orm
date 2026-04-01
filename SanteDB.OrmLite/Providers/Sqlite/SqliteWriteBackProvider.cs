@@ -275,6 +275,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             m_pingDisposalThread.Set();
         }
 
+
         /// <summary>
         /// Flush the write-back cache
         /// </summary>

@@ -18,6 +18,7 @@
  * User: fyfej
  * Date: 2023-6-21
  */
+using SanteDB.Core;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Attributes;
@@ -932,7 +933,7 @@ namespace SanteDB.OrmLite
                     switch (sValue[0])
                     {
                         case ':': // function
-                            if (isEncrypted)
+                            if (isEncrypted && ApplicationServiceContext.Current.HostType == SanteDBHostType.Server)
                             {
                                 throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
                             }
@@ -973,7 +974,7 @@ namespace SanteDB.OrmLite
                             }
                             else
                             {
-                                retVal.Append($" = ? ", CreateParameterValue(sValue, domainProperty.PropertyType));
+                                retVal.Append($" = ? ", CreateParameterValue(isEncrypted ? eValue : sValue, domainProperty.PropertyType));
                             }
 
                             break;
@@ -1058,10 +1059,20 @@ namespace SanteDB.OrmLite
                         case '~':
                             if (isEncrypted)
                             {
-                                throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
+                                if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Server)
+                                {
+                                    throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
+                                }
+                                else
+                                {
+                                    eValue = this.m_encryptionProvider.CreateQueryValue(aleMode, itm.ToString().Substring(1));
+                                    retVal.Append($" = ? ", CreateParameterValue(eValue, domainProperty.PropertyType));
+                                }
                             }
-
-                            retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} ? ", CreateParameterValue($"%{sValue.Substring(1)}%", domainProperty.PropertyType));
+                            else
+                            {
+                                retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} ? ", CreateParameterValue($"%{sValue.Substring(1)}%", domainProperty.PropertyType));
+                            }
                             break;
 
                         case '^':
