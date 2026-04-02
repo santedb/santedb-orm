@@ -100,6 +100,10 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Defer constraints
         /// </summary>
-        DeferConstraints
+        DeferConstraints,
+        /// <summary>
+        /// String aggregate
+        /// </summary>
+        StringAggregate
     }
 }

@@ -275,6 +275,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             m_pingDisposalThread.Set();
         }
 
+
         /// <summary>
         /// Flush the write-back cache
         /// </summary>
@@ -399,7 +400,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             conn.ExecuteScalar<object>("PRAGMA pragma_automatic_index=true");
             conn.ExecuteScalar<Object>("PRAGMA locking_mode=normal");
 
-            if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Client) // clients have their check constraints disabled
+            if (ApplicationServiceContext.Current?.HostType == SanteDBHostType.Client) // clients have their check constraints disabled
             {
                 conn.Execute("PRAGMA ignore_check_constraints=ON");
                 conn.Execute("PRAGMA foreign_keys=FALSE");

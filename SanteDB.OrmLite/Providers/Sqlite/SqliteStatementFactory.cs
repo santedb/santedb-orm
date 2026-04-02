@@ -162,6 +162,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     return " (randomblob(16)) ";
                 case SqlKeyword.DeferConstraints:
                     return "DEFERRABLE INITIALLY DEFERRED";
+                case SqlKeyword.StringAggregate:
+                    return " GROUP_CONCAT";
                 default:
                     throw new NotImplementedException();
             }
