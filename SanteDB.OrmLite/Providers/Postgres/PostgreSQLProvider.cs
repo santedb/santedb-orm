@@ -18,7 +18,11 @@
  * User: fyfej
  * Date: 2023-6-21
  */
+using DocumentFormat.OpenXml.Office.PowerPoint.Y2021.M06.Main;
+using Newtonsoft.Json;
 using SanteDB.Core;
+using SanteDB.Core.Data;
+using SanteDB.Core.Data.Query;
 using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Map;
@@ -27,14 +31,20 @@ using SanteDB.Core.Services;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Migration;
 using SanteDB.OrmLite.Providers.Encryptors;
+using SharpCompress.IO;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Tracing;
+using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml.Serialization;
 
 namespace SanteDB.OrmLite.Providers.Postgres
 {
@@ -44,6 +54,61 @@ namespace SanteDB.OrmLite.Providers.Postgres
     [ExcludeFromCodeCoverage] // PostgreSQL is not used in unit testing
     public class PostgreSQLProvider : IDbMonitorProvider, IEncryptedDbProvider, IReportProgressChanged, IDisableConstraintProvider, IDbBackupProvider
     {
+
+        /// <summary>
+        /// Backup manifest - used for re-constructing the database
+        /// </summary>
+        [JsonObject]
+        private class PostgreSQLBackupManifest
+        {
+
+            /// <summary>
+            /// Scopes to be backed up
+            /// </summary>
+            [JsonProperty("scopes")]
+            public List<String> Scopes { get; set; }
+
+            /// <summary>
+            /// Tables to be backed up
+            /// </summary>
+            [JsonProperty("tables")]
+            public List<String> TableNames { get; set; }
+
+            /// <summary>
+            /// ALE certificate
+            /// </summary>
+            [JsonProperty("ale")]
+            public byte[] CertificateBytes { get; set; }
+
+            /// <summary>
+            /// Sequence values for the backup
+            /// </summary>
+            [JsonProperty("sequences")]
+            public Dictionary<String, Int64> Sequences { get; set; }
+
+            /// <summary>
+            /// Save the manifest to the stream
+            /// </summary>
+            internal void Save(Stream str)
+            {
+                using (var jw = new StreamWriter(NonDisposingStream.Create(str)))
+                {
+                    JsonSerializer.Create().Serialize(jw, this);
+                }
+            }
+
+            /// <summary>
+            /// Load the manifest from the stream
+            /// </summary>
+            internal static PostgreSQLBackupManifest Load(Stream str)
+            {
+                using (var jr = new JsonTextReader(new StreamReader(str)))
+                {
+                    return JsonSerializer.Create().Deserialize<PostgreSQLBackupManifest>(jr);
+                }
+            }
+        }
+
         /// <summary>
         /// The number of tries to restore a table before the operation fails. The upper limit should 
         /// be the number of tables since it's possible (though extremely unlikely) a table could depend 
@@ -267,11 +332,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     {
                         parm.Value = dt.ToUniversalTime();
                     }
-                    else if(dt.Kind == DateTimeKind.Utc)
+                    else if (dt.Kind == DateTimeKind.Utc)
                     {
                         parm.Value = dt; // already utc
                     }
-                    
+
                 }
                 else
                 {
@@ -731,41 +796,76 @@ namespace SanteDB.OrmLite.Providers.Postgres
             m_tracer.TraceInfo("Restoring database from stream.");
             m_tracer.TraceUntestedWarning();
 
-            using (var ctx = this.GetWriteConnection())
+            using (var tar = SharpCompress.Readers.Tar.TarReader.Open(restoreStream))
             {
-                ctx.Open();
 
-                if (null == m_ProviderFunctions)
-                    m_ProviderFunctions = new PostgreProviderExtendedFunctions(ctx.Connection.GetType());
-
-                if (null == m_ProviderFunctions || !m_ProviderFunctions.IsSupported)
+                // Load the manifest 
+                if (!tar.MoveToNextEntry() || !tar.Entry.Key.Equals("manifest.json", StringComparison.OrdinalIgnoreCase))
                 {
-                    m_tracer.TraceError("Restore from backup feature is not supported by the provider. Ensure you are using the latest version of npgsql.");
-                    return false;
+                    throw new InvalidOperationException(String.Format(ErrorMessages.INVALID_FORMAT, "NPGSQL Backup", "Must contain manifest.json as first entry"));
                 }
 
-                var pgversion = m_ProviderFunctions.PostgreSqlVersion(ctx.Connection);
+                // Load the manifest
+                var manifest = PostgreSQLBackupManifest.Load(tar.OpenEntryStream());
 
-                if (null == pgversion)
+                // HACK: Does this configuration have ALE enabled in the source?
+                if (manifest.CertificateBytes != null)
                 {
-                    m_tracer.TraceError("Restore from backup feature is not supported by the provider. The server version cannot be determined.");
-                    return false;
+                    this.m_tracer.TraceInfo("Will install certificate settings");
+                    var cert = new X509Certificate2(manifest.CertificateBytes, this.ConnectionString.ComputeMd5Hash(), X509KeyStorageFlags.Exportable | X509KeyStorageFlags.PersistKeySet);
+                    var securityService = X509CertificateUtils.GetPlatformServiceOrDefault();
+                    var ormSettings = this.m_encryptionSettings as OrmAleConfiguration;
+                    if (!securityService.TryGetCertificate(X509FindType.FindByThumbprint, cert.Thumbprint, ormSettings?.Certificate.StoreName ?? StoreName.My, ormSettings?.Certificate.StoreLocation ?? StoreLocation.CurrentUser, out _))
+                    {
+                        if (!securityService.TryInstallCertificate(cert, ormSettings?.Certificate.StoreName ?? StoreName.My, ormSettings?.Certificate.StoreLocation ?? StoreLocation.CurrentUser))
+                        {
+                            throw new InvalidOperationException("Could not restore the ALE encryption certificate");
+                        }
+                    }
                 }
 
-                if (pgversion.Major < 15)
+                // Does this database exist?
+                this.m_tracer.TraceInfo("Migrating schema to match scopes in backup");
+                foreach (var scope in manifest.Scopes)
                 {
-                    m_tracer.TraceError("Restore from backup feature is not supported by the server. PostgreSQL version 15 or later is required to use this feature.");
-                    return false;
+                    this.UpgradeSchema(scope);
                 }
 
-                return RestoreInternal(restoreStream, ctx);
+                using (var ctx = this.GetWriteConnection())
+                {
+                    ctx.Open();
+
+                    if (null == m_ProviderFunctions)
+                        m_ProviderFunctions = new PostgreProviderExtendedFunctions(ctx.Connection.GetType());
+
+                    if (null == m_ProviderFunctions || !m_ProviderFunctions.IsSupported)
+                    {
+                        m_tracer.TraceError("Restore from backup feature is not supported by the provider. Ensure you are using the latest version of npgsql.");
+                        return false;
+                    }
+
+                    var pgversion = m_ProviderFunctions.PostgreSqlVersion(ctx.Connection);
+
+                    if (null == pgversion)
+                    {
+                        m_tracer.TraceError("Restore from backup feature is not supported by the provider. The server version cannot be determined.");
+                        return false;
+                    }
+
+                    if (pgversion.Major < 15)
+                    {
+                        m_tracer.TraceError("Restore from backup feature is not supported by the server. PostgreSQL version 15 or later is required to use this feature.");
+                        return false;
+                    }
+
+                    return RestoreInternal(tar, ctx, manifest);
+                }
             }
         }
 
         private bool BackupInternal(System.IO.Stream destinationStream, DataContext ctx)
         {
             var tablestobackup = GetBackupRestoreTableNames(ctx);
-
             var originalrole = GetSessionReplicationRole(ctx);
 
             m_tracer.TraceInfo("Beginning backup operation.");
@@ -778,29 +878,37 @@ namespace SanteDB.OrmLite.Providers.Postgres
                         SharpCompress.Common.CompressionType.None,
                         true)))
                 {
+
+                    // Write a manifest of all the backup tables and the schemas
+                    var backupManifest = new PostgreSQLBackupManifest()
+                    {
+                        TableNames = tablestobackup,
+                        Scopes = GetBackupRestoreScopes(ctx),
+                        CertificateBytes = this.m_encryptionSettings?.Certificate?.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pkcs12, this.ConnectionString.ComputeMd5Hash()),
+                        Sequences = GetCurrentSequenceValues(ctx).ToDictionary(o => o.Key, o => o.Value)
+                    };
+
+                    using (var ms = new MemoryStream())
+                    {
+                        backupManifest.Save(ms);
+                        ms.Seek(0, SeekOrigin.Begin);
+                        tarwriter.Write("manifest.json", ms, DateTime.Now, ms.Length);
+                    }
+
                     foreach (var table in tablestobackup)
                     {
-                        var tempfilename = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"santedb_backuptemp_{table}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}");
-
-                        try
+                        using (var tmpfs = new TemporaryFileStream())
                         {
-                            using (var tmpfs = new System.IO.FileStream(tempfilename, System.IO.FileMode.Create, System.IO.FileAccess.ReadWrite))
+                            using (var rdr = BeginCopyOut(ctx, table))
                             {
-                                using (var rdr = BeginCopyOut(ctx, table))
-                                {
-                                    rdr.CopyTo(tmpfs);
+                                rdr.CopyTo(tmpfs);
 
-                                    rdr.Close();
+                                rdr.Close();
 
-                                    tmpfs.Seek(0, System.IO.SeekOrigin.Begin);
+                                tmpfs.Seek(0, System.IO.SeekOrigin.Begin);
 
-                                    tarwriter.Write($"tables/{table}.bin", tmpfs, DateTime.Now);
-                                }
+                                tarwriter.Write($"tables/{table}.bin", tmpfs, DateTime.Now);
                             }
-                        }
-                        finally
-                        {
-                            System.IO.File.Delete(tempfilename);
                         }
 
                         m_tracer.TraceInfo("Backed up table '{0}'", table);
@@ -823,186 +931,145 @@ namespace SanteDB.OrmLite.Providers.Postgres
             }
         }
 
+        /// <summary>
+        /// Get the current sequence values 
+        /// </summary>
+        private IEnumerable<KeyValuePair<string, long>> GetCurrentSequenceValues(DataContext ctx)
+        {
+            foreach (var sequence in ctx.Query<String>(new SqlStatement("SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema = 'public'")).ToList())
+            {
+                yield return new KeyValuePair<string, long>(sequence, ctx.ExecuteScalar<Int64>(new SqlStatement($"SELECT LAST_VALUE FROM {sequence}")));
+            }
+        }
+
         private bool TruncateTablesInternal(DataContext ctx, List<string> tablesToTruncate)
         {
             var originalrole = GetSessionReplicationRole(ctx);
-            SetSessionReplicationRole(ctx, "replica");
+            SetSessionReplicationRole(ctx, PostgreSQLReplicationRole.replica);
 
             m_tracer.TraceInfo("Truncate Tables: beginning transaction.");
-            using (var txn = ctx.BeginTransaction())
+            try
+            {
+
+                foreach (var table in tablesToTruncate)
+                {
+                    m_tracer.TraceInfo("Start Truncate Table {0}", table);
+                    ctx.ExecuteNonQuery($"TRUNCATE TABLE \"public\".\"{table}\" CASCADE;");
+                    m_tracer.TraceInfo("End Truncate Table {0}", table);
+                }
+
+                m_tracer.TraceInfo("Truncate Tables: committing transaction.");
+                return true;
+            }
+            catch (DbException dbex)
+            {
                 try
                 {
-
-                    foreach (var table in tablesToTruncate)
-                    {
-                        m_tracer.TraceInfo("Start Truncate Table {0}", table);
-                        ctx.ExecuteNonQuery($"TRUNCATE TABLE \"public\".\"{table}\" CASCADE;");
-                        m_tracer.TraceInfo("End Truncate Table {0}", table);
-                    }
-
-                    m_tracer.TraceInfo("Truncate Tables: committing transaction.");
-                    txn.Commit();
-
-                    return true;
+                    m_tracer.TraceError("Error during truncate tables. Attempting rollback. This operation could take a significant amount of time. Exception: {0}", dbex.ToHumanReadableString());
                 }
-                catch (DbException dbex)
+                catch (DbException dbex2)
                 {
-                    try
-                    {
-                        m_tracer.TraceError("Error during truncate tables. Attempting rollback. This operation could take a significant amount of time. Exception: {0}", dbex.ToHumanReadableString());
-                        txn?.Rollback();
-                    }
-                    catch (DbException dbex2)
-                    {
-                        throw new DataException($"Error during rollback of truncate tables. See inner exception for details. This connection must be closed.\r\nOriginal Exception: {dbex.ToHumanReadableString()}", dbex2);
-                    }
+                    throw new DataException($"Error during rollback of truncate tables. See inner exception for details. This connection must be closed.\r\nOriginal Exception: {dbex.ToHumanReadableString()}", dbex2);
+                }
 
-                    throw new DataException("Failed to truncate tables during restore operation. See inner exception for details.", dbex);
-                }
-                finally
+                throw new DataException("Failed to truncate tables during restore operation. See inner exception for details.", dbex);
+            }
+            finally
+            {
+                try
                 {
-                    try
-                    {
-                        SetSessionReplicationRole(ctx, originalrole);
-                    }
-                    catch { }
+                    SetSessionReplicationRole(ctx, originalrole);
                 }
+                catch { }
+            }
 
         }
 
 
 
-        private bool RestoreInternal(System.IO.Stream sourceStream, DataContext ctx)
+        private bool RestoreInternal(SharpCompress.Readers.Tar.TarReader tar, DataContext ctx, PostgreSQLBackupManifest manifest)
         {
-            var tablestorestore = GetBackupRestoreTableNames(ctx);
 
-            var tmpfolder = System.IO.Path.GetTempPath();
 
-            if (!TruncateTablesInternal(ctx, tablestorestore))
-                return false;
-
-            var originalrole = GetSessionReplicationRole(ctx);
-            
-            using (var txn = ctx.BeginTransaction())
+            using (var txn = ctx.BeginTransaction()) // JF - One transaction for truncate and restore - we want to revert back to a known state if anything fails
+            {
                 try
                 {
-                    SetSessionReplicationRole(ctx, "replica");
+                    DisableAllConstraints(ctx);
+
+                    if (!TruncateTablesInternal(ctx, manifest.TableNames))
+                    {
+                        return false;
+                    }
+                    
+                    var originalrole = GetSessionReplicationRole(ctx);
+                    SetSessionReplicationRole(ctx, PostgreSQLReplicationRole.replica);
                     ctx.ExecuteNonQuery("SET constraints ALL DEFERRED;");
 
-                    var deferredtables = new Queue<System.ValueTuple<string, string, int>>();
+                    // Restore sequence values so they don't collide 
+                    foreach(var seq in GetCurrentSequenceValues(ctx))
+                    {
+                        if (manifest.Sequences?.TryGetValue(seq.Key, out var currentValue) == true) {
+                            ctx.ExecuteNonQuery($"SELECT setval('{seq.Key}', {currentValue}, true)");
+                        }
+                    }
 
                     //Primary restore - copies the tables to temp files and restores immediately.
-                    using(var tar = SharpCompress.Readers.Tar.TarReader.Open(sourceStream))
+                    while (tar.MoveToNextEntry())
                     {
-                        while (tar.MoveToNextEntry())
+                        var entry = tar.Entry;
+                        var tablename = System.IO.Path.GetFileNameWithoutExtension(entry.Key);
+
+                        if (null == tablename)
+                            continue;
+
+                        if (manifest.TableNames.Contains(tablename))
                         {
-                            var entry = tar.Entry;
-                            var tablename = System.IO.Path.GetFileNameWithoutExtension(entry.Key);
+                            m_tracer.TraceInfo("Beginning Restore for table {0}", tablename);
 
-                            if (null == tablename)
-                                continue;
+                            m_ProviderFunctions.TransactionSavepointSave(txn, tablename);
 
-                            if (tablestorestore.Contains(tablename))
+                            using (var tmpfs = new TemporaryFileStream())
                             {
-                                m_tracer.TraceInfo("Beginning Restore for table {0}", tablename);
-
-                                m_ProviderFunctions.TransactionSavepointSave(txn, tablename);
-
-                                var tmpfilename = System.IO.Path.Combine(tmpfolder, $"santedbrestore_{tablename}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.bin");
-                                var deletefile = true;
-
-                                using (var tmpfs = new System.IO.FileStream(tmpfilename, System.IO.FileMode.Create, System.IO.FileAccess.ReadWrite))
+                                using (var entrystream = tar.OpenEntryStream())
                                 {
-                                    using (var entrystream = tar.OpenEntryStream())
-                                    {
-                                        entrystream.CopyTo(tmpfs);
-                                    }
-
-                                    tmpfs.Seek(0, System.IO.SeekOrigin.Begin);
-
-                                    try
-                                    {
-                                        using (var wrtr = BeginCopyIn(ctx, tablename))
-                                        {
-                                            tmpfs.CopyTo(wrtr);
-                                            wrtr.Close();
-                                        }
-                                        m_tracer.TraceInfo("Restored table {0}", tablename);
-                                    }
-                                    catch (DbException)
-                                    {
-                                        m_tracer.TraceInfo("Deferring table {0}", tablename);
-
-                                        m_ProviderFunctions.TransactionSavepointRollback(txn, tablename);
-
-                                        deferredtables.Enqueue(new System.ValueTuple<string, string, int>(tablename, tmpfilename, 1));
-                                        deletefile = false;
-                                    }
+                                    entrystream.CopyTo(tmpfs);
                                 }
 
-                                if (deletefile)
-                                    System.IO.File.Delete(tmpfilename);
+                                tmpfs.Seek(0, System.IO.SeekOrigin.Begin);
 
-                            }
-                            else
-                            {
-                                m_tracer.TraceInfo("Found entry for table {0} which does not exist or is unsuitable for restore in the database.", tablename);
-
-                                //Fast-forward through the entry.
-                                using(var tarstream = tar.OpenEntryStream())
+                                try
                                 {
-                                    tarstream.SkipEntry();
-                                    tarstream.Close();
-                                }
-                            }
-                        }
-                    }
-
-                    while(deferredtables.Count > 0)
-                    {
-                        var entry = deferredtables.Dequeue();
-                        var tablename = entry.Item1;
-                        var tmpfilename = entry.Item2;
-                        var tries = entry.Item3;
-                        var deletefile = true;
-
-                        m_ProviderFunctions.TransactionSavepointSave(txn, tablename);
-
-                        using (var tmpfs = new System.IO.FileStream(tmpfilename, System.IO.FileMode.Open, System.IO.FileAccess.ReadWrite))
-                        {
-                            try
-                            {
-                                using (var wrtr = BeginCopyIn(ctx, tablename))
-                                {
-                                    tmpfs.CopyTo(wrtr);
-                                    wrtr.Close();
-
+                                    using (var wrtr = BeginCopyIn(ctx, tablename))
+                                    {
+                                        tmpfs.CopyTo(wrtr);
+                                        wrtr.Close();
+                                    }
                                     m_tracer.TraceInfo("Restored table {0}", tablename);
                                 }
-                            }
-                            catch (DbException dbex)
-                            {
-                                if (tries > MAX_RESTORE_TRIES)
+                                catch (DbException)
                                 {
-                                    m_tracer.TraceError("Restore failed. Maximum retries exceeded for table {0}", tablename);
-                                    m_tracer.TraceInfo("Rolling back restore transaction. This operation could take a significant amount of time.");
-                                    txn.Rollback();
-                                    throw new DataException("Exception during restore operation. See inner exception for details. The transaction has been rolled back.", dbex);
+                                    m_tracer.TraceInfo("Deferring table {0}", tablename);
+
+                                    m_ProviderFunctions.TransactionSavepointRollback(txn, tablename);
                                 }
+                            }
 
-                                m_tracer.TraceInfo("Deferring table {0}", tablename);
 
-                                m_ProviderFunctions.TransactionSavepointRollback(txn, tablename);
+                        }
+                        else
+                        {
+                            m_tracer.TraceInfo("Found entry for table {0} which does not exist or is unsuitable for restore in the database.", tablename);
 
-                                deferredtables.Enqueue(new System.ValueTuple<string, string, int>(tablename, tmpfilename, tries + 1));
-                                deletefile = false;
+                            //Fast-forward through the entry.
+                            using (var tarstream = tar.OpenEntryStream())
+                            {
+                                tarstream.SkipEntry();
+                                tarstream.Close();
                             }
                         }
-
-                        if (deletefile)
-                            System.IO.File.Delete(tmpfilename);
-
                     }
+                    txn.Commit();
                 }
                 catch (DbException dbex)
                 {
@@ -1018,7 +1085,12 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
                     throw new DataException("Unexpected failure during table restore. See inner exception for details.", dbex);
                 }
+                finally
+                {
+                    EnableAllConstraints(ctx);
+                }
 
+            }
             return true;
         }
 
@@ -1028,11 +1100,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
         private System.IO.Stream BeginCopyOut(DataContext ctx, string tableName)
             => m_ProviderFunctions.BeginRawBinaryCopy(ctx.Connection, $"COPY \"public\".\"{tableName}\" TO STDOUT (FORMAT BINARY);");
 
-        private static string GetSessionReplicationRole(DataContext ctx)
-            => ctx.Query<string>(new SqlStatement("SHOW session_replication_role;"))?.FirstOrDefault();
+        private static PostgreSQLReplicationRole GetSessionReplicationRole(DataContext ctx)
+            => ctx.Query<PostgreSQLReplicationRole>(new SqlStatement("SHOW session_replication_role;"))?.FirstOrDefault() ?? PostgreSQLReplicationRole.origin;
 
-        private static void SetSessionReplicationRole(DataContext ctx, string role)
-            => ctx.ExecuteNonQuery("SET session_replication_role = ?;", role);
+        private static void SetSessionReplicationRole(DataContext ctx, PostgreSQLReplicationRole role)
+            => ctx.ExecuteNonQuery($"SET session_replication_role = {role};"); // HACK: PSQL doesn't like parameterizing SET 
 
         /// <summary>
         /// Retrieves a list of tables which are probably suitable for backup and restore in the database.
@@ -1042,6 +1114,16 @@ namespace SanteDB.OrmLite.Providers.Postgres
         private static List<string> GetBackupRestoreTableNames(DataContext ctx)
         {
             return ctx.Query<string>(new SqlStatement("SELECT table_name FROM information_schema.tables WHERE table_type='BASE TABLE' AND table_schema = 'public';"))?.ToList() ?? new List<string>();
+        }
+
+        /// <summary>
+        /// Retrieves a list of tables which are probably suitable for backup and restore in the database.
+        /// </summary>
+        /// <param name="ctx">The data context to use to retrieve the table names from.</param>
+        /// <returns>A list of bare table names. These tables are in the public schema.</returns>
+        private static List<string> GetBackupRestoreScopes(DataContext ctx)
+        {
+            return ctx.Query<string>(new SqlStatement("SELECT scp FROM mig_scp_systbl;"))?.ToList() ?? new List<string>();
         }
     }
 }

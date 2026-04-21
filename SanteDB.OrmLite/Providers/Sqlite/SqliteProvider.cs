@@ -956,6 +956,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                     conn.Execute("PRAGMA wal_checkpoint(truncate)");
                                 }
                             }
+                            this.m_lockoutEvent.Set(); // Allow other connections to proceed
                             this.ClearPools();
                         }
                         else
@@ -1086,6 +1087,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                     }
                                 }
 
+                                this.m_lockoutEvent.Set(); // Allow connections to proceed
                                 this.ClearPools();
 
                             }

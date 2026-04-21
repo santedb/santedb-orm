@@ -97,6 +97,7 @@ namespace SanteDB.OrmLite.Migration
             {
                 dbName = dbName.Replace("|DataDirectory|", AppDomain.CurrentDomain.GetData("DataDirectory").ToString()).Replace("\\", System.IO.Path.DirectorySeparatorChar.ToString());
             }
+
             if (!configProvider.GetDatabases(connectionString).Any(d => d.Equals(System.IO.Path.GetFileName(dbName), StringComparison.OrdinalIgnoreCase)))
             {
                 try
@@ -141,6 +142,7 @@ namespace SanteDB.OrmLite.Migration
         /// </summary>
         private static void UpgradeSchema(DataContext conn, string scopeOfContext, Action<string, float, string> progressMonitor = null)
         {
+           
             var updates = GetFeatures(conn.Provider.Invariant).OfType<SqlFeature>().Where(o => o.Scope == scopeOfContext).OrderBy(o => o.Id).ToArray();
             int i = 0;
             foreach (var itm in updates.Where(o => o.EnvironmentType == null || o.EnvironmentType.Contains(ApplicationServiceContext.Current.HostType)))
@@ -148,6 +150,17 @@ namespace SanteDB.OrmLite.Migration
                 try
                 {
                     conn.Open(initializeExtensions: false);
+
+                    // CREATE THE MIG_SCP_SYSTBL
+                    try
+                    {
+                        conn.ExecuteNonQuery("CREATE TABLE IF NOT EXISTS MIG_SCP_SYSTBL(SCP VARCHAR(256) NOT NULL, CONSTRAINT PK_MIG_SCP_SYSTBL PRIMARY KEY (SCP));");
+                        conn.ExecuteNonQuery("INSERT INTO MIG_SCP_SYSTBL VALUES (?)", scopeOfContext);
+                    }
+                    catch
+                    {
+                    }
+
                     progressMonitor?.Invoke(nameof(UpgradeSchema), (((float)++i) / updates.Length), String.Format(UserMessages.UPDATE_DATABASE, scopeOfContext));
 
                     if (!conn.IsInstalled(itm))
