@@ -1007,10 +1007,14 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     ctx.ExecuteNonQuery("SET constraints ALL DEFERRED;");
 
                     // Restore sequence values so they don't collide 
-                    foreach(var seq in GetCurrentSequenceValues(ctx))
+                    if (manifest.Sequences != null)
                     {
-                        if (manifest.Sequences?.TryGetValue(seq.Key, out var currentValue) == true) {
-                            ctx.ExecuteNonQuery($"SELECT setval('{seq.Key}', {currentValue}, true)");
+                        foreach (var seq in GetCurrentSequenceValues(ctx))
+                        {
+                            if (manifest.Sequences.TryGetValue(seq.Key, out var currentValue))
+                            {
+                                ctx.ExecuteNonQuery($"SELECT setval('{seq.Key}', {currentValue}, true)");
+                            }
                         }
                     }
 
