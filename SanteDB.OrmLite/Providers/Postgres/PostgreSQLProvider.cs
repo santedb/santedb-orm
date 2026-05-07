@@ -1079,12 +1079,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 }
                 finally
                 {
-                    if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Server)
+                    if (ApplicationServiceContext.Current.HostType != SanteDBHostType.Gateway)
                     {
                         EnableAllConstraints(ctx);
                     }
                 }
-
             }
             return true;
         }
