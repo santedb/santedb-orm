@@ -717,12 +717,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <inheritdoc/>
         public void DisableAllConstraints(DataContext context)
         {
-            // Only the dCDR gateway is allowed to do this
-            if (ApplicationServiceContext.Current.HostType != SanteDBHostType.Gateway)
-            {
-                return;
-            }
-
             context.ExecuteNonQuery("SET CONSTRAINTS ALL DEFERRED");
             // Get all tables
             foreach (var tbl in context.ExecQuery<String>(new SqlStatement("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type <> 'VIEW'")).ToArray())
@@ -734,12 +728,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <inheritdoc/>
         public void EnableAllConstraints(DataContext context)
         {
-            // Only the dCDR gateway is allowed to do this
-            if (ApplicationServiceContext.Current.HostType != SanteDBHostType.Gateway)
-            {
-                return;
-            }
-
             // Get all tables
             foreach (var tbl in context.ExecQuery<String>(new SqlStatement("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type <> 'VIEW'")).ToArray())
             {
@@ -1091,9 +1079,11 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 }
                 finally
                 {
-                    EnableAllConstraints(ctx);
+                    if (ApplicationServiceContext.Current.HostType != SanteDBHostType.Gateway)
+                    {
+                        EnableAllConstraints(ctx);
+                    }
                 }
-
             }
             return true;
         }

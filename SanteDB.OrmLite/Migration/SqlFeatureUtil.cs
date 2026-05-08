@@ -403,7 +403,7 @@ namespace SanteDB.OrmLite.Migration
             var assetFname = backupAsset.Name.Split('#');
             if (assetFname.Length != 2 || !me.Invariant.Equals(assetFname[1]))
             {
-                throw new InvalidOperationException();
+                throw new InvalidOperationException(String.Format(ErrorMessages.ASSERTION_MISMATCH, me.Invariant, assetFname[1]));
             }
             if (me is IDbBackupProvider dbb)
             {
@@ -414,7 +414,7 @@ namespace SanteDB.OrmLite.Migration
             }
             else
             {
-                throw new InvalidOperationException();
+                throw new InvalidOperationException(String.Format(ErrorMessages.ARGUMENT_INCOMPATIBLE_TYPE, typeof(IDbBackupProvider), me.GetType()));
             }
         }
     }
