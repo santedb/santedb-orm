@@ -293,6 +293,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                 {
                     using (var flushConn = base.GetWriteConnectionInternal(false))
                     {
+                        base.ClearPools(); // force clear
+
                         // Prevent other connections from opening on the backend 
                         this.m_lockoutEvent.Reset();
                         flushConn.Open(initializeExtensions: false);
