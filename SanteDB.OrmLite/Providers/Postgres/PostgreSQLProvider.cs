@@ -75,12 +75,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
             public List<String> TableNames { get; set; }
 
             /// <summary>
-            /// ALE certificate
-            /// </summary>
-            [JsonProperty("ale")]
-            public byte[] CertificateBytes { get; set; }
-
-            /// <summary>
             /// Sequence values for the backup
             /// </summary>
             [JsonProperty("sequences")]
@@ -796,22 +790,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 // Load the manifest
                 var manifest = PostgreSQLBackupManifest.Load(tar.OpenEntryStream());
 
-                // HACK: Does this configuration have ALE enabled in the source?
-                if (manifest.CertificateBytes != null)
-                {
-                    this.m_tracer.TraceInfo("Will install certificate settings");
-                    var cert = new X509Certificate2(manifest.CertificateBytes, this.ConnectionString.ComputeMd5Hash(), X509KeyStorageFlags.Exportable | X509KeyStorageFlags.PersistKeySet);
-                    var securityService = X509CertificateUtils.GetPlatformServiceOrDefault();
-                    var ormSettings = this.m_encryptionSettings as OrmAleConfiguration;
-                    if (!securityService.TryGetCertificate(X509FindType.FindByThumbprint, cert.Thumbprint, ormSettings?.Certificate.StoreName ?? StoreName.My, ormSettings?.Certificate.StoreLocation ?? StoreLocation.CurrentUser, out _))
-                    {
-                        if (!securityService.TryInstallCertificate(cert, ormSettings?.Certificate.StoreName ?? StoreName.My, ormSettings?.Certificate.StoreLocation ?? StoreLocation.CurrentUser))
-                        {
-                            throw new InvalidOperationException("Could not restore the ALE encryption certificate");
-                        }
-                    }
-                }
-
                 // Does this database exist?
                 this.m_tracer.TraceInfo("Migrating schema to match scopes in backup");
                 foreach (var scope in manifest.Scopes)
@@ -872,7 +850,6 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     {
                         TableNames = tablestobackup,
                         Scopes = GetBackupRestoreScopes(ctx),
-                        CertificateBytes = this.m_encryptionSettings?.Certificate?.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pkcs12, this.ConnectionString.ComputeMd5Hash()),
                         Sequences = GetCurrentSequenceValues(ctx).ToDictionary(o => o.Key, o => o.Value)
                     };
 

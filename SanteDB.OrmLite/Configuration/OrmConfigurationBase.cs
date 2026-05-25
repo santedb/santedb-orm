@@ -20,10 +20,13 @@
  */
 using SanteDB.Core;
 using SanteDB.Core.Configuration;
+using SanteDB.Core.Security.Configuration;
 using SanteDB.Core.Services;
 using SanteDB.OrmLite.Providers;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Security.Cryptography.X509Certificates;
 using System.Xml.Serialization;
 
 namespace SanteDB.OrmLite.Configuration
@@ -31,7 +34,7 @@ namespace SanteDB.OrmLite.Configuration
     /// <summary>
     /// Represents a base ORM configuration object
     /// </summary>
-    public abstract class OrmConfigurationBase : IEncryptedConfigurationSection
+    public abstract class OrmConfigurationBase : IEncryptedConfigurationSection, ICertificateConfigurationSection
     {
 
         /// <summary>
@@ -110,6 +113,31 @@ namespace SanteDB.OrmLite.Configuration
 
         }
 
+        /// <inheritdoc/>
+        public IEnumerable<KeyValuePair<string, X509ConfigurationElement>> GetCertificates()
+        {
+            if(this.AleConfiguration?.AleEnabled != true)
+            {
+                yield break;
+            }
 
+            var computedAlias = $"ale.{this.GetType().GetSerializationName()}";
+            yield return new KeyValuePair<string, X509ConfigurationElement>(computedAlias, this.AleConfiguration.Certificate);
+        }
+
+        /// <inheritdoc/>
+        public void SetCertificate(string alias, X509ConfigurationElement certificate)
+        {
+            if (this.AleConfiguration == null)
+            {
+                return;
+            }
+
+            var computedAlias = $"ale.{this.GetType().GetSerializationName()}";
+            if(alias.Equals(computedAlias))
+            {
+                this.AleConfiguration.Certificate = certificate;
+            }
+        }
     }
 }
