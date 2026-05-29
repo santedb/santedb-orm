@@ -797,34 +797,49 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     this.UpgradeSchema(scope);
                 }
 
-                using (var ctx = this.GetWriteConnection())
+                try
                 {
-                    ctx.Open();
-
-                    if (null == m_ProviderFunctions)
-                        m_ProviderFunctions = new PostgreProviderExtendedFunctions(ctx.Connection.GetType());
-
-                    if (null == m_ProviderFunctions || !m_ProviderFunctions.IsSupported)
+                    using (var ctx = this.GetWriteConnection())
                     {
-                        m_tracer.TraceError("Restore from backup feature is not supported by the provider. Ensure you are using the latest version of npgsql.");
-                        return false;
+                        ctx.Open();
+
+                        if (null == m_ProviderFunctions)
+                            m_ProviderFunctions = new PostgreProviderExtendedFunctions(ctx.Connection.GetType());
+
+                        if (null == m_ProviderFunctions || !m_ProviderFunctions.IsSupported)
+                        {
+                            m_tracer.TraceError("Restore from backup feature is not supported by the provider. Ensure you are using the latest version of npgsql.");
+                            return false;
+                        }
+
+                        var pgversion = m_ProviderFunctions.PostgreSqlVersion(ctx.Connection);
+
+                        if (null == pgversion)
+                        {
+                            m_tracer.TraceError("Restore from backup feature is not supported by the provider. The server version cannot be determined.");
+                            return false;
+                        }
+
+                        if (pgversion.Major < 15)
+                        {
+                            m_tracer.TraceError("Restore from backup feature is not supported by the server. PostgreSQL version 15 or later is required to use this feature.");
+                            return false;
+                        }
+
+                        return RestoreInternal(tar, ctx, manifest);
                     }
-
-                    var pgversion = m_ProviderFunctions.PostgreSqlVersion(ctx.Connection);
-
-                    if (null == pgversion)
+                }
+                finally
+                {
+                    if (ApplicationServiceContext.Current.HostType != SanteDBHostType.Gateway)
                     {
-                        m_tracer.TraceError("Restore from backup feature is not supported by the provider. The server version cannot be determined.");
-                        return false;
+                        // Prevents the "Transaction Has Been Disposed error
+                        using (var ctx = this.GetWriteConnection())
+                        {
+                            ctx.Open();
+                            EnableAllConstraints(ctx);
+                        }
                     }
-
-                    if (pgversion.Major < 15)
-                    {
-                        m_tracer.TraceError("Restore from backup feature is not supported by the server. PostgreSQL version 15 or later is required to use this feature.");
-                        return false;
-                    }
-
-                    return RestoreInternal(tar, ctx, manifest);
                 }
             }
         }
@@ -926,7 +941,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                 m_tracer.TraceInfo("Truncate Tables: committing transaction.");
                 return true;
             }
-            catch (DbException dbex)
+            catch (Exception dbex)
             {
                 try
                 {
@@ -950,12 +965,8 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
         }
 
-
-
         private bool RestoreInternal(SharpCompress.Readers.Tar.TarReader tar, DataContext ctx, PostgreSQLBackupManifest manifest)
         {
-
-
             using (var txn = ctx.BeginTransaction()) // JF - One transaction for truncate and restore - we want to revert back to a known state if anything fails
             {
                 try
@@ -1038,6 +1049,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                             }
                         }
                     }
+                   
                     txn.Commit();
                 }
                 catch (DbException dbex)
@@ -1054,13 +1066,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
                     throw new DataException("Unexpected failure during table restore. See inner exception for details.", dbex);
                 }
-                finally
-                {
-                    if (ApplicationServiceContext.Current.HostType != SanteDBHostType.Gateway)
-                    {
-                        EnableAllConstraints(ctx);
-                    }
-                }
+                
             }
             return true;
         }
