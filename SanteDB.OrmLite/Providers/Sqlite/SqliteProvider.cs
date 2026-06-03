@@ -956,6 +956,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                     conn.Execute("PRAGMA wal_checkpoint(truncate)");
                                 }
                             }
+                            this.m_lockoutEvent.Set(); // Allow other connections to proceed
                             this.ClearPools();
                         }
                         else
@@ -1040,14 +1041,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             var password = cstr.GetComponent("password");
                             var destinationFile = Path.Combine(Path.GetDirectoryName(productionFile), Path.GetFileName(assetName));
 
-                            foreach(var file in new String[] { destinationFile, $"{destinationFile}-shm", $"{destinationFile}-wal" })
+                            foreach (var file in new String[] { destinationFile, $"{destinationFile}-shm", $"{destinationFile}-wal" })
                             {
-                                if(File.Exists(file))
+                                if (File.Exists(file))
                                 {
                                     File.Delete(file);
                                 }
                             }
-                            
+
 
                             if (String.IsNullOrEmpty(password))
                             {
@@ -1086,6 +1087,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                                     }
                                 }
 
+                                this.m_lockoutEvent.Set(); // Allow connections to proceed
                                 this.ClearPools();
 
                             }
@@ -1184,20 +1186,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         public virtual void InitializeConnection(IDbConnection conn)
         {
 
-            if (ApplicationServiceContext.Current?.HostType == SanteDBHostType.Client)
-            {
-                conn.Execute("PRAGMA journal_mode=MEMORY");
-                conn.Execute("PRAGMA synchronous=OFF");
-                conn.Execute("PRAGMA temp_store=MEMORY");
-                conn.Execute("PRAGMA ignore_check_constraints=ON");
-                conn.Execute("PRAGMA recursive_triggers=OFF");
-                conn.Execute("PRAGMA foreign_keys=FALSE");
-            }
-            else
-            {
-                conn.Execute("PRAGMA journal_mode=WAL");
-                conn.ExecuteScalar<Object>("PRAGMA synchronous=normal");
-            }
+            conn.Execute("PRAGMA journal_mode=MEMORY");
+            conn.Execute("PRAGMA synchronous=OFF");
+            conn.Execute("PRAGMA temp_store=MEMORY");
+            conn.Execute("PRAGMA ignore_check_constraints=ON");
+            conn.Execute("PRAGMA recursive_triggers=OFF");
+            conn.Execute("PRAGMA foreign_keys=FALSE");
 
             conn.ExecuteScalar<Object>("PRAGMA locking_mode=normal");
             conn.ExecuteScalar<object>("PRAGMA pragma_automatic_index=true");

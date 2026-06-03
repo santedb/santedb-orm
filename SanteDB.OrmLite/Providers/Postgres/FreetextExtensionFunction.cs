@@ -44,6 +44,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         public SqlStatementBuilder CreateSqlStatement(SqlStatementBuilder current, string filterColumn, string[] parms, string operand, Type operandType)
         {
 
+            object aleSafeParm = parms[0];
             if (parms.Length == 1)
             {
                 if (!String.IsNullOrEmpty(parms[0]))
@@ -53,11 +54,32 @@ namespace SanteDB.OrmLite.Providers.Postgres
                         case "ent_id": // entity search
                         case "src_ent_id":
                         case "trg_ent_id":
-                            return current.Append($"{filterColumn} IN (SELECT ent_id FROM ft_ent_systbl WHERE terms @@ fti_tsquery(?))", QueryBuilder.CreateParameterValue(parms[0], typeof(String)));
+                            {
+                                if (
+                                    current.DbProvider is IEncryptedDbProvider e &&
+                                    e.GetEncryptionProvider().TryGetEncryptionMode("entity.identifier", out var encryptionMode) &&
+                                    encryptionMode != Configuration.OrmAleMode.Off
+                                )
+                                {
+                                    _ = e.GetEncryptionProvider().TryEncrypt(encryptionMode, aleSafeParm, out aleSafeParm);
+                                }
+                                aleSafeParm = QueryBuilder.CreateParameterValue(aleSafeParm, typeof(String));
+                                return current.Append($"{filterColumn} IN (SELECT ent_id FROM ft_ent_systbl WHERE terms @@ fti_tsquery(?) OR terms @@ fti_tsquery(?) UNION SELECT ent_id FROM ent_id_tbl WHERE id_val = ?)", QueryBuilder.CreateParameterValue(parms[0], typeof(String)), aleSafeParm, aleSafeParm);
+                            }
                         case "act_id": // act search
                         case "src_act_id":
                         case "trg_act_id":
-                            return current.Append($"{filterColumn} IN (SELECT act_id FROM ft_act_systbl WHERE terms @@ fti_tsquery(?))", QueryBuilder.CreateParameterValue(parms[0], typeof(String)));
+                            {
+                                if (
+                                   current.DbProvider is IEncryptedDbProvider e &&
+                                   e.GetEncryptionProvider().TryGetEncryptionMode("act.identifier", out var encryptionMode) &&
+                                   encryptionMode != Configuration.OrmAleMode.Off
+                               )
+                                {
+                                    _ = e.GetEncryptionProvider().TryEncrypt(encryptionMode, aleSafeParm, out aleSafeParm);
+                                }
+                                return current.Append($"{filterColumn} IN (SELECT act_id FROM ft_act_systbl WHERE terms @@ fti_tsquery(?) OR terms @@ fti_tsquery(?)  UNION SELECT act_id FROM act_id_tbl WHERE id_val = ?)", QueryBuilder.CreateParameterValue(parms[0], typeof(String)), aleSafeParm, aleSafeParm);
+                            }
                         case "cd_id": // code search
                         case "src_cd_id": // code search
                         case "trg_cd_id": // code search

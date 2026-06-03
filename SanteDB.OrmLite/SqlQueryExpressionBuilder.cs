@@ -362,6 +362,29 @@ namespace SanteDB.OrmLite
                             }
                         }
                     }
+                    else if(typeof(IList).IsAssignableFrom(node.Method.DeclaringType))
+                    {
+                        Expression enumerable = node.Object,
+                            contained = node.Arguments[0];
+                        var value = this.GetConstantValue(enumerable);
+                        if (value is IEnumerable enumerableValue)
+                        {
+                            if (enumerableValue.OfType<Object>().Count() == 0)
+                            {
+                                this.m_sqlStatement.Append(this.m_statementFactory.CreateSqlKeyword(SqlKeyword.False));
+                            }
+                            else
+                            {
+                                this.Visit(contained);
+                                this.m_sqlStatement.Append(" IN (");
+
+                                this.m_sqlStatement.Append(String.Join(",", enumerableValue.OfType<Object>().Select(o => "?")), enumerableValue.OfType<Object>().ToArray());
+
+                                this.m_sqlStatement.Append(")");
+                            }
+                        }
+
+                    }
                     else if (node.Method.DeclaringType == typeof(String)) // is a STRING contains()
                     {
                         this.Visit(node.Object);

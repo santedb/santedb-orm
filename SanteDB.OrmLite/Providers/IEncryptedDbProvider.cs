@@ -57,5 +57,6 @@ namespace SanteDB.OrmLite.Providers
         /// Migrate the encryption
         /// </summary>
         void MigrateEncryption(IOrmEncryptionSettings ormEncryptionSettings);
+
     }
 }

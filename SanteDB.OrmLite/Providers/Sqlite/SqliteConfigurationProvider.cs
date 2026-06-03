@@ -22,6 +22,7 @@ using SanteDB.Core;
 using SanteDB.Core.Configuration;
 using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.Diagnostics;
+using SanteDB.OrmLite.Attributes;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -34,6 +35,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     /// <summary>
     /// SQLite Writeback mode configuration provider
     /// </summary>
+    [HideProviderInConfigTool]
     public class SqliteWritebackConfigurationProvider : SqliteConfigurationProvider
     {
 

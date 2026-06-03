@@ -36,12 +36,12 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <summary>
         /// Max ticks between a flush
         /// </summary>
-        private const long MAX_TICKS_BETWEEN_FLUSH = TimeSpan.TicksPerSecond * 60;
+        private const long MAX_TICKS_BETWEEN_FLUSH = TimeSpan.TicksPerSecond * 15;
 
         /// <summary>
         /// Maximum flush requests
         /// </summary>
-        private const int MAX_FLUSH_REQUESTS = 30;
+        private const int MAX_FLUSH_REQUESTS = 5;
 
         /// <summary>
         /// Tracer
@@ -193,11 +193,11 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                             }
                             catch
                             {
-                                context.Dispose(); // We couldn't initialize - to dispose the connection
                                 throw;
                             }
                             finally
                             {
+                                context.Dispose(); // We couldn't initialize - to dispose the connection
                                 this.m_lockoutEvent.Set();
                             }
                             m_initializedWritebackCaches.TryAdd(databaseName, schemaObjects);
@@ -275,6 +275,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             m_pingDisposalThread.Set();
         }
 
+
         /// <summary>
         /// Flush the write-back cache
         /// </summary>
@@ -286,13 +287,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             if (m_initializedWritebackCaches.TryGetValue(base.GetDatabaseName(), out var dbSchemaObjects) && dbSchemaObjects != null && (force || waitingFlushRequests > MAX_FLUSH_REQUESTS || waitingFlushRequests > 0 && ticksSinceLastWrite > MAX_TICKS_BETWEEN_FLUSH)) // There were changes
             {
                 this.m_tracer.TraceInfo("Flushing Writeback to Disk for {0}", this.GetDatabaseName());
-                Interlocked.Exchange(ref this.m_writebackCacheFlushRequests, 0);
 
                 this.m_lockoutEvent.Wait(); // Allow the underlying Sqlite provider to prevent us from opening the disk connection
                 try
                 {
                     using (var flushConn = base.GetWriteConnectionInternal(false))
                     {
+                        base.ClearPools(); // force clear
+
                         // Prevent other connections from opening on the backend 
                         this.m_lockoutEvent.Reset();
                         flushConn.Open(initializeExtensions: false);
@@ -317,6 +319,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                     this.m_tracer.TraceInfo("Writeback has been flushed to {0}", this.GetDatabaseName());
                     Interlocked.Exchange(ref this.m_lastWritebackFlush, DateTimeOffset.Now.Ticks);
+                    Interlocked.Exchange(ref this.m_writebackCacheFlushRequests, 0);
+
                 }
                 finally
                 {
@@ -341,7 +345,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             {
                 var connection = this.GetProviderFactory().CreateConnection();
                 connection.ConnectionString = this.GetCacheConnectionString(true);
-                return new DataContext(this, connection);
+                return new DataContext(this, connection, true);
             }
             else
             {
@@ -398,7 +402,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             conn.ExecuteScalar<object>("PRAGMA pragma_automatic_index=true");
             conn.ExecuteScalar<Object>("PRAGMA locking_mode=normal");
 
-            if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Client) // clients have their check constraints disabled
+            if (ApplicationServiceContext.Current?.HostType == SanteDBHostType.Client) // clients have their check constraints disabled
             {
                 conn.Execute("PRAGMA ignore_check_constraints=ON");
                 conn.Execute("PRAGMA foreign_keys=FALSE");

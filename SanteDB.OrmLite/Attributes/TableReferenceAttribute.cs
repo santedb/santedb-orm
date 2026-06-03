@@ -23,18 +23,39 @@ using System.Linq;
 
 namespace SanteDB.OrmLite.Attributes
 {
+
     /// <summary>
-    /// Represents a foreign key
+    /// Reference attribute to another table
     /// </summary>
-    [AttributeUsage(AttributeTargets.Property)]
-    public class ForeignKeyAttribute : TableReferenceAttribute
+    public abstract class TableReferenceAttribute : Attribute
     {
         /// <summary>
-        /// Creates a new foreign key attribute
+        /// Creata a new table reference attribute
         /// </summary>
-        public ForeignKeyAttribute(Type table, String column) : base(table, column)
+        protected TableReferenceAttribute(Type table, String column)
         {
+            this.Table = table;
+            this.Column = column;
         }
 
+        /// <summary>
+        /// Gets or sets the table to which the key applies
+        /// </summary>
+        public Type Table { get; set; }
+
+        /// <summary>
+        /// Gets or sets the column to which the key applies
+        /// </summary>
+        public String Column { get; set; }
+
+        /// <summary>
+        /// Returns TRUE if this foreign key can be fulfilled by a join on <paramref name="otherTable"/>
+        /// </summary>
+        /// <param name="otherTable">The other table</param>
+        internal bool CanQueryFrom(Type otherTable)
+        {
+            return this.Table == otherTable ||
+                TableMapping.Get(otherTable).Columns.Any(c => c.ForeignKey != null && c.ForeignKey.Table == this.Table);
+        }
     }
 }

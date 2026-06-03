@@ -18,12 +18,14 @@
  * User: fyfej
  * Date: 2023-6-21
  */
+using SanteDB.Core;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model;
 using SanteDB.Core.Model.Attributes;
 using SanteDB.Core.Model.Interfaces;
 using SanteDB.Core.Model.Map;
 using SanteDB.Core.Model.Query;
+using SanteDB.Core.Model.Serialization;
 using SanteDB.OrmLite.Attributes;
 using SanteDB.OrmLite.Configuration;
 using SanteDB.OrmLite.Providers;
@@ -208,6 +210,7 @@ namespace SanteDB.OrmLite
         private readonly ModelMapper m_mapper;
         private readonly IDbStatementFactory m_factory;
         private readonly IDbEncryptor m_encryptionProvider;
+        private readonly ModelSerializationBinder m_modelSerializationBinder = new ModelSerializationBinder();
 
         /// <summary>
         /// Provider
@@ -697,15 +700,28 @@ namespace SanteDB.OrmLite
                                     linkColumn = tableMapping.GetColumn(domainProperty);
                                 }
 
-                                var fkTableDef = parentScopedTables?.FirstOrDefault(o => o.OrmType == linkColumn.ForeignKey.Table) ?? TableMapping.Get(linkColumn.ForeignKey.Table);
-                                var fkColumnDef = fkTableDef.GetColumn(linkColumn.ForeignKey.Column);
+                                // Does the link column hae a foreign key?
+                                TableReferenceAttribute fkAttribute = linkColumn.ForeignKey;
+                                if(fkAttribute == null && !String.IsNullOrEmpty(propertyPredicate.CastAs))
+                                {
+                                    var mappedCast = this.m_mapper.MapModelType(this.m_modelSerializationBinder.BindToType("SanteDB.Core.Model", propertyPredicate.CastAs));
+                                    fkAttribute = linkColumn.GetWeakReference(mappedCast);
+                                }
+
+                                if(fkAttribute == null)
+                                {
+                                    throw new InvalidOperationException(ErrorMessages.MAP_EXPRESSION_NOT_POSSIBLE);
+                                }
+
+                                var fkTableDef = parentScopedTables?.FirstOrDefault(o => o.OrmType == fkAttribute.Table) ?? TableMapping.Get(fkAttribute.Table);
+                                var fkColumnDef = fkTableDef.GetColumn(fkAttribute.Column);
                                 var prefix = IncrementSubQueryAlias(tablePrefix);
 
                                 // Create the sub-query
                                 //var genMethod = typeof(QueryBuilder).GetGenericMethod("CreateQuery", new Type[] { subProp.PropertyType }, new Type[] { subQuery.GetType(), typeof(ColumnMapping[]) });
                                 //SqlStatement subQueryStatement = genMethod.Invoke(this, new Object[] { subQuery, new ColumnMapping[] { fkColumnDef } }) as SqlStatement;
                                 SqlStatementBuilder subQueryStatement = null;
-                                var fkTypeDisagreement = fkTableDef.OrmType != this.m_mapper.MapModelType(subProp.PropertyType);
+                                var fkTypeDisagreement = fkTableDef.OrmType != this.m_mapper.MapModelType(subProp.PropertyType, false);
                                 var subSkipJoins = subQuery.Count(o => !o.Key.Contains(".") && o.Key != "obsoletionTime") == 0 && !fkTypeDisagreement;
                                 if (String.IsNullOrEmpty(propertyPredicate.CastAs))
                                 {
@@ -713,7 +729,7 @@ namespace SanteDB.OrmLite
                                 }
                                 else // we need to cast!
                                 {
-                                    var castAsType = new SanteDB.Core.Model.Serialization.ModelSerializationBinder().BindToType("SanteDB.Core.Model", propertyPredicate.CastAs);
+                                    var castAsType = this.m_modelSerializationBinder.BindToType("SanteDB.Core.Model", propertyPredicate.CastAs);
                                     subQueryStatement = this.CreateQuery(castAsType, subQuery.ToParameterDictionary(), prefix, false, scopedTables, new ColumnMapping[] { fkColumnDef });
                                 }
 
@@ -917,7 +933,7 @@ namespace SanteDB.OrmLite
                     switch (sValue[0])
                     {
                         case ':': // function
-                            if (isEncrypted)
+                            if (isEncrypted && ApplicationServiceContext.Current.HostType == SanteDBHostType.Server)
                             {
                                 throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
                             }
@@ -958,7 +974,7 @@ namespace SanteDB.OrmLite
                             }
                             else
                             {
-                                retVal.Append($" = ? ", CreateParameterValue(sValue, domainProperty.PropertyType));
+                                retVal.Append($" = ? ", CreateParameterValue(isEncrypted ? eValue : sValue, domainProperty.PropertyType));
                             }
 
                             break;
@@ -1043,10 +1059,20 @@ namespace SanteDB.OrmLite
                         case '~':
                             if (isEncrypted)
                             {
-                                throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
+                                if (ApplicationServiceContext.Current.HostType == SanteDBHostType.Server)
+                                {
+                                    throw new NotSupportedException(ErrorMessages.FILTER_ENCRYPTED_FIELD);
+                                }
+                                else
+                                {
+                                    eValue = this.m_encryptionProvider.CreateQueryValue(aleMode, itm.ToString().Substring(1));
+                                    retVal.Append($" = ? ", CreateParameterValue(eValue, domainProperty.PropertyType));
+                                }
                             }
-
-                            retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} ? ", CreateParameterValue($"%{sValue.Substring(1)}%", domainProperty.PropertyType));
+                            else
+                            {
+                                retVal.Append($" {this.m_factory.CreateSqlKeyword(SqlKeyword.ILike)} ? ", CreateParameterValue($"%{sValue.Substring(1)}%", domainProperty.PropertyType));
+                            }
                             break;
 
                         case '^':

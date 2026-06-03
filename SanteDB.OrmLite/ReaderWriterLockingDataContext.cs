@@ -18,12 +18,17 @@
  * User: fyfej
  * Date: 2024-6-21
  */
+using DocumentFormat.OpenXml.Office2010.ExcelAc;
+using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
 using SanteDB.OrmLite.Diagnostics;
 using SanteDB.OrmLite.Providers;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 
 namespace SanteDB.OrmLite
@@ -33,6 +38,30 @@ namespace SanteDB.OrmLite
     /// </summary>
     public class ReaderWriterLockingDataContext : DataContext
     {
+
+        private Tracer m_tracer = Tracer.GetTracer(typeof(ReaderWriterLockingDataContext));
+
+#if DEBUG
+        private class LockHolderDebug
+        {
+            public LockHolderDebug()
+            {
+                this.ManagedThreadId = Thread.CurrentThread.ManagedThreadId;
+                this.LockHoldTicks = DateTime.Now.Ticks;
+                this.OwnerStack = new StackTrace(true);
+            }
+
+            public int ManagedThreadId { get; private set; }
+
+            public StackTrace OwnerStack { get; private set; }
+
+            public long LockHoldTicks { get; private set; }
+
+            public override string ToString() => $"[Thread={this.ManagedThreadId}, Time={(DateTime.Now.Ticks - this.LockHoldTicks) / TimeSpan.TicksPerSecond}s, Stack={this.OwnerStack}]";
+        }
+
+        private readonly ConcurrentStack<LockHolderDebug> m_writeLockHolder = new ConcurrentStack<LockHolderDebug>();
+#endif 
 
         /// <summary>
         /// READ lock timeout
@@ -135,20 +164,45 @@ namespace SanteDB.OrmLite
                     }
                     if (!locker.TryEnterWriteLock(WRITE_LOCK_TIMEOUT))
                     {
+#if DEBUG
+                        if(this.m_writeLockHolder.Any())
+                        {
+                            this.m_tracer.TraceError("Deadlock detected - {0} - {1}", this.m_databaseName, this.m_writeLockHolder.First());
+                        }
+#endif 
                         throw new InvalidOperationException(ErrorMessages.WRITE_LOCK_UNAVAILABLE);
                     }
+#if DEBUG
+                    else
+                    {
+                        this.m_writeLockHolder.Push(new LockHolderDebug());
+                        this.m_tracer.TraceVerbose(">> Enter Lock on {0} - {1}", this.m_databaseName, Thread.CurrentThread.ManagedThreadId);
+                    }
+#endif 
                 }
 
 
                 if (!base.Open(initializeExtensions))
                 {
-                    if (locker.IsReadLockHeld)
+                    this.m_tracer.TraceWarning("Could not open underlying connection to {0} - releasing lock", this.m_databaseName);
+                    while (locker.IsReadLockHeld)
                     {
                         locker.ExitReadLock();
                     }
-                    if (locker.IsWriteLockHeld)
+                    while (locker.IsWriteLockHeld)
                     {
                         locker.ExitWriteLock();
+#if DEBUG
+                        if (this.m_writeLockHolder.TryPop(out var rs))
+                        {
+                            this.m_tracer.TraceVerbose("<< Exit Lock on {0} - {1}", this.m_databaseName, rs.ManagedThreadId);
+                        }
+                        else if(locker.IsWriteLockHeld)
+                        {
+                            this.m_tracer.TraceWarning("!! Lock Stack Doesn't Match Locks Held");
+                        }
+#endif
+
                     }
                     return false;
                 }
@@ -174,7 +228,7 @@ namespace SanteDB.OrmLite
         /// <inheritdoc/>
         public override void Close()
         {
-            this.EnsureLockRelease();
+            this.EnsureLockRelease(releaseAll: true);
             base.Close();
         }
 
@@ -192,6 +246,16 @@ namespace SanteDB.OrmLite
             while(locker.IsWriteLockHeld)
             {
                 locker.ExitWriteLock();
+#if DEBUG
+                if (this.m_writeLockHolder.TryPop(out var rs))
+                {
+                    this.m_tracer.TraceVerbose("<< Exit Lock on {0} - {1}", this.m_databaseName, rs.ManagedThreadId);
+                }
+                else if (locker.IsWriteLockHeld)
+                {
+                    this.m_tracer.TraceWarning("!! Lock Stack Doesn't Match Locks Held");
+                }
+#endif 
                 if (!releaseAll) break;
             }
         }
@@ -205,7 +269,6 @@ namespace SanteDB.OrmLite
             }
             finally
             {
-                
                 this.EnsureLockRelease(releaseAll: true);
             }
         }
