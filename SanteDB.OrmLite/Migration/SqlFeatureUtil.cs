@@ -315,8 +315,24 @@ namespace SanteDB.OrmLite.Migration
                 {
                     cmd.CommandText = preConditionSql;
                     cmd.CommandType = System.Data.CommandType.Text;
-                    if ((bool?)cmd.ExecuteScalar() != true) // can't install
+                    try
                     {
+                        if ((bool?)cmd.ExecuteScalar() != true) // can't install
+                        {
+                            if (migration.Required)
+                            {
+                                throw new ConstraintException($"Pre-check for required {migration.Id} failed");
+                            }
+                            else
+                            {
+                                return true; // skip
+                            }
+                        }
+                    }
+                    catch(System.Data.Common.DbException dbex)
+                    {
+                        m_traceSource.TraceWarning("Exception when executing pre-check SQL. This could indicate an error. {0}", dbex);
+
                         if (migration.Required)
                         {
                             throw new ConstraintException($"Pre-check for required {migration.Id} failed");
