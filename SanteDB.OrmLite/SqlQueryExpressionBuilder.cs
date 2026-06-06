@@ -325,7 +325,12 @@ namespace SanteDB.OrmLite
                 case "Contains":
 
                     // Determine the defining type
+#if NET10_0_OR_GREATER
+                    if (node.Method.DeclaringType == typeof(Enumerable) || node.Method.DeclaringType == typeof(System.MemoryExtensions)) // is a LINQ CONTAINS()
+#else
                     if (node.Method.DeclaringType == typeof(Enumerable)) // is a LINQ CONTAINS()
+#endif
+
                     {
                         Expression enumerable = node.Arguments[0],
                             contained = node.Arguments[1];
@@ -489,6 +494,10 @@ namespace SanteDB.OrmLite
                         default:
                             throw new NotSupportedException();
                     }
+#if NET10_0_OR_GREATER
+                case MethodCallExpression mce when mce.Method.IsSpecialName && mce.Method.Name == "op_Implicit" && mce.Arguments.Count == 1:
+                    return this.GetConstantValue(mce.Arguments.First());
+#endif
                 default:
                     throw new InvalidOperationException($"Expression {expression} not supported for constant extraction");
             }
