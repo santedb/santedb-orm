@@ -335,7 +335,7 @@ namespace SanteDB.OrmLite
                         if (value is IOrmResultSet orm)
                         {
                             // Append the SQL statement with an IN
-                            if (orm.ElementType != typeof(Guid))
+                            if (orm.ElementType.StripNullable() != typeof(Guid))
                             {
                                 orm = orm.Keys<Guid>();
                             }
@@ -353,16 +353,25 @@ namespace SanteDB.OrmLite
                             }
                             else
                             {
-                                this.Visit(contained);
-                                this.m_sqlStatement.Append(" IN (");
+                                // We split IN commands to 100 count chunks so we don't confuse the query planner
+                                this.m_sqlStatement.Append("(");
+                                var ofs = 0;
+                                var enumerableData = enumerableValue.OfType<Object>().ToArray();
 
-                                this.m_sqlStatement.Append(String.Join(",", enumerableValue.OfType<Object>().Select(o => "?")), enumerableValue.OfType<Object>().ToArray());
-
-                                this.m_sqlStatement.Append(")");
+                                while (ofs < enumerableData.Length)
+                                {
+                                    this.Visit(contained);
+                                    this.m_sqlStatement.Append(" IN (");
+                                    this.m_sqlStatement.Append(String.Join(",", enumerableData.Skip(ofs).Take(100).Select(o => "?")), enumerableData.Skip(ofs).Take(100).ToArray());
+                                    this.m_sqlStatement.Append(")");
+                                    this.m_sqlStatement.Append(" OR ");
+                                    ofs += 100;
+                                }
+                                this.m_sqlStatement.RemoveLast(out _).Append(")");
                             }
                         }
                     }
-                    else if(typeof(IList).IsAssignableFrom(node.Method.DeclaringType))
+                    else if (typeof(IList).IsAssignableFrom(node.Method.DeclaringType))
                     {
                         Expression enumerable = node.Object,
                             contained = node.Arguments[0];
