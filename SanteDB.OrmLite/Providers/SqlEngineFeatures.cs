@@ -96,6 +96,6 @@ namespace SanteDB.OrmLite.Providers
         /// <summary>
         /// Can generate primary key sequences
         /// </summary>
-        AuditGeneratePrimaryKeySequences = 0x8000
+        AutoGeneratePrimaryKeySequences = 0x8000
     }
 }

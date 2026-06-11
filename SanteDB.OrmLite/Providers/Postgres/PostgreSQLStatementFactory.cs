@@ -85,7 +85,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
                     SqlEngineFeatures.FetchOffset |
                     SqlEngineFeatures.MustNameSubQuery |
                     SqlEngineFeatures.AutoGenerateSequences |
-                    SqlEngineFeatures.AuditGeneratePrimaryKeySequences |
+                    SqlEngineFeatures.AutoGeneratePrimaryKeySequences |
                     SqlEngineFeatures.SetTimeout |
                     SqlEngineFeatures.MaterializedViews |
                     SqlEngineFeatures.Cascades |

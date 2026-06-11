@@ -34,11 +34,14 @@ namespace SanteDB.OrmLite.Providers.Sqlite
     public class SqliteStatementFactory : IDbStatementFactory
     {
 
+        // Get next sequence lock
+        private object m_getNextSequenceLock = new object();
+
         // Sequence lock value
-        private int m_sequenceLock = 0;
+        private uint m_sequenceLock = 0;
 
         // Offset of the sequence lock
-        private int m_offsetLock = 0;
+        private uint m_offsetLock = 0;
 
         // Filter functions
         private static readonly ConcurrentDictionary<string, IDbFilterFunction> s_filterFunctions;
@@ -71,7 +74,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         public SqliteStatementFactory(SqliteProvider sqliteProvider)
         {
-            this.m_offsetLock = (int)DateTimeOffset.Now.Subtract(new DateTime(2025, 01, 01)).TotalSeconds;
+            this.m_offsetLock = (uint)DateTimeOffset.Now.Subtract(new DateTime(2025, 01, 01)).TotalMinutes;
             this.Provider = sqliteProvider;
         }
 
@@ -96,7 +99,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                     SqlEngineFeatures.ReturnedUpdatesAsReader |
                     SqlEngineFeatures.StrictSubQueryColumnNames |
                     SqlEngineFeatures.AutoGenerateGuids |
-                    SqlEngineFeatures.AuditGeneratePrimaryKeySequences;
+                    SqlEngineFeatures.AutoGeneratePrimaryKeySequences;
             }
         }
 
@@ -190,9 +193,19 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// <inheritdoc/>
         public SqlStatement GetNextSequenceValue(string sequenceName)
         {
-            // Move the "seconds" from epoch up to the upper half of a long and then placethe current sequence lock into the lower 32 bits
-            var sequence = ((ulong)m_offsetLock << 32) | (uint)Interlocked.Increment(ref this.m_sequenceLock); 
-            return new SqlStatement(sequence.ToString());  // new SqlStatement($"SELECT COALESCE(MAX(ROWID), 0) + 1 FROM {sequenceName.Sanitize()}");
+            // Move the "minutes" from epoch up to the upper half of a long and then placethe current sequence lock into the lower 16 bits
+            // JF: This algorithm has changed to deal with JavaScript maxing out at 53 bit whole numbers - the new algorithm is
+            // 0000 0000 EEEE EEEE EEEE EEEE EEEE EEEE EEEE EEEE CCCC CCCC CCCC CCCC CCCC CCCC
+            lock (this.m_getNextSequenceLock)
+            {
+                var increment = this.m_sequenceLock++;
+                if (increment == 0xFF_FFFF) // 24-bit number maximum -> we jump our total minutes since start 
+                {
+                    this.m_offsetLock = (uint)DateTimeOffset.Now.Subtract(new DateTime(2025, 01, 01)).TotalMinutes;
+                    this.m_sequenceLock = 0;
+                }
+                return new SqlStatement((((ulong)m_offsetLock << 24) | (ulong)increment).ToString());  // new SqlStatement($"SELECT COALESCE(MAX(ROWID), 0) + 1 FROM {sequenceName.Sanitize()}");
+            }
         }
 
         /// <inheritdoc/>
