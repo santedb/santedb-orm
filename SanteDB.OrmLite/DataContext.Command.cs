@@ -1010,6 +1010,7 @@ namespace SanteDB.OrmLite
                     values = this.CreateSqlStatementBuilder();
                 foreach (var col in tableMap.Columns)
                 {
+                  
                     var val = col.SourceProperty.GetValue(value);
                     bool valIsDefault = val != null && col.SourceProperty.PropertyType.StripNullable() == col.SourceProperty.PropertyType &&
                         (
@@ -1039,7 +1040,7 @@ namespace SanteDB.OrmLite
                         else if ((col.SourceProperty.PropertyType.StripNullable() == typeof(long) ||
                             col.SourceProperty.PropertyType.StripNullable() == typeof(int)) &&
                             (!col.IsPrimaryKey && !this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.AutoGenerateSequences) ||
-                             col.IsPrimaryKey && !this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.AuditGeneratePrimaryKeySequences))
+                             col.IsPrimaryKey && !this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.AutoGeneratePrimaryKeySequences))
                         )
                         {
                             columnNames.Append($"{col.Name}").Append(",");
@@ -1654,7 +1655,7 @@ namespace SanteDB.OrmLite
                 }
                 statement.Append(", ");
             }
-
+            
             // Append primary key constraint
             statement.Append($"CONSTRAINT PK_{tableMap.TableName} PRIMARY KEY ({String.Join(",", tableMap.PrimaryKey.Select(o => o.Name))})").Append(",");
             foreach (var col in tableMap.Columns.Where(c => c.ForeignKey != null))
