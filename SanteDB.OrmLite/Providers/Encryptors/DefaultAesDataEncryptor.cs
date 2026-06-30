@@ -42,6 +42,16 @@ namespace SanteDB.OrmLite.Providers.Encryptors
         private readonly byte[] m_secret;
         private readonly byte[] m_saltSeed;
         private readonly IOrmEncryptionSettings m_settings;
+        private readonly bool m_decryptOnly;
+
+        public DefaultAesDataEncryptor(X509Certificate2 machineKey, byte[] aleMasterKey)
+        {
+            this.m_decryptOnly = true;
+            using (var rsa = machineKey.GetRSAPrivateKey())
+            {
+                this.m_secret = rsa.Decrypt(aleMasterKey, RSAEncryptionPadding.Pkcs1);
+            }
+        }
 
         /// <summary>
         /// Default AES encryptor
@@ -74,6 +84,11 @@ namespace SanteDB.OrmLite.Providers.Encryptors
         /// </summary>
         private byte[] Encrypt(OrmAleMode mode, byte[] data)
         {
+            if(this.m_decryptOnly)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.WOULD_RESULT_INVALID_STATE, "Encrypt not permitted on Decrypt"));
+            }
+
             using (var aes = Aes.Create())
             {
                 var originalDataHash = MD5.Create().ComputeHash(data);
@@ -216,6 +231,17 @@ namespace SanteDB.OrmLite.Providers.Encryptors
         }
 
         /// <inheritdoc/>
-        public bool TryGetEncryptionMode(string fieldName, out OrmAleMode configuredMode) => this.m_settings.ShouldEncrypt(fieldName, out configuredMode);
+        public bool TryGetEncryptionMode(string fieldName, out OrmAleMode configuredMode)
+        {
+            if (this.m_settings == null || this.m_decryptOnly)
+            {
+                configuredMode = OrmAleMode.Off;
+                return false;
+            }
+            else
+            {
+                return this.m_settings.ShouldEncrypt(fieldName, out configuredMode);
+            }
+        }
     }
 }

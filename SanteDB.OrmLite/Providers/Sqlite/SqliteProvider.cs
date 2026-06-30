@@ -47,6 +47,7 @@ using System.IO;
 using System.IO.IsolatedStorage;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -129,7 +130,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         // Database certificate
         private IOrmEncryptionSettings m_encryptionSettings;
 
-        private DefaultAesDataEncryptor m_encryptionProvider;
+        private IDbEncryptor m_encryptionProvider;
 
         /// <inheritdoc/>
         public event EventHandler<ProgressChangedEventArgs> ProgressChanged;
@@ -761,7 +762,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         {
 
             // Is ALE even configured for this connection?
-            if (this.m_encryptionSettings == null || this.m_encryptionProvider != null)
+            if (this.m_encryptionSettings == null || this.m_encryptionSettings.AleEnabled == false || this.m_encryptionProvider != null)
             {
                 return;
             }
@@ -774,27 +775,30 @@ namespace SanteDB.OrmLite.Providers.Sqlite
 
                     connection.ConnectionString = CorrectConnectionString(new ConnectionString(InvariantName, this.ConnectionString)).ToString();
                     connection.Open();
-                    byte[] aleSmk = null;
-                    // Attempt to connect to the PostgreSQL encryption provider to get the secret
-                    using (var cmd = connection.CreateCommand())
+                    if (connection.ExecuteScalar<bool?>("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE tbl_name = 'ALE_SYSTBL')") != true)
                     {
-
-                        // Does the ALE systbl exist?
-                        cmd.CommandType = CommandType.Text;
-                        cmd.CommandText = "SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE tbl_name = 'ALE_SYSTBL')";
-                        if (!this.ConvertValue<bool>(cmd.ExecuteScalar())) // not initalized
-                        {
-                            return;
-                        }
-
-                        cmd.CommandText = "SELECT ale_smk FROM ale_systbl";
-                        aleSmk = this.ConvertValue<byte[]>(cmd.ExecuteScalar());
+                        return;
                     }
+
+                    byte[] aleSmk = this.ConvertValue<byte[]>(connection.ExecuteScalar<Byte[]>("SELECT ale_smk FROM ale_systbl"));
+                    string x5t = connection.ExecuteScalar<string>("SELECT x5t FROM ale_systbl");
 
 
                     if (aleSmk != null) // SMK already set
                     {
-                        this.m_encryptionProvider = new DefaultAesDataEncryptor(this.m_encryptionSettings, aleSmk);
+                        if (this.m_encryptionSettings != null)
+                        {
+                            this.m_encryptionProvider = new DefaultAesDataEncryptor(this.m_encryptionSettings, aleSmk);
+                        }
+                        else if (X509CertificateUtils.GetPlatformServiceOrDefault().TryGetCertificate(X509FindType.FindByThumbprint, x5t, StoreName.My, StoreLocation.CurrentUser, out var cert) ||
+                            X509CertificateUtils.GetPlatformServiceOrDefault().TryGetCertificate(X509FindType.FindByThumbprint, x5t, StoreName.My, StoreLocation.LocalMachine, out cert))
+                        {
+                            this.m_encryptionProvider = new DefaultAesDataEncryptor(cert, aleSmk);
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException(String.Format(ErrorMessages.CERTIFICATE_NOT_FOUND, x5t));
+                        }
                     }
                     else if (this.m_encryptionSettings.AleEnabled) // generate an ALE
                     {
@@ -802,6 +806,10 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         {
                             this.MigrateEncryption(null);
                         }
+                    }
+                    else
+                    {
+                        this.m_encryptionProvider = new NullDataEncryptor();
                     }
                 }
                 catch (Exception e)
@@ -876,13 +884,9 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         {
                             this.m_tracer.TraceWarning("GENERATING AN APPLICATION LEVEL ENCRYPTION CERTIFICATE -> IT IS RECOMMENDED YOU USE TDE RATHER THAN ALE ON SANTEDB PRODUCTION INSTANCES");
                             var aleSmk = DefaultAesDataEncryptor.GenerateMasterKey(newOrmEncryptionSettings);
-                            cmd.CommandText = "INSERT INTO ale_systbl VALUES (@key)";
-                            var parm = cmd.CreateParameter();
-                            parm.ParameterName = "@key";
-                            parm.DbType = DbType.Binary;
-                            parm.Direction = ParameterDirection.Input;
-                            parm.Value = aleSmk;
-                            cmd.Parameters.Add(parm);
+                            cmd.CommandText = "INSERT INTO ale_systbl (ALE_SMK, X5T) VALUES (@key, @x5t)";
+                            cmd.Parameters.Add(cmd.CreateParameter("@key", DbType.Binary, aleSmk));
+                            cmd.Parameters.Add(cmd.CreateParameter("@x5t", DbType.String, newOrmEncryptionSettings.Certificate.Thumbprint));
                             cmd.ExecuteNonQuery();
                             this.m_encryptionSettings = newOrmEncryptionSettings;
                             this.m_encryptionSettings.AleRecrypt(this, (a, b, c) => this.ProgressChanged?.Invoke(this, new ProgressChangedEventArgs(a, b, c)));

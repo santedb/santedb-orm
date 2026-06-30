@@ -19,6 +19,7 @@
  * Date: 2024-6-21
  */
 using SanteDB.OrmLite.Configuration;
+using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 
 namespace SanteDB.OrmLite.Providers
@@ -45,8 +46,14 @@ namespace SanteDB.OrmLite.Providers
         X509Certificate2 Certificate { get; }
 
         /// <summary>
-        /// True if the <paramref name="fieldName"/> is to be encrypted
+        /// True if the <paramref name="fieldName"/> is configured (even if the configuration is OFF)
         /// </summary>
         bool ShouldEncrypt(string fieldName, out OrmAleMode configuredMode);
+
+        /// <summary>
+        /// True if the <paramref name="property"/> is configured
+        /// </summary>
+        /// <returns></returns>
+        bool ShouldEncrypt(PropertyInfo property, out OrmAleMode configuredMode);
     }
 }

@@ -30,6 +30,19 @@ namespace SanteDB.OrmLite
     /// </summary>
     public static class OrmExtensions
     {
+        
+        /// <summary>
+        /// Create a parameter using the specified command
+        /// </summary>
+        public static IDbDataParameter CreateParameter(this IDbCommand cmd, String name, DbType type, object value)
+        {
+            var parm = cmd.CreateParameter();
+            parm.ParameterName = name;
+            parm.DbType = type;
+            parm.Direction = ParameterDirection.Input;
+            parm.Value = value;
+            return parm;
+        }
 
         /// <summary>
         /// Load an extension using the extensions load extension method

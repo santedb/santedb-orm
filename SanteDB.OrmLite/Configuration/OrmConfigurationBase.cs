@@ -34,16 +34,9 @@ namespace SanteDB.OrmLite.Configuration
     /// <summary>
     /// Represents a base ORM configuration object
     /// </summary>
-    public abstract class OrmConfigurationBase : IEncryptedConfigurationSection, ICertificateConfigurationSection
+    public abstract class OrmConfigurationBase : IEncryptedConfigurationSection
     {
 
-        /// <summary>
-        /// ALE configuration initialization on the configuration base
-        /// </summary>
-        public OrmConfigurationBase()
-        {
-            this.AleConfiguration = new OrmAleConfiguration();
-        }
 
         // DB Provider
         private IDbProvider m_dbProvider;
@@ -89,13 +82,6 @@ namespace SanteDB.OrmLite.Configuration
         public String ProviderType { get; set; }
 
         /// <summary>
-        /// Gets the application level certificate for decryption
-        /// </summary>
-        [XmlElement("aleConfiguration")]
-        [Browsable(false)]
-        public OrmAleConfiguration AleConfiguration { get; set; }
-
-        /// <summary>
         /// Get the provider
         /// </summary>
         [XmlIgnore, Browsable(false)]
@@ -113,10 +99,33 @@ namespace SanteDB.OrmLite.Configuration
 
         }
 
+    }
+
+    /// <summary>
+    /// An extended ORM configuration section which supports ALE
+    /// </summary>
+    public abstract class OrmAleConfigurationBase : OrmConfigurationBase, ICertificateConfigurationSection
+    {
+
+        /// <summary>
+        /// ALE configuration initialization on the configuration base
+        /// </summary>
+        public OrmAleConfigurationBase()
+        {
+            this.AleConfiguration = new OrmAleConfiguration();
+        }
+
+        /// <summary>
+        /// Gets the application level certificate for decryption
+        /// </summary>
+        [XmlElement("aleConfiguration")]
+        [Browsable(false)]
+        public OrmAleConfiguration AleConfiguration { get; set; }
+
         /// <inheritdoc/>
         public IEnumerable<KeyValuePair<string, X509ConfigurationElement>> GetCertificates()
         {
-            if(this.AleConfiguration?.AleEnabled != true)
+            if (this.AleConfiguration?.AleEnabled != true)
             {
                 yield break;
             }
@@ -134,10 +143,19 @@ namespace SanteDB.OrmLite.Configuration
             }
 
             var computedAlias = $"ale.{this.GetType().GetSerializationName()}";
-            if(alias.Equals(computedAlias))
+            if (alias.Equals(computedAlias))
             {
                 this.AleConfiguration.Certificate = certificate;
             }
+        }
+
+        /// <summary>
+        /// Get the default ALE feild settings
+        /// </summary>
+        public virtual IEnumerable<OrmFieldConfiguration> GetDefaultAleFields()
+        {
+            yield break;
+
         }
     }
 }

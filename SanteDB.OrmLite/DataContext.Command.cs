@@ -207,6 +207,10 @@ namespace SanteDB.OrmLite
                 {
                     return default(TModel);
                 }
+                else if (this.m_encryptionProvider?.HasEncryptionMagic(obj) == true && this.m_encryptionProvider.TryDecrypt(obj, out var decrypted))
+                {
+                    return (TModel)this.m_provider.ConvertValue(decrypted, typeof(TModel));
+                }
                 else if (typeof(TModel).IsAssignableFrom(obj.GetType()))
                 {
                     return (TModel)obj;
@@ -285,8 +289,8 @@ namespace SanteDB.OrmLite
                 try
                 {
                     object dbValue = rdr[itm.Name];
-                    _ = this.m_encryptionProvider?.TryGetEncryptionMode(itm.EncryptedColumnId, out _) == true &&
-                        this.m_encryptionProvider?.TryDecrypt(dbValue, out dbValue) == true;
+                    _ = this.m_encryptionProvider?.TryGetEncryptionMode(itm.EncryptedColumnId, out _) == true && // Field is configured somehow in ALE
+                        this.m_encryptionProvider?.TryDecrypt(dbValue, out dbValue) == true; // Attempt to decrypt field in ALE
 
                     object value = this.m_provider.ConvertValue(dbValue, itm.SourceProperty.PropertyType);
                     if (!itm.IsSecret)
@@ -1563,15 +1567,15 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Execute the specified SQL
         /// </summary>
-        public void ExecuteNonQuery(String sql, params object[] args)
+        public int ExecuteNonQuery(String sql, params object[] args)
         {
-            this.ExecuteNonQuery(new SqlStatement(sql, args));
+            return this.ExecuteNonQuery(new SqlStatement(sql, args));
         }
 
         /// <summary>
         /// Execute a non query
         /// </summary>
-        public void ExecuteNonQuery(SqlStatement stmt)
+        public int ExecuteNonQuery(SqlStatement stmt)
         {
             this.ThrowIfDisposed();
 
@@ -1593,7 +1597,7 @@ namespace SanteDB.OrmLite
                             dbc.CommandTimeout = this.CommandTimeout.Value;
                         }
 
-                        dbc.ExecuteNonQuery();
+                        return dbc.ExecuteNonQuery();
                     }
                     finally
                     {

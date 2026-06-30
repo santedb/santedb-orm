@@ -139,7 +139,7 @@ namespace SanteDB.OrmLite
         }
 
         /// <inheritdoc />
-        public override bool Open(bool initializeExtensions = true)
+        public override bool Open(bool initializeExtensions = true, bool enableAle = true)
         {
             var ormProbe = this.Provider is IDbMonitorProvider monitorProvider ? monitorProvider.MonitorProbe as OrmClientProbe : null;
 
@@ -182,7 +182,7 @@ namespace SanteDB.OrmLite
                 }
 
 
-                if (!base.Open(initializeExtensions))
+                if (!base.Open(initializeExtensions, enableAle))
                 {
                     this.m_tracer.TraceWarning("Could not open underlying connection to {0} - releasing lock", this.m_databaseName);
                     while (locker.IsReadLockHeld)
