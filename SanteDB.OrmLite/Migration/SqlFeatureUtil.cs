@@ -115,7 +115,7 @@ namespace SanteDB.OrmLite.Migration
 
             // Some of the updates from V2 to V3 can take hours to complete - this timer allows us to report progress on the log
             int i = 0;
-            if(provider is IDbWriteBackProvider writeBack)
+            if (provider is IDbWriteBackProvider writeBack)
             {
                 using (var conn = writeBack.GetPersistentConnection())
                 {
@@ -142,7 +142,7 @@ namespace SanteDB.OrmLite.Migration
         /// </summary>
         private static void UpgradeSchema(DataContext conn, string scopeOfContext, Action<string, float, string> progressMonitor = null)
         {
-           
+
             var updates = GetFeatures(conn.Provider.Invariant).OfType<SqlFeature>().Where(o => o.Scope == scopeOfContext).OrderBy(o => o.Id).ToArray();
             int i = 0;
             foreach (var itm in updates.Where(o => o.EnvironmentType == null || o.EnvironmentType.Contains(ApplicationServiceContext.Current.HostType)))
@@ -191,47 +191,46 @@ namespace SanteDB.OrmLite.Migration
         internal static void AleRecrypt(this IOrmEncryptionSettings ormEncryptionSettings, IEncryptedDbProvider encryptedDbProvider, Action<string, float, string> progressMonitor = null)
         {
             var tracer = Tracer.GetTracer(typeof(SqlFeatureUtil));
-            var propertiesToEncrypt = AppDomain.CurrentDomain.GetAllTypes()
+            var typesToEncrypt = AppDomain.CurrentDomain.GetAllTypes()
                 .Where(t => t.HasCustomAttribute<TableAttribute>())
-                .SelectMany(t => t.GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
-                .Where(p => p.HasCustomAttribute<ApplicationEncryptAttribute>() && ormEncryptionSettings.ShouldEncrypt(p.GetCustomAttribute<ApplicationEncryptAttribute>().FieldName, out _)))
+                .SelectMany(t => t.GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public))
+                .Where(p => p.HasCustomAttribute<ApplicationEncryptAttribute>() && ormEncryptionSettings.ShouldEncrypt(p, out _))
+                .Select(o => o.DeclaringType)
+                .Distinct()
                 .ToArray();
 
-            using (var context = encryptedDbProvider.GetWriteConnection())
+            using (var sourceContext = encryptedDbProvider.GetWriteConnection())
+            using (var targetContext = sourceContext.OpenClonedContext())
             {
                 try
                 {
-                    context.Open(initializeExtensions: false);
-                    float percentCompletePerProperty = 1.0f / (float)propertiesToEncrypt.Length,
+                    sourceContext.Open(initializeExtensions: false);
+                    float percentCompletePerProperty = 1.0f / (float)typesToEncrypt.Length,
                         propertiesComplete = 0.0f;
 
-                    using (var tx = context.BeginTransaction())
+                    using (var tx = targetContext.BeginTransaction())
                     {
                         // Gather a list of all encryption provided settings
-                        for (int i = 0; i < propertiesToEncrypt.Length; i++)
+                        for (int i = 0; i < typesToEncrypt.Length; i++)
                         {
-                            var property = propertiesToEncrypt[i];
-                            var tableMap = TableMapping.Get(property.DeclaringType);
-                            var column = tableMap.GetColumn(property);
-                            tracer.TraceInfo("Encrypting all data in {0}.{1}...", tableMap.TableName, column.Name);
-                            var statusText = String.Format(UserMessages.ENCRYPTING, $"{tableMap.TableName}.{column.Name}");
+                            var type = typesToEncrypt[i];
+                            var tableMap = TableMapping.Get(type);
+                            tracer.TraceInfo("Encrypting all data in {0}.{1}...", tableMap.TableName);
+                            var statusText = String.Format(UserMessages.ENCRYPTING, $"{tableMap.TableName}");
                             progressMonitor?.Invoke("ALE_CRYPT", propertiesComplete, statusText);
 
-                            var recordCollectorStmt = context.CreateSqlStatementBuilder($"SELECT * FROM {tableMap.TableName}");
+                            var recordCollectorStmt = sourceContext.CreateSqlStatementBuilder($"SELECT * FROM {tableMap.TableName}");
                             // When we update this field it *should* encrypt the database
-                            int nRecords = context.Count(recordCollectorStmt.Statement),
+                            int nRecords = sourceContext.Count(recordCollectorStmt.Statement),
                                 processed = 0;
-                            using (var c2 = context.OpenClonedContext())
+                            foreach (var rec in sourceContext.Query(tableMap.OrmType, recordCollectorStmt.Statement))
                             {
-                                foreach (var rec in context.Query(tableMap.OrmType, recordCollectorStmt.Statement))
-                                {
-                                    c2.Update(rec); // Update should iniitlaize the encryption 
-                                    processed++;
-                                    progressMonitor?.Invoke("ALE_CRYPT", propertiesComplete + ((float)processed / (float)nRecords) * percentCompletePerProperty, statusText);
-                                }
+                                targetContext.Update(rec); // Update should iniitlaize the encryption 
+                                processed++;
+                                progressMonitor?.Invoke("ALE_CRYPT", propertiesComplete + ((float)processed / (float)nRecords) * percentCompletePerProperty, statusText);
                             }
 
-                            propertiesComplete = (float)i / (float)propertiesToEncrypt.Length;
+                            propertiesComplete = (float)i / (float)typesToEncrypt.Length;
 
                         }
 
@@ -252,6 +251,11 @@ namespace SanteDB.OrmLite.Migration
         public static bool Install(this DataContext conn, SqlFeature migration)
         {
             conn.Open(initializeExtensions: false);
+
+            if(migration.Initializer?.BeforeInstall(conn) == false)
+            {
+                return false;
+            }
 
             var stmts = migration.GetDeploySql().Split(new string[] { "--#!" }, StringSplitOptions.RemoveEmptyEntries);
             foreach (var dsql in stmts)
@@ -296,6 +300,7 @@ namespace SanteDB.OrmLite.Migration
                 }
             }
 
+            migration.Initializer?.AfterInstall(conn);
             return true;
         }
 
@@ -377,7 +382,8 @@ namespace SanteDB.OrmLite.Migration
         {
             if (me is IDbBackupProvider dbb)
             {
-                return new StreamBackupAsset(assetId, $"{dbb.GetDatabaseName()}#{dbb.Invariant}", () => {
+                return new StreamBackupAsset(assetId, $"{dbb.GetDatabaseName()}#{dbb.Invariant}", () =>
+                {
                     var tfs = new TemporaryFileStream();
                     var result = dbb.BackupToStream(tfs);
                     tfs.Seek(0, SeekOrigin.Begin);

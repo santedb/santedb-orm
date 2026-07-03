@@ -109,9 +109,9 @@ namespace SanteDB.OrmLite.Providers
                     retVal.ReadonlyConnectionString = this.ResolveConnectionString(ormConfigurationSection.ReadonlyConnectionString);
                     retVal.ConnectionString = this.ResolveConnectionString(ormConfigurationSection.ReadWriteConnectionString);
                     retVal.TraceSql = ormConfigurationSection.TraceSql;
-                    if (ormConfigurationSection.AleConfiguration != null && retVal is IEncryptedDbProvider e)
+                    if (ormConfigurationSection is OrmAleConfigurationBase aleOrmBase && aleOrmBase.AleConfiguration != null && retVal is IEncryptedDbProvider e)
                     {
-                        e.SetEncryptionSettings(ormConfigurationSection.AleConfiguration);
+                        e.SetEncryptionSettings(aleOrmBase.AleConfiguration);
                     }
                     this.m_providers.TryAdd(ormConfigurationSection.ReadWriteConnectionString, retVal);
                     return retVal;

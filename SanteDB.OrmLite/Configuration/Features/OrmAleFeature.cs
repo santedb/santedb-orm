@@ -92,7 +92,7 @@ namespace SanteDB.OrmLite.Configuration.Features
             this.m_configuration = this.m_configuration ?? new GenericFeatureConfiguration();
 
             // Create configuration for each of the connection strings
-            foreach (var ormConfiguration in configuration.Sections.OfType<OrmConfigurationBase>())
+            foreach (var ormConfiguration in configuration.Sections.OfType<OrmAleConfigurationBase>())
             {
                 try
                 {
@@ -131,7 +131,7 @@ namespace SanteDB.OrmLite.Configuration.Features
                 } // ignore exceptions here
             }
 
-            return configuration.Sections.OfType<OrmConfigurationBase>().Any(o => o.AleConfiguration != null) ? FeatureInstallState.Installed : FeatureInstallState.NotInstalled;
+            return configuration.Sections.OfType<OrmAleConfigurationBase>().Any(o => o.AleConfiguration != null) ? FeatureInstallState.Installed : FeatureInstallState.NotInstalled;
 
         }
 
@@ -167,7 +167,7 @@ namespace SanteDB.OrmLite.Configuration.Features
             public bool Execute(SanteDBConfiguration configuration)
             {
                 // We want to execute the orm recrypt function
-                var ormConfigurations = configuration.Sections.OfType<OrmConfigurationBase>().Where(o => o.ReadWriteConnectionString == this.m_ormSection);
+                var ormConfigurations = configuration.Sections.OfType<OrmAleConfigurationBase>().Where(o => o.ReadWriteConnectionString == this.m_ormSection);
 
                 var currentlyEnabled = ormConfigurations.All(o => o.AleConfiguration?.AleEnabled != true);
                 var ormSection = configuration.GetSection<OrmConfigurationSection>();

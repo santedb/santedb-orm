@@ -679,10 +679,28 @@ namespace SanteDB.OrmLite
         }
 
         /// <inheritdoc/>
-        public void ExecuteNonQuery(BiSqlDefinition sql)
+        public int ExecuteNonQuery(IEnumerable<BiSqlDefinition> queryToExecute, IDataIntegratorVariableProvider variableProvider)
         {
             this.ThrowIfDisposed();
             this.ThrowIfNotOpen();
+
+            // Find the SQL definition which matches this definition
+            var sqlDef = queryToExecute.FirstOrDefault(o => o.Invariants.Contains(this.m_provider.Invariant));
+            if (sqlDef == null)
+            {
+                throw new InvalidOperationException(String.Format(ErrorMessages.DIALECT_NOT_FOUND, this.m_provider.Invariant));
+            }
+
+            var arguments = new List<Object>();
+            var stmt = m_parmRegex.Replace(sqlDef.Sql, (m) =>
+            {
+                object pValue = null;
+                variableProvider.TryGetVariable(m.Groups[1].Value, out pValue);
+                arguments.Add(pValue);
+                return "?";
+            });
+
+            return this.m_currentContext.ExecuteNonQuery(stmt);
         }
 
         /// <inheritdoc/>
@@ -786,14 +804,14 @@ namespace SanteDB.OrmLite
         }
 
         /// <inheritdoc/>
-        public void OpenRead()
+        public void OpenRead(bool decryptSourceData)
         {
             this.ThrowIfDisposed();
             this.ThrowIfOpen(nameof(OpenRead));
             this.m_pepService.Demand(PermissionPolicyIdentifiers.QueryWarehouseData);
             this.m_currentContext = this.m_provider.GetReadonlyConnection();
             this.m_currentContext.CommandTimeout = 3600;
-            this.m_currentContext.Open(initializeExtensions: false);
+            this.m_currentContext.Open(initializeExtensions: false, enableAle: decryptSourceData);
         }
 
 

@@ -200,7 +200,8 @@ namespace SanteDB.OrmLite
         /// </summary>
         /// <returns>True if a new connection was opened (false if the connection was already open)</returns>
         /// <param name="initializeExtensions">False if the extended functions (freetext, soundex, etc.) should be initialized. Default is TRUE to maintain backwards compatibility</param>
-        public virtual bool Open(bool initializeExtensions = true)
+        /// <param name="enableAle">When false, bypasses ALE encryption (used for raw connections to the raw data)</param>
+        public virtual bool Open(bool initializeExtensions = true, bool enableAle = true)
         {
             this.ThrowIfDisposed();
             var wasOpened = false;
@@ -263,7 +264,7 @@ namespace SanteDB.OrmLite
             }
 
             // Attempt to get the encryptor
-            if (this.m_provider is IEncryptedDbProvider e)
+            if (this.m_provider is IEncryptedDbProvider e && enableAle)
             {
                 this.m_encryptionProvider = e.GetEncryptionProvider(); // encryption is provided
             }

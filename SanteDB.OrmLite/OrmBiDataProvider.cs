@@ -334,6 +334,9 @@ namespace SanteDB.OrmLite
             // We want to open the specified connection
             var provider = this.GetProvider(queryDefinition);
 
+            // We may need to initialize the ALE layer on the connection - for decryption via magic
+            if(provider is IEncryptedDbProvider dbe)
+          
             // Aggregation definitions
             if (aggregation?.Length > 0)
             {
@@ -474,6 +477,7 @@ namespace SanteDB.OrmLite
             var provider = OrmProviderManager.Current.GetProvider(connectionString);
             provider.ConnectionString = connectionString.Value;
             provider.ReadonlyConnectionString = connectionString.Value;
+
             return provider;
         }
 
