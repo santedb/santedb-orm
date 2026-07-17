@@ -74,7 +74,6 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="SQLitePCLRaw.core" Version="2.1.10" />
     <PackageReference Include="System.Data.Common" Version="4.3.0" />
-    <PackageReference Include="System.Threading.Tasks" Version="4.3.0" />
    
   </ItemGroup>
   <!-- <ItemGroup> -->

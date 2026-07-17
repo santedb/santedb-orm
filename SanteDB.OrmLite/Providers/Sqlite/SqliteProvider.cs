@@ -1127,7 +1127,7 @@ namespace SanteDB.OrmLite.Providers.Sqlite
             this.WalCheckpointInvoke();
         }
 
-        /// <inheritdoc>
+        /// <inheritdoc />
         public virtual void Optimize()
         {
             this.ClearPools();
