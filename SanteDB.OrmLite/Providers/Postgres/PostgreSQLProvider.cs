@@ -85,7 +85,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             /// </summary>
             internal void Save(Stream str)
             {
-                using (var jw = new StreamWriter(NonDisposingStream.Create(str)))
+                using (var jw = new StreamWriter(SharpCompressStream.CreateNonDisposing(str)))
                 {
                     JsonSerializer.Create().Serialize(jw, this);
                 }
@@ -789,7 +789,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             m_tracer.TraceInfo("Restoring database from stream.");
             m_tracer.TraceUntestedWarning();
 
-            using (var tar = SharpCompress.Readers.Tar.TarReader.Open(restoreStream))
+            using (var tar = SharpCompress.Readers.Tar.TarReader.OpenReader(restoreStream))
             {
 
                 // Load the manifest 
@@ -976,7 +976,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
 
         }
 
-        private bool RestoreInternal(SharpCompress.Readers.Tar.TarReader tar, DataContext ctx, PostgreSQLBackupManifest manifest)
+        private bool RestoreInternal(SharpCompress.Readers.IReader tar, DataContext ctx, PostgreSQLBackupManifest manifest)
         {
             using (var txn = ctx.BeginTransaction()) // JF - One transaction for truncate and restore - we want to revert back to a known state if anything fails
             {
