@@ -789,7 +789,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             m_tracer.TraceInfo("Restoring database from stream.");
             m_tracer.TraceUntestedWarning();
 
-            using (var tar = SharpCompress.Readers.Tar.TarReader.OpenReader(restoreStream))
+            using (var tar = new SharpCompress.Factories.TarFactory().OpenReader(restoreStream, options: null))
             {
 
                 // Load the manifest 
