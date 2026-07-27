@@ -243,10 +243,7 @@ namespace SanteDB.OrmLite.Providers.Firebird
                     parm.Value = itm;
                 }
 
-                if (type == CommandType.Text)
-                {
-                    parm.ParameterName = $"parm{pno++}";
-                }
+                parm.ParameterName = $"parm{pno++}";
 
                 // Compensate UUID
                 if (value is Guid || value is Guid?)
