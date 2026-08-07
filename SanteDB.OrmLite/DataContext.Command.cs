@@ -1231,7 +1231,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Delete from the database
         /// </summary>
-        public void DeleteAll(Type tmodel, SqlStatement whereClause)
+        public int DeleteAll(Type tmodel, SqlStatement whereClause)
         {
             this.ThrowIfDisposed();
 
@@ -1254,7 +1254,7 @@ namespace SanteDB.OrmLite
                             {
                                 dbc.CommandTimeout = this.CommandTimeout.Value;
                             }
-                            dbc.ExecuteNonQuery();
+                            return dbc.ExecuteNonQuery();
                         }
                         finally
                         {
@@ -1534,25 +1534,25 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Delete from the database
         /// </summary>
-        public void DeleteAll<TModel>(Expression<Func<TModel, bool>> where) => this.DeleteAll(typeof(TModel), where);
+        public int DeleteAll<TModel>(Expression<Func<TModel, bool>> where) => this.DeleteAll(typeof(TModel), where);
 
         /// <summary>
         /// Update all 
         /// </summary>
-        public void DeleteAll(Type tmodel, LambdaExpression whereExpression)
+        public int DeleteAll(Type tmodel, LambdaExpression whereExpression)
         {
             // Convert where clause
             var tableMap = TableMapping.Get(tmodel);
             var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
             queryBuilder.Visit(whereExpression.Body);
 
-            this.DeleteAll(tmodel, queryBuilder.StatementBuilder.Statement);
+            return this.DeleteAll(tmodel, queryBuilder.StatementBuilder.Statement);
         }
 
         /// <summary>
         /// Update all with specified Sql based statement
         /// </summary>
-        public void DeleteAll<TModel>(SqlStatement whereExpression)
+        public int DeleteAll<TModel>(SqlStatement whereExpression)
         {
             if (whereExpression.Contains("SELECT"))
             {
@@ -1561,7 +1561,7 @@ namespace SanteDB.OrmLite
                 var where = match.Groups[Constants.SQL_GROUP_WHERE].Value;
                 whereExpression = new SqlStatement(where, whereExpression.Arguments);
             }
-            this.DeleteAll(typeof(TModel), whereExpression);
+            return this.DeleteAll(typeof(TModel), whereExpression);
         }
 
         /// <summary>
