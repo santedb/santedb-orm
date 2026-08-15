@@ -327,7 +327,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Executes the query
         /// </summary>
-        public BisResultContext ExecuteQuery(BiQueryDefinition queryDefinition, IDictionary<string, object> parameters, BiAggregationDefinition[] aggregation, int? offset = null, int? count = null)
+        public BisResultContext ExecuteQuery(BiQueryDefinition queryDefinition, IDictionary<string, object> parameters, BiAggregationDefinition[] aggregation)
         {
             var sqlStmt = this.PrepareQueryStatement(queryDefinition, parameters);
 
@@ -371,14 +371,7 @@ namespace SanteDB.OrmLite
                 DateTime startTime = DateTime.Now;
                 this.m_tracer.TraceInfo("Executing BI Query: {0}", sqlStmt.ToString());
                 var results = new OrmResultSet<ExpandoObject>(provider.GetReadonlyConnection(), sqlStmt);
-                if (offset.HasValue)
-                {
-                    results = results.Skip(offset.Value, false);
-                }
-                if (count.HasValue)
-                {
-                    results = results.Take(count.Value, false);
-                }
+               
                 return new BisResultContext(
                     queryDefinition,
                     parameters,
@@ -503,7 +496,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Execute the specified query
         /// </summary>
-        public BisResultContext ExecuteQuery(string queryId, IDictionary<string, object> parameters, BiAggregationDefinition[] aggregation, int? offset, int? count)
+        public BisResultContext ExecuteQuery(string queryId, IDictionary<string, object> parameters, BiAggregationDefinition[] aggregation)
         {
             var query = this.m_metadataRepository?.Get<BiQueryDefinition>(queryId);
             if (query == null)
@@ -512,17 +505,17 @@ namespace SanteDB.OrmLite
             }
             else
             {
-                return this.ExecuteQuery(query, parameters, aggregation, offset, count);
+                return this.ExecuteQuery(query, parameters, aggregation);
             }
         }
 
         /// <summary>
         /// Executes the specified view
         /// </summary>
-        public BisResultContext ExecuteView(BiViewDefinition viewDef, IDictionary<string, object> parameters, int? offset = null, int? count = null)
+        public BisResultContext ExecuteView(BiViewDefinition viewDef, IDictionary<string, object> parameters)
         {
             viewDef = BiUtils.ResolveRefs(viewDef) as BiViewDefinition;
-            var retVal = this.ExecuteQuery(viewDef.Query, parameters, viewDef.AggregationDefinitions?.ToArray(), offset, count);
+            var retVal = this.ExecuteQuery(viewDef.Query, parameters, viewDef.AggregationDefinitions?.ToArray());
             if (viewDef.Pivot != null)
             {
                 retVal = this.m_pivotProvider.Pivot(retVal, viewDef.Pivot);

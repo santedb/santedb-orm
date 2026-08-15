@@ -42,7 +42,7 @@ namespace SanteDB.OrmLite
 
         public static readonly Regex ExtractColumnBindingRegex = new Regex(@"([A-Za-z_]\w+\.)?([A-Za-z_\*]\w+)(,)?", RegexOptions.Compiled);
         public static readonly Regex ExtractUnionIntersectRegex = new Regex(@"^(.*?)(UNION|INTERSECT|UNION ALL|INTERSECT ALL)(.*?)$", RegexOptions.Compiled);
-        public static readonly Regex ExtractRawSqlStatementRegex = new Regex(@"^SELECT\s(DISTINCT)?(.*?)FROM(.*?)(?:WHERE(.*?))?((ORDER|OFFSET|LIMIT).*)?$", RegexOptions.Compiled);
+        public static readonly Regex ExtractRawSqlStatementRegex = new Regex(@"^(?:WITH|SELECT)\s(DISTINCT)?(.*?)FROM(.*?)(?:WHERE(.*?))?((ORDER|OFFSET|LIMIT).*)?$", RegexOptions.Compiled);
         public static readonly Regex ExtractFilterOperandRegex = new Regex(@"^([<>]?=?)(.*?)$", RegexOptions.Compiled);
         public static readonly Regex ExtractOffsetRegex = new Regex(@"OFFSET (\d+)\s?(?:ROW)?", RegexOptions.Compiled);
         public static readonly Regex ExtractLimitRegex = new Regex(@"(?:FETCH\sFIRST|LIMIT)\s(\d+)(?:\sROWS\sONLY)?", RegexOptions.Compiled);
