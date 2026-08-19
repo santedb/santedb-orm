@@ -36,7 +36,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
         /// <summary>
         /// Gets the invariant
         /// </summary>
-        public override string Name => "ADO.NET PostgreSQL 10+";
+        public override string Name => "ADO.NET PostgreSQL";
 
         /// <summary>
         /// Invariant name

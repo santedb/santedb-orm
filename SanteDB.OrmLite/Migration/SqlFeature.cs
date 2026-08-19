@@ -20,6 +20,7 @@
  */
 using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
+using SanteDB.Core.i18n;
 using SanteDB.OrmLite.Providers.Firebird;
 using SanteDB.OrmLite.Providers.Postgres;
 using System;
@@ -103,6 +104,16 @@ namespace SanteDB.OrmLite.Migration
                 retVal.Url = new Uri(xd.SelectSingleNode("/feature/url/text()")?.Value ?? $"http://help.santesuite.org/ops/santedb/fixpatch/{retVal.Id}");
                 retVal.m_checkRange = xd.SelectSingleNode("/feature/@applyRange")?.Value;
                 retVal.Scope = xd.SelectSingleNode("/feature/@scope")?.Value;
+                var initializerType = xd.SelectSingleNode("/feature/initializer/text()")?.Value;
+                if(!String.IsNullOrEmpty(initializerType))
+                {
+                    var ist = Type.GetType(initializerType);
+                    if(ist == null)
+                    {
+                        throw new InvalidOperationException(String.Format(ErrorMessages.TYPE_NOT_FOUND, initializerType));
+                    }
+                    retVal.Initializer = ist.CreateInjected() as ISqlFeatureInitializer;
+                }
                 retVal.m_checkSql = xd.SelectSingleNode("/feature/isInstalled/text()")?.Value;
                 retVal.m_canInstallSql = xd.SelectSingleNode("/feature/canInstall/text()")?.Value;
                 retVal.Required = Boolean.Parse(xd.SelectSingleNode("/feature/@required")?.Value ?? "true");
@@ -117,6 +128,16 @@ namespace SanteDB.OrmLite.Migration
 
             return retVal;
         }
+
+        /// <summary>
+        /// Gets or sets the Initializer Class
+        /// </summary>
+        public ISqlFeatureInitializer Initializer
+        {
+            get;
+            private set;
+        }
+
 
         /// <summary>
         /// Gets the description of the update

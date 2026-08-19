@@ -207,6 +207,10 @@ namespace SanteDB.OrmLite
                 {
                     return default(TModel);
                 }
+                else if (this.m_encryptionProvider?.HasEncryptionMagic(obj) == true && this.m_encryptionProvider.TryDecrypt(obj, out var decrypted))
+                {
+                    return (TModel)this.m_provider.ConvertValue(decrypted, typeof(TModel));
+                }
                 else if (typeof(TModel).IsAssignableFrom(obj.GetType()))
                 {
                     return (TModel)obj;
@@ -285,8 +289,8 @@ namespace SanteDB.OrmLite
                 try
                 {
                     object dbValue = rdr[itm.Name];
-                    _ = this.m_encryptionProvider?.TryGetEncryptionMode(itm.EncryptedColumnId, out _) == true &&
-                        this.m_encryptionProvider?.TryDecrypt(dbValue, out dbValue) == true;
+                    _ = this.m_encryptionProvider?.TryGetEncryptionMode(itm.EncryptedColumnId, out _) == true && // Field is configured somehow in ALE
+                        this.m_encryptionProvider?.TryDecrypt(dbValue, out dbValue) == true; // Attempt to decrypt field in ALE
 
                     object value = this.m_provider.ConvertValue(dbValue, itm.SourceProperty.PropertyType);
                     if (!itm.IsSecret)
@@ -1010,6 +1014,7 @@ namespace SanteDB.OrmLite
                     values = this.CreateSqlStatementBuilder();
                 foreach (var col in tableMap.Columns)
                 {
+                  
                     var val = col.SourceProperty.GetValue(value);
                     bool valIsDefault = val != null && col.SourceProperty.PropertyType.StripNullable() == col.SourceProperty.PropertyType &&
                         (
@@ -1039,7 +1044,7 @@ namespace SanteDB.OrmLite
                         else if ((col.SourceProperty.PropertyType.StripNullable() == typeof(long) ||
                             col.SourceProperty.PropertyType.StripNullable() == typeof(int)) &&
                             (!col.IsPrimaryKey && !this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.AutoGenerateSequences) ||
-                             col.IsPrimaryKey && !this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.AuditGeneratePrimaryKeySequences))
+                             col.IsPrimaryKey && !this.m_provider.StatementFactory.Features.HasFlag(SqlEngineFeatures.AutoGeneratePrimaryKeySequences))
                         )
                         {
                             columnNames.Append($"{col.Name}").Append(",");
@@ -1226,7 +1231,7 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Delete from the database
         /// </summary>
-        public void DeleteAll(Type tmodel, SqlStatement whereClause)
+        public int DeleteAll(Type tmodel, SqlStatement whereClause)
         {
             this.ThrowIfDisposed();
 
@@ -1249,7 +1254,7 @@ namespace SanteDB.OrmLite
                             {
                                 dbc.CommandTimeout = this.CommandTimeout.Value;
                             }
-                            dbc.ExecuteNonQuery();
+                            return dbc.ExecuteNonQuery();
                         }
                         finally
                         {
@@ -1529,25 +1534,25 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Delete from the database
         /// </summary>
-        public void DeleteAll<TModel>(Expression<Func<TModel, bool>> where) => this.DeleteAll(typeof(TModel), where);
+        public int DeleteAll<TModel>(Expression<Func<TModel, bool>> where) => this.DeleteAll(typeof(TModel), where);
 
         /// <summary>
         /// Update all 
         /// </summary>
-        public void DeleteAll(Type tmodel, LambdaExpression whereExpression)
+        public int DeleteAll(Type tmodel, LambdaExpression whereExpression)
         {
             // Convert where clause
             var tableMap = TableMapping.Get(tmodel);
             var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
             queryBuilder.Visit(whereExpression.Body);
 
-            this.DeleteAll(tmodel, queryBuilder.StatementBuilder.Statement);
+            return this.DeleteAll(tmodel, queryBuilder.StatementBuilder.Statement);
         }
 
         /// <summary>
         /// Update all with specified Sql based statement
         /// </summary>
-        public void DeleteAll<TModel>(SqlStatement whereExpression)
+        public int DeleteAll<TModel>(SqlStatement whereExpression)
         {
             if (whereExpression.Contains("SELECT"))
             {
@@ -1556,21 +1561,21 @@ namespace SanteDB.OrmLite
                 var where = match.Groups[Constants.SQL_GROUP_WHERE].Value;
                 whereExpression = new SqlStatement(where, whereExpression.Arguments);
             }
-            this.DeleteAll(typeof(TModel), whereExpression);
+            return this.DeleteAll(typeof(TModel), whereExpression);
         }
 
         /// <summary>
         /// Execute the specified SQL
         /// </summary>
-        public void ExecuteNonQuery(String sql, params object[] args)
+        public int ExecuteNonQuery(String sql, params object[] args)
         {
-            this.ExecuteNonQuery(new SqlStatement(sql, args));
+            return this.ExecuteNonQuery(new SqlStatement(sql, args));
         }
 
         /// <summary>
         /// Execute a non query
         /// </summary>
-        public void ExecuteNonQuery(SqlStatement stmt)
+        public int ExecuteNonQuery(SqlStatement stmt)
         {
             this.ThrowIfDisposed();
 
@@ -1592,7 +1597,7 @@ namespace SanteDB.OrmLite
                             dbc.CommandTimeout = this.CommandTimeout.Value;
                         }
 
-                        dbc.ExecuteNonQuery();
+                        return dbc.ExecuteNonQuery();
                     }
                     finally
                     {
@@ -1654,7 +1659,7 @@ namespace SanteDB.OrmLite
                 }
                 statement.Append(", ");
             }
-
+            
             // Append primary key constraint
             statement.Append($"CONSTRAINT PK_{tableMap.TableName} PRIMARY KEY ({String.Join(",", tableMap.PrimaryKey.Select(o => o.Name))})").Append(",");
             foreach (var col in tableMap.Columns.Where(c => c.ForeignKey != null))

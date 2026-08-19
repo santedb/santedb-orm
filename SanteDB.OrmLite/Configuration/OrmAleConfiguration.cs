@@ -20,10 +20,12 @@
  */
 using Newtonsoft.Json;
 using SanteDB.Core.Security.Configuration;
+using SanteDB.OrmLite.Attributes;
 using SanteDB.OrmLite.Providers;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Xml.Serialization;
@@ -159,6 +161,9 @@ namespace SanteDB.OrmLite.Configuration
             }
             return !string.IsNullOrEmpty(fieldName) && this.m_fieldSettings.TryGetValue(fieldName, out configuredMode) && this.m_enable;
         }
+
+        /// <inheritdoc/>
+        bool IOrmEncryptionSettings.ShouldEncrypt(PropertyInfo property, out OrmAleMode configuredMode) => ((IOrmEncryptionSettings)this).ShouldEncrypt(property.GetCustomAttribute<ApplicationEncryptAttribute>()?.FieldName, out configuredMode);
     }
 
     /// <summary>
@@ -167,6 +172,24 @@ namespace SanteDB.OrmLite.Configuration
     [XmlType(nameof(OrmFieldConfiguration), Namespace = "http://santedb.org/configuration")]
     public class OrmFieldConfiguration
     {
+        /// <summary>
+        /// SErialization ctor
+        /// </summary>
+        public OrmFieldConfiguration()
+        {
+            
+        }
+
+        /// <summary>
+        /// Create with field and mode
+        /// </summary>
+        /// <param name="name">The field name</param>
+        /// <param name="mode">The encrytion mode</param>
+        public OrmFieldConfiguration(string name, OrmAleMode mode)
+        {
+            this.Name = name;
+            this.Mode = mode;
+        }
 
         /// <summary>
         /// Gets or sets the name
