@@ -21,7 +21,6 @@
 using SanteDB.Core;
 using SanteDB.Core.Configuration.Data;
 using SanteDB.Core.i18n;
-using SanteDB.OrmLite.Providers.Firebird;
 using SanteDB.OrmLite.Providers.Postgres;
 using System;
 using System.IO;
@@ -188,16 +187,6 @@ namespace SanteDB.OrmLite.Migration
                         else
                         {
                             return $"select not(string_to_array(get_sch_vrsn(), '.')::int[] between string_to_array('{updateRange[0]}','.')::int[] and string_to_array('{updateRange[1]}', '.')::int[])";
-                        }
-
-                    case FirebirdSQLProvider.InvariantName:
-                        if (String.IsNullOrEmpty(this.m_checkRange))
-                        {
-                            return "SELECT true FROM rdb$database";
-                        }
-                        else
-                        {
-                            throw new NotSupportedException($"This update provider does not support {this.InvariantName}");
                         }
 
                     default:
