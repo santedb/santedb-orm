@@ -1435,9 +1435,9 @@ namespace SanteDB.OrmLite
         /// <summary>
         /// Updates the specified object
         /// </summary>
-        public void UpdateAll<TModel>(Expression<Func<TModel, bool>> whereExpression, params Expression<Func<TModel, dynamic>>[] updateStatements)
+        public int UpdateAll<TModel>(Expression<Func<TModel, bool>> whereExpression, params Expression<Func<TModel, dynamic>>[] updateStatements)
         {
-            this.UpdateAll<TModel, TModel>(whereExpression, updateStatements);
+            return this.UpdateAll<TModel, TModel>(whereExpression, updateStatements);
         }
 
         /// <summary>
@@ -1447,15 +1447,15 @@ namespace SanteDB.OrmLite
         /// <typeparam name="TUpdateModel">The type that update statements should be treated as</typeparam>
         /// <param name="whereExpression">The filter expression</param>
         /// <param name="updateStatements">The update statements to append to the SQL clause</param>
-        public void UpdateAll<TModel, TUpdateModel>(Expression<Func<TModel, bool>> whereExpression, params Expression<Func<TUpdateModel, dynamic>>[] updateStatements)
+        public int UpdateAll<TModel, TUpdateModel>(Expression<Func<TModel, bool>> whereExpression, params Expression<Func<TUpdateModel, dynamic>>[] updateStatements)
         {
-            this.UpdateAll(typeof(TModel), whereExpression, updateStatements);
+            return this.UpdateAll(typeof(TModel), whereExpression, updateStatements);
         }
 
         /// <summary>
         /// Update all 
         /// </summary>
-        public void UpdateAll(Type tmodel, LambdaExpression whereExpression, params LambdaExpression[] updateStatements)
+        public int UpdateAll(Type tmodel, LambdaExpression whereExpression, params LambdaExpression[] updateStatements)
         {
 
             // Convert where clause
@@ -1463,13 +1463,13 @@ namespace SanteDB.OrmLite
             var queryBuilder = new SqlQueryExpressionBuilder(tableMap.TableName, this.m_provider.StatementFactory);
             queryBuilder.Visit(whereExpression.Body);
 
-            this.UpdateAll(tmodel, queryBuilder.StatementBuilder.Statement, updateStatements);
+            return this.UpdateAll(tmodel, queryBuilder.StatementBuilder.Statement, updateStatements);
         }
 
         /// <summary>
         /// Update all with specified Sql based statement
         /// </summary>
-        public void UpdateAll<TModel>(SqlStatement whereExpression, params Expression<Func<TModel, dynamic>>[] updateStatements)
+        public int UpdateAll<TModel>(SqlStatement whereExpression, params Expression<Func<TModel, dynamic>>[] updateStatements)
         {
 
             if (whereExpression.Contains("SELECT"))
@@ -1479,13 +1479,13 @@ namespace SanteDB.OrmLite
                 var where = match.Groups[Constants.SQL_GROUP_WHERE].Value;
                 whereExpression = new SqlStatement(where, whereExpression.Arguments);
             }
-            this.UpdateAll(typeof(TModel), whereExpression, updateStatements);
+            return this.UpdateAll(typeof(TModel), whereExpression, updateStatements);
         }
 
         /// <summary>
         /// Update all data with specified where clause
         /// </summary>
-        public void UpdateAll(Type tmodel, SqlStatement whereClause, params LambdaExpression[] updateStatements)
+        public int UpdateAll(Type tmodel, SqlStatement whereClause, params LambdaExpression[] updateStatements)
         {
             this.ThrowIfDisposed();
 
@@ -1515,7 +1515,7 @@ namespace SanteDB.OrmLite
                 {
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, updateStatementBuilder.Statement))
                     {
-                        dbc.ExecuteNonQuery();
+                        return dbc.ExecuteNonQuery();
                     }
                 }
 
