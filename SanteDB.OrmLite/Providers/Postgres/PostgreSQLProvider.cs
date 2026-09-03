@@ -713,6 +713,7 @@ namespace SanteDB.OrmLite.Providers.Postgres
             using (var writer = this.GetWriteConnection())
             {
                 writer.Open(initializeExtensions: false);
+                writer.CommandTimeout = 360_000;
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Vacuum));
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Reindex));
                 writer.ExecuteNonQuery(this.StatementFactory.CreateSqlKeyword(SqlKeyword.Analyze));
