@@ -1629,7 +1629,7 @@ namespace SanteDB.OrmLite
             var statement = this.CreateSqlStatementBuilder();
             var tableMap = TableMapping.Get(typeof(TTable));
 
-            statement.Append($"CREATE TABLE {tableMap.TableName} (");
+            statement.Append($"CREATE {(tableMap.Temporary ? "TEMPORARY" : "")} TABLE {tableMap.TableName} (");
             foreach (var col in tableMap.Columns)
             {
                 statement.Append($"{col.Name} {this.Provider.MapSchemaDataType(col.SourceProperty.PropertyType)} ");
