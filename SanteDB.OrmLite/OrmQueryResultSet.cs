@@ -107,7 +107,18 @@ namespace SanteDB.OrmLite
         }
 
         /// <inheritdoc/>
-        public object FirstOrDefault() => this.m_ormResultSet.FirstOrDefault();
+        public object FirstOrDefault()
+        {
+            try
+            {
+                this.m_ormResultSet.Context.Open();
+                return this.m_ormResultSet.FirstOrDefault();
+            }
+            finally
+            {
+                this.m_ormResultSet.Context.Close();
+            }
+        }
 
         /// <inheritdoc/>
         public IEnumerator<TResult> GetEnumerator()
@@ -232,13 +243,21 @@ namespace SanteDB.OrmLite
         /// <inheritdoc/>
         public object SingleOrDefault()
         {
-            if (this.Count() > 1)
+            try
             {
-                throw new InvalidOperationException(ErrorMessages.SEQUENCE_MORE_THAN_ONE);
+                this.m_ormResultSet.Context.Open();
+                if (this.m_ormResultSet.Count() > 1)
+                {
+                    throw new InvalidOperationException(ErrorMessages.SEQUENCE_MORE_THAN_ONE);
+                }
+                else
+                {
+                    return this.m_ormResultSet.FirstOrDefault();
+                }
             }
-            else
+            finally
             {
-                return m_ormResultSet.FirstOrDefault();
+                this.m_ormResultSet.Context.Close();
             }
         }
 
