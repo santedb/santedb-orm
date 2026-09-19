@@ -52,6 +52,11 @@ namespace SanteDB.OrmLite
         public String TableName { get; private set; }
 
         /// <summary>
+        /// True if the table is temporary
+        /// </summary>
+        public bool Temporary { get; private set; }
+
+        /// <summary>
         /// True if the object has a table attribute
         /// </summary>
         public bool HasName { get; private set; }
@@ -82,8 +87,10 @@ namespace SanteDB.OrmLite
         /// </summary>
         private TableMapping(Type t)
         {
+            var tableAtt = t.GetCustomAttribute<TableAttribute>();
             this.OrmType = t;
-            this.TableName = t.GetCustomAttribute<TableAttribute>()?.Name ?? t.Name;
+            this.TableName = tableAtt?.Name ?? t.Name;
+            this.Temporary = tableAtt?.Temporary ?? false; 
             this.HasName = this.TableName != t.Name;
             this.Columns = t.GetProperties().Where(o => o.GetCustomAttribute<ColumnAttribute>() != null).Select(o => ColumnMapping.Get(o, this)).ToList();
             foreach (var itm in this.Columns)

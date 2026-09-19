@@ -36,6 +36,10 @@ namespace SanteDB.OrmLite
     {
         private readonly OrmResultSet<TResult> m_ormResultSet;
 
+#if DEBUG
+        private int m_expansionTimes = 0;
+#endif 
+
         /// <summary>
         /// Result set of the ORM enumerator
         /// </summary>
@@ -48,7 +52,18 @@ namespace SanteDB.OrmLite
         public Type ElementType => typeof(ExpandoObject);
 
         /// <inheritdoc/>
-        public bool Any() => this.m_ormResultSet.Any();
+        public bool Any()
+        {
+            try
+            {
+                this.m_ormResultSet.Context.Open();
+                return this.m_ormResultSet.Any();
+            }
+            finally
+            {
+                this.m_ormResultSet.Context.Close();
+            }
+        }
 
         /// <inheritdoc/>
         public IQueryResultSet<object> AsStateful(Guid stateId)
@@ -57,7 +72,19 @@ namespace SanteDB.OrmLite
         }
 
         /// <inheritdoc/>
-        public int Count() => this.m_ormResultSet.Count();
+        public int Count()
+        {
+            try
+            {
+                this.m_ormResultSet.Context.Open();
+                return this.m_ormResultSet.Count();
+            }
+            finally
+            {
+                this.m_ormResultSet.Context.Close();
+            }
+        }
+
 
         /// <inheritdoc/>
         public IQueryResultSet<TResult> Distinct() => new OrmQueryResultSet<TResult>(this.m_ormResultSet.Distinct());
@@ -80,13 +107,31 @@ namespace SanteDB.OrmLite
         }
 
         /// <inheritdoc/>
-        public object FirstOrDefault() => this.m_ormResultSet.FirstOrDefault();
+        public object FirstOrDefault()
+        {
+            try
+            {
+                this.m_ormResultSet.Context.Open();
+                return this.m_ormResultSet.FirstOrDefault();
+            }
+            finally
+            {
+                this.m_ormResultSet.Context.Close();
+            }
+        }
 
         /// <inheritdoc/>
         public IEnumerator<TResult> GetEnumerator()
         {
             try
             {
+#if DEBUG
+                if (this.m_expansionTimes++ > 1 && System.Diagnostics.Debugger.IsAttached)
+                {
+                    System.Diagnostics.Debugger.Break();
+                }
+#endif 
+
                 this.m_ormResultSet.Context.Open();
                 foreach (var itm in this.m_ormResultSet)
                 {
@@ -198,13 +243,21 @@ namespace SanteDB.OrmLite
         /// <inheritdoc/>
         public object SingleOrDefault()
         {
-            if (this.m_ormResultSet.Count() > 1)
+            try
             {
-                throw new InvalidOperationException(ErrorMessages.SEQUENCE_MORE_THAN_ONE);
+                this.m_ormResultSet.Context.Open();
+                if (this.m_ormResultSet.Count() > 1)
+                {
+                    throw new InvalidOperationException(ErrorMessages.SEQUENCE_MORE_THAN_ONE);
+                }
+                else
+                {
+                    return this.m_ormResultSet.FirstOrDefault();
+                }
             }
-            else
+            finally
             {
-                return m_ormResultSet.FirstOrDefault();
+                this.m_ormResultSet.Context.Close();
             }
         }
 

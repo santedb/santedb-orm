@@ -126,11 +126,17 @@ namespace SanteDB.OrmLite.Providers.Sqlite
         /// </summary>
         private bool InitializeWritebackCache(string databaseName)
         {
-            lock (m_lockObject)
+            // Prevent multiple threads from initializing the writeback cache 
+            if (!m_initializedWritebackCaches.TryGetValue(databaseName, out var schemaObjects))
             {
-                // Prevent multiple threads from initializing the writeback cache 
-                if (!m_initializedWritebackCaches.TryGetValue(databaseName, out var schemaObjects))
+                lock (m_lockObject)
                 {
+                    // Recheck after lock  - another thread may have initialized
+                    if (m_initializedWritebackCaches.TryGetValue(databaseName, out _))
+                    {
+                        return true;
+                    }
+
                     try
                     {
                         this.m_tracer.TraceInfo("Initializing writeback cache for {0} (current writeback caches: {1})", databaseName, String.Join(";", m_initializedWritebackCaches.Keys));
@@ -215,16 +221,19 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         m_initializedWritebackCaches.TryAdd(databaseName, null);
                     }
                 }
-                else
+            }
+            else
+            {
+                int schemaObjectCount = 0;
+                using (var cacheConnection = this.GetProviderFactory().CreateConnection())
                 {
-                    int schemaObjectCount = 0;
-                    using (var cacheConnection = this.GetProviderFactory().CreateConnection())
-                    {
-                        cacheConnection.ConnectionString = this.GetCacheConnectionString(true);
-                        cacheConnection.Open();
-                        schemaObjectCount = cacheConnection.ExecuteScalar<int>("SELECT COUNT(name) FROM sqlite_master WHERE name NOT LIKE 'sqlite%'");
-                    }
-                    if (schemaObjectCount == 0) // Our cache is gone 😔
+                    cacheConnection.ConnectionString = this.GetCacheConnectionString(true);
+                    cacheConnection.Open();
+                    schemaObjectCount = cacheConnection.ExecuteScalar<int>("SELECT COUNT(name) FROM sqlite_master WHERE name NOT LIKE 'sqlite%'");
+                }
+                if (schemaObjectCount == 0) // Our cache is gone 😔
+                {
+                    lock (m_lockObject)
                     {
                         this.m_tracer.TraceWarning("Schema for writeback cache `{0}` is gone!", databaseName);
                         if (m_initializedWritebackCaches.TryRemove(databaseName, out _))
@@ -233,8 +242,8 @@ namespace SanteDB.OrmLite.Providers.Sqlite
                         }
                     }
                 }
-                return schemaObjects != null;
             }
+            return schemaObjects != null;
         }
 
         /// <summary>

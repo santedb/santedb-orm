@@ -39,5 +39,10 @@ namespace SanteDB.OrmLite.Attributes
         /// Gets or sets the name
         /// </summary>
         public String Name { get; set; }
+
+        /// <summary>
+        /// True if the table is temporary 
+        /// </summary>
+        public bool Temporary { get; set; }
     }
 }
