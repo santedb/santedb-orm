@@ -503,7 +503,7 @@ namespace SanteDB.OrmLite
                 {
 
                     // Next, we want to construct the other parms
-                    var otherParms = workingParameters.Where(o => QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.PropertyAndGuardAndCast) == propertyPredicate.ToString(QueryPredicatePart.PropertyAndGuardAndCast)).ToArray();
+                    var otherParms = workingParameters.Where(o => QueryPredicate.Parse(o.Key)?.ToString(QueryPredicatePart.PropertyAndGuardAndCast) == propertyPredicate.ToString(QueryPredicatePart.PropertyAndGuardAndCast)).ToArray();
 
                     // Remove the working parameters if the column is FK then all parameters
                     if (otherParms.Any() || !String.IsNullOrEmpty(propertyPredicate.Guard) || !String.IsNullOrEmpty(propertyPredicate.SubPath))
@@ -621,7 +621,7 @@ namespace SanteDB.OrmLite
                                     var prefix = IncrementSubQueryAlias(tablePrefix);
 
                                     // Sub path is specified
-                                    if (String.IsNullOrEmpty(propertyPredicate.SubPath) && "null".Equals(parm.Value))
+                                    if (String.IsNullOrEmpty(propertyPredicate.SubPath) && parm.Value.All(o=>"null".Equals(o)))
                                     {
                                         subQueryStatement.And($"NOT EXISTS (");
                                     }
@@ -657,7 +657,22 @@ namespace SanteDB.OrmLite
                                         subQueryStatement.Append(this.CreateQuery(propertyType, subQuery.ToParameterDictionary(), prefix, false, scopedTables, new ColumnMapping[] { ColumnMapping.One }));
                                     }
 
-                                    subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{subTableColumn.Name}");
+                                    // HACK: Reverse join to sub query 
+                                    if (subQuery.Any(v => v.Key.StartsWith("source.")))
+                                    {
+                                        // Find an alternate route to the target 
+                                        var newLinkTableColumn = subTableMap.Columns.FirstOrDefault(o => o != subTableColumn && o.ForeignKey.Table == subTableColumn.ForeignKey.Table);
+                                        if (subTableColumn == null)
+                                        {
+                                            throw new InvalidOperationException($"Reverse linkage between {subTableMap} to {existsClause} could not be found");
+                                        }
+                                        subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{newLinkTableColumn.Name}");
+
+                                    }
+                                    else
+                                    {
+                                        subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{subTableColumn.Name}");
+                                    }
                                     //existsClause = $"{prefix}{subTableColumn.Table.TableName}.{subTableColumn.Name}";
 
                                     subQueryStatement.Append(")");
@@ -674,7 +689,7 @@ namespace SanteDB.OrmLite
                             }
                             else  // this table points at other
                             {
-                                var subQuery = subQueryParms.Select(o => new KeyValuePair<String, String[]>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
+                                var subQuery = subQueryParms.Select(o => new KeyValuePair<String, String[]>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath) ?? "id", o.Value)).ToList();
 
                                 if (!subQuery.Any(o => o.Key == "obsoletionTime") && typeof(IBaseData).IsAssignableFrom(subProp.PropertyType))
                                 {
