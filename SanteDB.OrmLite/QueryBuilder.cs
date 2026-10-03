@@ -150,7 +150,7 @@ namespace SanteDB.OrmLite
                 sb.AppendFormat("{0}{1}", sb.Length > 0 ? "." : "", this.SubPath);
             }
 
-            if(this.Union != null && parts.HasFlag(QueryPredicatePart.UnionWith))
+            if (this.Union != null && parts.HasFlag(QueryPredicatePart.UnionWith))
             {
                 sb.AppendFormat("|{0}", this.Union.ToString());
             }
@@ -494,7 +494,7 @@ namespace SanteDB.OrmLite
 
                 // If this is a union with?
                 bool shouldUnion = propertyPredicate.Union != null;
-                if(shouldUnion)
+                if (shouldUnion)
                 {
                     whereClause.And($"( {this.m_factory.CreateSqlKeyword(SqlKeyword.True)} "); // HACK: We add TRUE as our query needs something to AND with
                 }
@@ -503,7 +503,7 @@ namespace SanteDB.OrmLite
                 {
 
                     // Next, we want to construct the other parms
-                    var otherParms = workingParameters.Where(o => QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.PropertyAndGuardAndCast) == propertyPredicate.ToString(QueryPredicatePart.PropertyAndGuardAndCast)).ToArray();
+                    var otherParms = workingParameters.Where(o => QueryPredicate.Parse(o.Key)?.ToString(QueryPredicatePart.PropertyAndGuardAndCast) == propertyPredicate.ToString(QueryPredicatePart.PropertyAndGuardAndCast)).ToArray();
 
                     // Remove the working parameters if the column is FK then all parameters
                     if (otherParms.Any() || !String.IsNullOrEmpty(propertyPredicate.Guard) || !String.IsNullOrEmpty(propertyPredicate.SubPath))
@@ -571,13 +571,14 @@ namespace SanteDB.OrmLite
                                 foreach (var guardClause in guardConditions)
                                 {
                                     var subQuery = guardClause.Select(o => new KeyValuePair<String, String[]>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
-
+                                    bool isGuardClauseSubQuery = false;
                                     // TODO: GUARD CONDITION HERE!!!!
                                     // Does the guard clause indicate a complete sub-query?
                                     if (guardClause.Key.Contains("="))
                                     {
                                         var nvc = guardClause.Key.ParseQueryString();
                                         subQuery.AddRange(nvc.ToDictionary());
+                                        isGuardClauseSubQuery = true;
                                     }
                                     else if (!String.IsNullOrEmpty(guardClause.Key))
                                     {
@@ -621,7 +622,7 @@ namespace SanteDB.OrmLite
                                     var prefix = IncrementSubQueryAlias(tablePrefix);
 
                                     // Sub path is specified
-                                    if (String.IsNullOrEmpty(propertyPredicate.SubPath) && "null".Equals(parm.Value))
+                                    if (String.IsNullOrEmpty(propertyPredicate.SubPath) && parm.Value.All(o => "null".Equals(o)))
                                     {
                                         subQueryStatement.And($"NOT EXISTS (");
                                     }
@@ -657,7 +658,21 @@ namespace SanteDB.OrmLite
                                         subQueryStatement.Append(this.CreateQuery(propertyType, subQuery.ToParameterDictionary(), prefix, false, scopedTables, new ColumnMapping[] { ColumnMapping.One }));
                                     }
 
-                                    subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{subTableColumn.Name}");
+                                    // HACK: Reverse join to sub query 
+                                    if (subQuery.Any(v => v.Key.StartsWith("source.")) && isGuardClauseSubQuery)
+                                    {
+                                        // Find an alternate route to the target 
+                                        var newLinkTableColumn = subTableMap.Columns.Where(o => o.ForeignKey != null).FirstOrDefault(o => o != subTableColumn && o.ForeignKey.Table == subTableColumn.ForeignKey.Table);
+                                        if (subTableColumn == null)
+                                        {
+                                            throw new InvalidOperationException($"Reverse linkage between {subTableMap} to {existsClause} could not be found");
+                                        }
+                                        subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{newLinkTableColumn.Name}");
+                                    }
+                                    else
+                                    {
+                                        subQueryStatement.And($"{existsClause} = {prefix}{subTableMap.TableName}.{subTableColumn.Name}");
+                                    }
                                     //existsClause = $"{prefix}{subTableColumn.Table.TableName}.{subTableColumn.Name}";
 
                                     subQueryStatement.Append(")");
@@ -674,7 +689,7 @@ namespace SanteDB.OrmLite
                             }
                             else  // this table points at other
                             {
-                                var subQuery = subQueryParms.Select(o => new KeyValuePair<String, String[]>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath), o.Value)).ToList();
+                                var subQuery = subQueryParms.Select(o => new KeyValuePair<String, String[]>(QueryPredicate.Parse(o.Key).ToString(QueryPredicatePart.SubPath) ?? "id", o.Value)).ToList();
 
                                 if (!subQuery.Any(o => o.Key == "obsoletionTime") && typeof(IBaseData).IsAssignableFrom(subProp.PropertyType))
                                 {
@@ -702,13 +717,13 @@ namespace SanteDB.OrmLite
 
                                 // Does the link column hae a foreign key?
                                 TableReferenceAttribute fkAttribute = linkColumn.ForeignKey;
-                                if(fkAttribute == null && !String.IsNullOrEmpty(propertyPredicate.CastAs))
+                                if (fkAttribute == null && !String.IsNullOrEmpty(propertyPredicate.CastAs))
                                 {
                                     var mappedCast = this.m_mapper.MapModelType(this.m_modelSerializationBinder.BindToType("SanteDB.Core.Model", propertyPredicate.CastAs));
                                     fkAttribute = linkColumn.GetWeakReference(mappedCast);
                                 }
 
-                                if(fkAttribute == null)
+                                if (fkAttribute == null)
                                 {
                                     throw new InvalidOperationException(ErrorMessages.MAP_EXPRESSION_NOT_POSSIBLE);
                                 }
@@ -747,14 +762,14 @@ namespace SanteDB.OrmLite
                         whereClause.And(CreateWhereCondition(tmodel, propertyPredicate.Path, parm.Value, tablePrefix, scopedTables));
                     }
 
-                    if(shouldUnion)
+                    if (shouldUnion)
                     {
                         whereClause.Append(" OR ");
                     }
                     propertyPredicate = propertyPredicate.Union;
                 }
 
-                if(shouldUnion)
+                if (shouldUnion)
                 {
                     whereClause.RemoveLast(out _).Append(")");
                 }

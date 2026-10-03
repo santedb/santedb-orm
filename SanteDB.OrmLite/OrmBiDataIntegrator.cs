@@ -685,7 +685,7 @@ namespace SanteDB.OrmLite
             this.ThrowIfNotOpen();
 
             // Find the SQL definition which matches this definition
-            var sqlDef = queryToExecute.FirstOrDefault(o => o.Invariants.Contains(this.m_provider.Invariant));
+            var sqlDef = queryToExecute.FirstOrDefault(o => o?.Invariants?.Contains(this.m_provider?.Invariant) ?? false);
             if (sqlDef == null)
             {
                 throw new InvalidOperationException(String.Format(ErrorMessages.DIALECT_NOT_FOUND, this.m_provider.Invariant));
