@@ -95,18 +95,31 @@ namespace SanteDB.OrmLite
         {
             // OPTIMIZATION: We only want to iterate through the sql string once
             int argC = 0;
-            bool hasComment = false, hasNewline = false;
+            bool hasComment = false, hasNewline = false, inString = false, inComment = false;
             for (var p = 0; p < sql.Length; p++)
             {
                 switch (sql[p])
                 {
-                    case '?': argC++; break;
+                    case '\'':
+                        if (p < sql.Length - 1 && sql[p + 1] != '\'') {
+                            inString = !inString; // check that we're not in a string
+                        }
+                        else  // skip escape caharacter
+                        {
+                            p++;
+                        }
+                        break;
+                    case '?': 
+                        if(!inString && !inComment) 
+                            argC++; 
+                        break;
                     case '\n':
                     case '\r':
                         hasNewline = true;
+                        inComment = false; // Newline results in reset of -- comment
                         break;
                     case '-':
-                        hasComment |= p < sql.Length - 1 && sql[p + 1] == '-';
+                        inComment = hasComment |= p < sql.Length - 1 && sql[p + 1] == '-';
                         break;
                 }
             }
