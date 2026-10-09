@@ -30,7 +30,6 @@ using System.Diagnostics.Tracing;
 using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Threading;
 
 namespace SanteDB.OrmLite
 {
@@ -41,7 +40,7 @@ namespace SanteDB.OrmLite
     public partial class DataContext
     {
         // Lock
-        private readonly SemaphoreSlim m_semaphore = new SemaphoreSlim(1, 1);
+        private object m_lockObject = new object();
 
         // Base types
         private static readonly HashSet<Type> BaseTypes = new HashSet<Type>()
@@ -95,9 +94,8 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                try
+                lock (this.m_lockObject) // Ensures only one query is being executed on this context at a time
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments))
                     {
                         try
@@ -116,10 +114,6 @@ namespace SanteDB.OrmLite
                             this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
                         }
                     }
-                }
-                finally
-                {
-                    this.m_semaphore.Release();
                 }
 #if DEBUG 
             }
@@ -330,9 +324,8 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
                         try
@@ -360,10 +353,6 @@ namespace SanteDB.OrmLite
                         }
                     }
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
 #if DEBUG
             }
             finally
@@ -388,9 +377,8 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateStoredProcedureCommand(this, spName, arguments))
                     {
                         try
@@ -410,10 +398,6 @@ namespace SanteDB.OrmLite
                             throw;
                         }
                     }
-                }
-                finally
-                {
-                    this.m_semaphore.Release();
                 }
 #if DEBUG
             }
@@ -439,9 +423,8 @@ namespace SanteDB.OrmLite
             {
 #endif
                 var builder = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel)).Where(querySpec).Limit(1);
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, builder.Statement))
                     {
                         try
@@ -469,10 +452,6 @@ namespace SanteDB.OrmLite
                         }
                     }
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
 #if DEBUG
             }
             finally
@@ -496,9 +475,8 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
                         try
@@ -527,10 +505,7 @@ namespace SanteDB.OrmLite
                         }
                     }
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
+
 #if DEBUG
             }
             finally
@@ -556,9 +531,8 @@ namespace SanteDB.OrmLite
 #endif
                 var stmt = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel)).Where(querySpec).Limit(2).Statement;
 
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
                         try
@@ -595,10 +569,7 @@ namespace SanteDB.OrmLite
                         }
                     }
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
+
 #if DEBUG
             }
             finally
@@ -622,9 +593,8 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, sqlStatement))
                     {
                         try
@@ -650,10 +620,7 @@ namespace SanteDB.OrmLite
                         }
                     }
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
+
 #if DEBUG
             }
             finally
@@ -679,9 +646,8 @@ namespace SanteDB.OrmLite
 #endif
                 var stmt = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel), ColumnMapping.One).Where(querySpec).Statement;
                 stmt = this.m_provider.StatementFactory.Exists(stmt);
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
                         try
@@ -706,10 +672,7 @@ namespace SanteDB.OrmLite
                         }
                     }
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
+
 #if DEBUG
             }
             finally
@@ -734,9 +697,8 @@ namespace SanteDB.OrmLite
             {
 #endif
                 var stmt = this.m_provider.StatementFactory.Exists(querySpec);
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
                         try
@@ -762,10 +724,7 @@ namespace SanteDB.OrmLite
                         }
                     }
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
+
 #if DEBUG
             }
             finally
@@ -791,9 +750,8 @@ namespace SanteDB.OrmLite
 #endif
                 var stmt = this.CreateSqlStatementBuilder().SelectFrom(typeof(TModel)).Where(querySpec).Statement;
                 stmt = this.m_provider.StatementFactory.Count(stmt);
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
                         try
@@ -819,10 +777,7 @@ namespace SanteDB.OrmLite
                         }
                     }
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
+
 #if DEBUG
             }
             finally
@@ -847,9 +802,8 @@ namespace SanteDB.OrmLite
             {
 #endif
                 var stmt = this.m_provider.StatementFactory.Count(querySpec);
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
                         try
@@ -876,10 +830,7 @@ namespace SanteDB.OrmLite
 
                     }
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
+
 #if DEBUG
             }
             finally
@@ -964,9 +915,8 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
                         try
@@ -991,10 +941,6 @@ namespace SanteDB.OrmLite
 
                         }
                     }
-                }
-                finally
-                {
-                    this.m_semaphore.Release();
                 }
 #if DEBUG
             }
@@ -1134,9 +1080,8 @@ namespace SanteDB.OrmLite
                     + this.m_provider.StatementFactory.Returning(returnKeys.ToArray());
 
                 // Execute
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt))
                     {
                         try
@@ -1269,10 +1214,6 @@ namespace SanteDB.OrmLite
 #endif 
                     return value;
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
 #if DEBUG
             }
             finally
@@ -1301,9 +1242,8 @@ namespace SanteDB.OrmLite
             {
 #endif
                 var query = this.CreateSqlStatementBuilder().DeleteFrom(tmodel).Where(whereClause).Statement;
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
                         try
@@ -1323,10 +1263,7 @@ namespace SanteDB.OrmLite
                         }
                     }
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
+
 #if DEBUG
             }
             finally
@@ -1362,9 +1299,8 @@ namespace SanteDB.OrmLite
                 }
 
                 var query = this.CreateSqlStatementBuilder().DeleteFrom(obj.GetType()).Where(whereClauseBuilder.Statement).Statement;
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, query))
                     {
                         try
@@ -1384,10 +1320,7 @@ namespace SanteDB.OrmLite
                         }
                     }
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
+
 #if DEBUG
             }
             finally
@@ -1465,9 +1398,8 @@ namespace SanteDB.OrmLite
                 queryBuilder.RemoveLast(out _).Where(whereClauseBuilder.Statement);
 
                 // Now update
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, queryBuilder.Statement))
                     {
                         try
@@ -1487,10 +1419,7 @@ namespace SanteDB.OrmLite
                         }
                     }
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
+
                 return value;
 #if DEBUG
             }
@@ -1582,18 +1511,14 @@ namespace SanteDB.OrmLite
                     .Where(whereClause);
 
                 // Now update
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     using (var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, updateStatementBuilder.Statement))
                     {
                         return dbc.ExecuteNonQuery();
                     }
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
+
 #if DEBUG
             }
             finally
@@ -1660,9 +1585,8 @@ namespace SanteDB.OrmLite
             try
             {
 #endif
-                try
+                lock (this.m_lockObject)
                 {
-                    this.m_semaphore.Wait();
                     var dbc = this.m_lastCommand = this.m_provider.CreateCommand(this, stmt);
                     try
                     {
@@ -1682,10 +1606,7 @@ namespace SanteDB.OrmLite
                         this.DecrementProbe(Diagnostics.OrmPerformanceMetric.ActiveStatements);
                     }
                 }
-                finally
-                {
-                    this.m_semaphore.Release();
-                }
+
 #if DEBUG
             }
             finally
