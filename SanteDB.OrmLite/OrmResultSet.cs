@@ -294,6 +294,11 @@ namespace SanteDB.OrmLite
         /// </summary>
         public IOrmResultSet HavingKeys(IEnumerable keyList, string keyColumnName = null)
         {
+            if(keyList == null)
+            {
+                throw new ArgumentNullException(nameof(keyList));
+            }
+
             ColumnMapping keyColumn = null;
             if (typeof(CompositeResult).IsAssignableFrom(typeof(TData)))
             {
