@@ -22,6 +22,7 @@ using SanteDB.Core.Diagnostics;
 using SanteDB.Core.i18n;
 using SanteDB.Core.Model.Query;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 
@@ -110,6 +111,11 @@ namespace SanteDB.OrmLite.MappedResultSets
 
             // Fetch the result set
             var guids = this.Provider.QueryPersistence.GetQueryResults(this.m_queryId, offset, limit);
+
+            if(guids == null)
+            {
+                throw new KeyNotFoundException(String.Format(ErrorMessages.OBJECT_NOT_FOUND, $"Query/{this.m_queryId}"));
+            }
             retVal = retVal.HavingKeys(guids, this.StateKeyName);
 
             // Reorder the 
